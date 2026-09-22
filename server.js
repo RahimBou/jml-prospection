@@ -11,7 +11,7 @@ const DVF_GEO_LATEST_YEAR = 2025;
 const dvfGeoCache = new Map();
 const DVF_LOCAL_FILE = path.join(ROOT,"data","dvf_ardennes.csv.gz");
 let dvfLocalCache = null;
-const ADDRESS_URL = "https://api-adresse.data.gouv.fr/search/";
+const ADDRESS_URL = "https://data.geopf.fr/geocodage/search/";
 const { analyze: analyzeDataQuality } = require("./data-agent");
 
 const MIME = {
@@ -550,8 +550,35 @@ async function resolveCommune(query){
   };
   return known[norm(query)]||null;
 }
+async function geocodeAddress(query,limit=5){
+  const q=String(query||"").trim();
+  if(!q)return [];
+  const u=new URL(ADDRESS_URL);
+  u.searchParams.set("q",q);
+  u.searchParams.set("limit",String(Math.min(10,Math.max(1,Number(limit)||5))));
+  const data=await jsonFetch(u);
+  const features=Array.isArray(data?.features)?data.features:[];
+  return features.map(f=>{
+    const p=f?.properties||{},c=f?.geometry?.coordinates||[];
+    return {
+      label:p.label||"",
+      address:p.label||"",
+      housenumber:p.housenumber||"",
+      street:p.street||"",
+      postalCode:p.postcode||"",
+      city:p.city||"",
+      cityCode:p.citycode||"",
+      context:p.context||"",
+      score:Number(p.score)||0,
+      longitude:Number(c[0])||0,
+      latitude:Number(c[1])||0,
+      banId:p.id||""
+    };
+  });
+}
+
 async function api(pathname,url){
-  if(pathname==="/api/health") return {ok:true,sources:{dpe:"ADEME",dvf:"DVF+ Cerema",geocoding:"API Adresse"},server:"jml-prospection",version:"1.12.0"};
+  if(pathname==="/api/health") return {ok:true,sources:{dpe:"ADEME",dvf:"DVF+ Cerema",geocoding:"API Adresse"},server:"jml-prospection",version:"1.13.0"};
   if(pathname==="/api/data-agent"){
     let codeInsee=url.searchParams.get("codeInsee")?.trim();
     const q=url.searchParams.get("q")?.trim();
@@ -580,6 +607,117 @@ async function api(pathname,url){
     const dvfPack=dvfResult.status==="fulfilled"?dvfResult.value:{source:"DVF indisponible",rows:[],fallback:false};
     const report=analyzeDataQuality({dpeRows,dvfRows:dvfPack.rows||[]});
     return {...report,cityCode:codeInsee,dpeCount:dpeRows.length,dvfCount:(dvfPack.rows||[]).length,dvfSource:dvfPack.source,dvfFallback:Boolean(dvfPack.fallback)};
+  }
+  if(pathname==="/api/geocode"){
+    const q=url.searchParams.get("q")?.trim();
+    if(!q)throw new Error("Paramètre q manquant");
+    return {source:"BAN / Géoplateforme",results:await geocodeAddress(q,10)};
+  }
+  if(pathname==="/api/prospect-match"){
+    const address=url.searchParams.get("address")?.trim();
+    const city=url.searchParams.get("city")?.trim()||"";
+    const postalCode=url.searchParams.get("postalCode")?.trim()||"";
+    const type=url.searchParams.get("type")?.trim()||"Maison";
+    const area=Number(url.searchParams.get("area"))||0;
+    const rooms=Number(url.searchParams.get("rooms"))||0;
+    const price=Number(url.searchParams.get("price"))||0;
+    if(!address)throw new Error("Adresse du bien manquante");
+    const query=[address,postalCode,city].filter(Boolean).join(", ");
+    const geos=await geocodeAddress(query,5);
+    const geo=geos[0];
+    if(!geo)throw new Error("Adresse introuvable par la BAN / Géoplateforme");
+    const property={
+      address:geo.address||address,
+      addressNumber:geo.housenumber||"",
+      street:geo.street||"",
+      postalCode:geo.postalCode||postalCode,
+      city:geo.city||city,
+      cityCode:geo.cityCode||"",
+      longitude:geo.longitude,
+      latitude:geo.latitude,
+      buildingType:type,
+      area,
+      rooms
+    };
+    const propertyParts=addressParts(property);
+    const dpeUrl=new URL(DPE_URL);
+    dpeUrl.searchParams.set("q",property.address);
+    dpeUrl.searchParams.set("size","100");
+    const yearMin=String(Math.max(2021,DVF_GEO_LATEST_YEAR-4));
+    const [dpeResult,dvfResult]=await Promise.allSettled([
+      jsonFetch(dpeUrl),
+      (async()=>{
+        if(!property.cityCode) return {source:"DVF indisponible · code INSEE absent",rows:[]};
+        try{
+          const rows=await fetchDvfPaginated(DVF_URL,{codeInsee:property.cityCode,yearMin,yearMax:String(DVF_GEO_LATEST_YEAR),maxRows:10000});
+          return {source:"DVF+ Cerema · jusqu'à 10 000 transactions",rows:rows.map(normalizeDvf)};
+        }catch(e){
+          const rows=await dvfGeoOpenData({codeInsee:property.cityCode,yearMin,yearMax:String(DVF_GEO_LATEST_YEAR),limit:10000});
+          return {source:"DVF open-data · data.gouv.fr",fallback:true,rows:rows.map(x=>normalizeDvf({
+            id_mutation:first(x,["id_mutation"]),date_mutation:first(x,["date_mutation"]),
+            valeur_fonciere:first(x,["valeur_fonciere"]),code_type_local:first(x,["code_type_local"]),
+            type_local:first(x,["type_local"]),surface_reelle_bati:first(x,["surface_reelle_bati"]),
+            surface_terrain:first(x,["surface_terrain"]),code_commune:first(x,["code_commune"]),
+            code_departement:first(x,["code_departement"]),adresse_numero:first(x,["adresse_numero"]),
+            adresse_nom_voie:first(x,["adresse_nom_voie"]),code_postal:first(x,["code_postal"]),
+            longitude:first(x,["longitude","lon"]),latitude:first(x,["latitude","lat"]),
+            nombre_pieces_principales:first(x,["nombre_pieces_principales"]),
+            lot_1_surface_carrez:first(x,["lot_1_surface_carrez"])
+          }))};
+        }
+      })()
+    ]);
+    const dpeRaw=dpeResult.status==="fulfilled"?(Array.isArray(dpeResult.value?.results)?dpeResult.value.results:Array.isArray(dpeResult.value?.data)?dpeResult.value.data:[]):[];
+    const dpeRows=dpeRaw.map(normalizeDpe);
+    const dvfPack=dvfResult.status==="fulfilled"?dvfResult.value:{source:"DVF indisponible",rows:[]};
+    const dvfRows=dvfPack.rows||[];
+    const indexes=buildDvfIndexes(dvfRows);
+    const dvfMatch=findDvfMatches(property,indexes);
+    const dpeScored=dpeRows.map(p=>{
+      const a=addressParts(p);
+      let status="none";
+      if(propertyParts.fullAddress&&a.fullAddress===propertyParts.fullAddress&&(propertyParts.cityCode&&a.cityCode===propertyParts.cityCode||propertyParts.postal&&a.postal===propertyParts.postal))status="confirmed";
+      else if(propertyParts.street&&a.street===propertyParts.street&&((propertyParts.cityCode&&a.cityCode===propertyParts.cityCode)||(propertyParts.postal&&a.postal===propertyParts.postal)))status="uncertain";
+      else if(propertyParts.point&&a.point&&distanceMeters(propertyParts.point,a.point)!==null&&distanceMeters(propertyParts.point,a.point)<=80)status="uncertain";
+      return {...p,dpeAddressStatus:status};
+    }).filter(p=>p.dpeAddressStatus!=="none");
+    const dpeConfirmed=dpeScored.filter(p=>p.dpeAddressStatus==="confirmed");
+    const comparable=localComparables(property,dvfRows);
+    const score={
+      dpe:dpeConfirmed.length?18:0,
+      dvf:dvfMatch.matchQuality==="exact"?25:dvfMatch.matchQuality==="street"?12:dvfMatch.matchQuality==="proximity"?5:0
+    };
+    return {
+      source:"Annonce particulier publique + BAN + DVF + DPE",
+      property:{...property,price},
+      geocode:geo,
+      dpe:{
+        status:dpeConfirmed.length?"confirmed":(dpeScored.length?"uncertain":"none"),
+        confirmedCount:dpeConfirmed.length,
+        candidates:dpeScored.slice(0,20).map(p=>({
+          dpeNumber:p.dpeNumber,address:p.address,postalCode:p.postalCode,city:p.city,dpe:p.dpe,ges:p.ges,
+          area:p.area,date:p.date,latitude:p.latitude,longitude:p.longitude,dpeAddressStatus:p.dpeAddressStatus
+        }))
+      },
+      dvf:{
+        status:dvfMatch.matchQuality,
+        reason:dvfMatch.matchReason,
+        matchedCount:dvfMatch.txs?.length||0,
+        source:dvfPack.source,
+        fallback:Boolean(dvfPack.fallback),
+        transactions:(dvfMatch.txs||[]).slice(0,30).map(tx=>({
+          mutationId:tx.mutationId,date:tx.date,value:tx.value,type:tx.type,builtArea:tx.builtArea,
+          landArea:tx.landArea,rooms:tx.rooms,address:tx.address,latitude:tx.latitude,longitude:tx.longitude,
+          distanceMeters:distanceMeters(propertyParts.point,pointOf(tx))
+        }))
+      },
+      comparables:{
+        count:comparable.count,medianPriceM2:comparable.medianPriceM2,radius:comparable.radius,
+        dispersion:comparable.dispersion,items:(comparable.items||[]).slice(0,20)
+      },
+      score,
+      disclaimer:"La carte rapproche une annonce publique fournie par l'utilisateur avec des données immobilières publiques. Elle n'identifie pas automatiquement le propriétaire."
+    };
   }
   if(pathname==="/api/commune"){
     const q=url.searchParams.get("q")?.trim();
