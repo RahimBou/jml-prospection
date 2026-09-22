@@ -86,3 +86,10 @@ Ajout d'une couche de contrôle qualité entre les sources publiques et les mote
 - Les correspondances rue, code postal ou proximité ne donnent aucun bonus de classe DPE.
 - Les signaux complémentaires liés à l'âge du DPE, à la consommation et au GES sont également conditionnés à une adresse confirmée.
 - Le statut de rapprochement est affiché directement dans chaque candidat du Radar.
+
+
+## V1.12.0 — volume DVF augmenté
+- Le Radar futur ne s'arrête plus à 1 000 transactions DVF.
+- Interrogation DVF+ par pages de 500 jusqu'à **10 000 transactions maximum** sur la période sélectionnée.
+- En cas de secours open-data, le moteur peut également charger jusqu'à **10 000 transactions**.
+- Le filtrage et la pondération continuent ensuite sur ce volume élargi.
