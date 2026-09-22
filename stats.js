@@ -10,7 +10,7 @@ const STATS_METHODS=[
   ["price","Comportement prix"],
   ["persistence","Persistance / apparitions"],
   ["sources","Multi-sources"],
-  ["futureRadar","Radar futur V1.17.1"],
+  ["futureRadar","Radar futur V1.17.2"],
   ["ensemble","Ensemble des méthodes"]
 ];
 
