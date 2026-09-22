@@ -351,3 +351,68 @@ if($("privateMatchBtn")){
   $("privateAddBtn").onclick=addPrivateProspectToCrm;
   window.addEventListener("resize",()=>{if(privateProspectMap)privateProspectMap.invalidateSize()});
 }
+
+/* V1.15.0 — tests intégrations ChercherTrouver + LogiScan */
+function renderIntegrationHealth(data){
+  const ct=data?.chercherTrouver||{}, ls=data?.logiScan||{};
+  const ctOk=ct.ok===true, lsOk=ls.ok===true;
+  $("chercherTrouverStatus").textContent=ctOk?"🟢 CONNECTÉ":"🔴 ERREUR";
+  $("chercherTrouverDetails").textContent=ctOk
+    ? "Offre "+(ct.tier||"—")+" · "+(ct.itemsPerDay||"—")+" annonces/jour · ping sans quota."
+    : (ct.error||"Clé absente ou invalide.");
+  $("logiScanStatus").textContent=lsOk?"🟢 CONNECTÉ":"🔴 ERREUR";
+  $("logiScanDetails").textContent=lsOk
+    ? "Compte accessible"+(ls.mode?" · mode "+ls.mode:"")+(Number.isFinite(ls.balanceCredits)?" · solde "+ls.balanceCredits+" crédit(s)":"")+" · /v1/account gratuit."
+    : (ls.error||"Clé absente ou invalide.");
+  $("integrationsStatus").textContent=(ctOk&&lsOk)
+    ?"Les deux connexions répondent correctement côté serveur."
+    :"Une ou plusieurs connexions nécessitent une vérification dans Render.";
+}
+async function testIntegrations(){
+  $("integrationsTestBtn").disabled=true;
+  $("integrationsStatus").textContent="Test des deux clés en cours…";
+  try{
+    const data=await publicJson("/api/integrations-health");
+    renderIntegrationHealth(data);
+  }catch(e){
+    $("integrationsStatus").textContent="Erreur de test : "+e.message;
+    $("chercherTrouverStatus").textContent="—";
+    $("logiScanStatus").textContent="—";
+  }finally{$("integrationsTestBtn").disabled=false}
+}
+function renderLogiScanAnalysis(data){
+  const r=data?.result||{};
+  const candidates=r?.resolution?.candidates||[];
+  const scores=r?.deal_scores||[];
+  const firstScore=scores[0]?.par_rayon||{};
+  const scoreRows=Object.entries(firstScore).map(([radius,x])=>{
+    const med=x?.estimation_mediane_eur;
+    const m2=x?.prix_m2_median;
+    return '<div class="source-result"><strong>'+apiEsc(radius+' m')+'</strong><span>'+apiEsc(x?.statut||"—")+(x?.libelle?" · "+apiEsc(x.libelle):"")+'</span><div class="source-result-details">'+(Number.isFinite(Number(med))?Number(med).toLocaleString("fr-FR")+" € médiane":"Fourchette indisponible")+(Number.isFinite(Number(m2))?" · "+Number(m2).toLocaleString("fr-FR")+" €/m² médian":"")+(x?.nb_comparables!=null?" · "+x.nb_comparables+" comparables":"")+'</div><span class="meta">'+apiEsc(x?.explication||"")+'</span></div>';
+  }).join("");
+  const candidateHtml=candidates.slice(0,5).map(x=>'<div class="source-result"><strong>'+apiEsc(x.label||"Adresse candidate")+'</strong><span>Confiance '+(x.confidence!=null?Math.round(Number(x.confidence)*100)+" %":"—")+' · '+apiEsc(x.method||"—")+'</span></div>').join("");
+  $("logiScanAnalysisResults").innerHTML=
+    '<div class="integration-analysis-head"><strong>LogiScan · '+apiEsc(data?.mode||r?.mode||"réponse")+'</strong><span>'+apiEsc(r?.statut||"—")+' · '+(data?.billed?"appel facturé":"appel non facturé")+'</span></div>'+
+    (candidateHtml?'<h3>Adresses candidates</h3>'+candidateHtml:'<div class="meta">Aucune adresse candidate.</div>')+
+    (scoreRows?'<h3>Deal Score / comparables</h3>'+scoreRows:'')+
+    '<div class="source-note">Coût déclaré par LogiScan : '+Number(data?.costCredits||0).toLocaleString("fr-FR")+" crédit(s)."+(r?.diffuseurs?.nombre!=null?" Diffuseurs détectés : "+r.diffuseurs.nombre+".":"")+'</div>';
+}
+async function analyzeWithLogiScan(){
+  const input=$("logiScanListingUrl"), url=input.value.trim();
+  if(!url){$("logiScanAnalysisStatus").textContent="Colle d'abord l'URL d'une annonce.";return}
+  if(!/^https?:\/\//i.test(url)){ $("logiScanAnalysisStatus").textContent="URL invalide.";return}
+  $("logiScanAnalyzeBtn").disabled=true;
+  $("logiScanAnalysisStatus").textContent="Analyse LogiScan en cours (jusqu'à ~20 secondes)…";
+  $("logiScanAnalysisResults").innerHTML="";
+  try{
+    const data=await publicJson("/api/logiscan-analyze?url="+encodeURIComponent(url));
+    renderLogiScanAnalysis(data);
+    $("logiScanAnalysisStatus").innerHTML="<strong>Analyse terminée.</strong> "+(data?.billed?"Cette clé est une clé réelle : l'appel a été facturé selon le tarif LogiScan.":"Clé de test / appel non facturé.");
+  }catch(e){
+    $("logiScanAnalysisStatus").textContent="Erreur LogiScan : "+e.message;
+  }finally{$("logiScanAnalyzeBtn").disabled=false}
+}
+if($("integrationsTestBtn")){
+  $("integrationsTestBtn").onclick=testIntegrations;
+  $("logiScanAnalyzeBtn").onclick=analyzeWithLogiScan;
+}
