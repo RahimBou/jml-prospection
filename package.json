@@ -1,6 +1,6 @@
 {
   "name":"jml-prospection",
-  "version":"1.6.2",
+  "version":"1.6.4",
   "private":true,
   "description":"Radar de prospection immobilière JML Immobilier",
   "scripts":{"start":"node server.js"},
