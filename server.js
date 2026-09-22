@@ -78,6 +78,9 @@ function normalizeDpe(x){
     area:Number(first(x,["Surface_habitable_logement","surface_habitable_logement","surface_habitable_immeuble","Surface_habitable_immeuble","Surface_habitable"]))||0,
     dpe:first(x,["etiquette_dpe","Etiquette_DPE","Etiquette_DPE_(à_date)","Etiquette_DPE_logement"]),
     buildingType:first(x,["type_batiment","Type_bâtiment","Type_bâtiment_(DPE)","type_batiment_dpe"]),
+    energyConsumption:Number(first(x,["consommation_energie","Consommation_energie","Consommation_énergie"]))||0,
+    gesValue:Number(first(x,["emission_ges","estimation_ges","Estimation_GES","emission_ges_logement"]))||0,
+    constructionYear:Number(first(x,["annee_construction","Annee_construction","Année_construction"]))||0,
     rooms:Number(first(x,["nombre_pieces_principales","Nombre_pièces_principales","Nombre de pièces principales"]))||0,
     ges:first(x,["etiquette_ges","Etiquette_GES","Etiquette_GES_logement"]),
     date:first(x,["date_visite_diagnostiqueur","Date_établissement_DPE","Date_établissement","date_etablissement_dpe"]),
@@ -240,7 +243,7 @@ async function resolveCommune(query){
   return known[norm(query)]||null;
 }
 async function api(pathname,url){
-  if(pathname==="/api/health") return {ok:true,sources:{dpe:"ADEME",dvf:"DVF+ Cerema",geocoding:"API Adresse"},server:"jml-prospection",version:"1.9.6"};
+  if(pathname==="/api/health") return {ok:true,sources:{dpe:"ADEME",dvf:"DVF+ Cerema",geocoding:"API Adresse"},server:"jml-prospection",version:"1.9.7"};
   if(pathname==="/api/commune"){
     const q=url.searchParams.get("q")?.trim();
     if(!q) throw new Error("Paramètre q manquant");
@@ -312,7 +315,7 @@ async function api(pathname,url){
       const saleDate=latest?.date?new Date(latest.date):null;
       const saleAge=saleDate&&Number.isFinite(saleDate.getTime())?Math.max(0,(nowMs-saleDate.getTime())/86400000/365.25):null;
       const reasons=[];
-      let energy=0,holding=0,market=0,similarity=0,data=0;
+      let energy=0,holding=0,market=0,similarity=0,data=0,building=0;
 
       // V1.9.6 : score différencié sur 5 familles de signaux.
       // L'absence de mutation exacte ne donne plus de points artificiels.
@@ -331,6 +334,27 @@ async function api(pathname,url){
         else if(dpeAge>=5){energy+=5;reasons.push("DPE ancien +5")}
         else if(dpeAge>=3){energy+=2;reasons.push("DPE de plus de 3 ans +2")}
       }
+      // Les valeurs quantitatives du DPE évitent que toute une série F/G obtienne
+      // exactement le même score lorsque l'historique DVF ne matche pas l'adresse.
+      if(p.energyConsumption>0){
+        if(p.energyConsumption>=450){energy+=5;reasons.push("Consommation énergétique très élevée +5")}
+        else if(p.energyConsumption>=330){energy+=4;reasons.push("Consommation énergétique élevée +4")}
+        else if(p.energyConsumption>=250){energy+=2;reasons.push("Consommation énergétique élevée +2")}
+      }
+      if(p.gesValue>0){
+        if(p.gesValue>=80){energy+=4;reasons.push("GES très élevé +4")}
+        else if(p.gesValue>=50){energy+=3;reasons.push("GES élevé +3")}
+        else if(p.gesValue>=30){energy+=1;reasons.push("GES notable +1")}
+      }
+      if(p.constructionYear>0){
+        const age=Math.max(0,new Date().getFullYear()-p.constructionYear);
+        if(age>=80){building+=5;reasons.push("Bâtiment très ancien +5")}
+        else if(age>=50){building+=3;reasons.push("Bâtiment ancien +3")}
+        else if(age>=30){building+=1;reasons.push("Bâtiment de plus de 30 ans +1")}
+      }
+      const btNorm=String(p.buildingType||"").toLowerCase();
+      if(btNorm.includes("maison")){building+=2;reasons.push("Type maison +2")}
+      else if(btNorm.includes("appartement")){building+=1;reasons.push("Type appartement +1")}
 
       if(saleAge!==null){
         if(saleAge>=10){holding+=25;reasons.push("Mutation exacte >10 ans +25")}
@@ -388,16 +412,17 @@ async function api(pathname,url){
       if(data>=9)reasons.push("Données DPE complètes +9");
       else reasons.push("Complétude des données +"+data);
 
-      const score=Math.min(100,energy+holding+market+similarity+data);
+      const score=Math.min(100,energy+holding+market+similarity+data+building);
       const methodScores={
         energy:Math.min(100,Math.round(energy/25*100)),
         holding:Math.min(100,Math.round(holding/25*100)),
         market:Math.min(100,Math.round(market/20*100)),
         similarity:Math.min(100,Math.round(similarity/20*100)),
-        data:Math.min(100,Math.round(data/10*100))
+        data:Math.min(100,Math.round(data/10*100)),
+        building:Math.min(100,Math.round(building/7*100))
       };
       const matchQuality=txs.length?"exact":streetOnly?"street":"none";
-      return {id:"dpe-"+(p.dpeNumber||index)+"-"+codeInsee,address:p.address,postalCode:p.postalCode,city:p.city,cityCode:p.cityCode,area:p.area,dpe:p.dpe,ges:p.ges,dpeDate:p.date,dpeAgeYears:dpeAge?Math.round(dpeAge*10)/10:null,buildingType:p.buildingType||"",latestSale:latest?{date:latest.date,value:latest.value,type:latest.type,builtArea:latest.builtArea,landArea:latest.landArea,rooms:latest.rooms}:null,matchQuality,source:"ADEME DPE + DVF",score,methodScores,reasons,disclaimer:"Indice de surveillance future basé sur des signaux publics immobiliers. Ce n'est pas une probabilité de vente ni l'identification d'un propriétaire."};
+      return {id:"dpe-"+(p.dpeNumber||index)+"-"+codeInsee,address:p.address,postalCode:p.postalCode,city:p.city,cityCode:p.cityCode,area:p.area,dpe:p.dpe,ges:p.ges,dpeDate:p.date,dpeAgeYears:dpeAge?Math.round(dpeAge*10)/10:null,buildingType:p.buildingType||"",energyConsumption:p.energyConsumption||0,gesValue:p.gesValue||0,constructionYear:p.constructionYear||0,latestSale:latest?{date:latest.date,value:latest.value,type:latest.type,builtArea:latest.builtArea,landArea:latest.landArea,rooms:latest.rooms}:null,matchQuality,source:"ADEME DPE + DVF",score,methodScores,reasons,disclaimer:"Indice de surveillance future basé sur des signaux publics immobiliers. Ce n'est pas une probabilité de vente ni l'identification d'un propriétaire."};
     }).filter(x=>x.address).sort((a,b)=>b.score-a.score).slice(0,limit);
     return {source:"ADEME DPE + DVF",codeInsee,dpeCount:dpeRows.length,dvfCount:dvfRows.length,dvfSource:dvf.source,dvfFallback:!!dvf.fallback,results:candidates};
   }
