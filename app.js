@@ -1,4 +1,4 @@
-const APP_VERSION="1.6.5";
+const APP_VERSION="1.6.6";
 const KEY="jml_prospection_v1";let prospects=load(),pendingImport=[];const $=id=>document.getElementById(id);
 function load(){try{const x=JSON.parse(localStorage.getItem(KEY)||"[]");return Array.isArray(x)?x:[]}catch(e){return[]}}
 function save(){localStorage.setItem(KEY,JSON.stringify(prospects));render()}
@@ -55,7 +55,7 @@ function renderPublicDpe(rows){
 }
 function renderPublicDvf(rows){
   publicDvfResults=rows||[];
-  $("publicDvfResults").innerHTML=publicDvfResults.length?publicDvfResults.slice(0,20).map(p=>'<article class="source-result"><div><strong>'+apiEsc(p.date||"Date inconnue")+'</strong><span>'+apiEsc(p.type||"Bien immobilier")+'</span></div><div class="source-result-details">'+(p.value?p.value.toLocaleString("fr-FR")+" € · ":"")+(p.builtArea?p.builtArea+" m² bâti · ":"")+(p.landArea?p.landArea+" m² terrain":"")+'</div><span class="meta">Source : DVF+ Cerema · '+apiEsc(p.cityCode||"")+'</span></article>').join(""):'<div class="meta">Aucune transaction trouvée.</div>';
+  $("publicDvfResults").innerHTML=publicDvfResults.length?publicDvfResults.slice(0,20).map(p=>'<article class="source-result"><div><strong>'+apiEsc(p.date||"Date inconnue")+'</strong><span>'+apiEsc(p.type||"Bien immobilier")+'</span></div><div class="source-result-details">'+(p.value?p.value.toLocaleString("fr-FR")+" € · ":"")+(p.builtArea?p.builtArea+" m² bâti · ":"")+(p.landArea?p.landArea+" m² terrain":"")+'</div><span class="meta">Source : '+apiEsc(p.source||"DVF open-data")+' · '+apiEsc(p.cityCode||"")+'</span></article>').join(""):'<div class="meta">Aucune transaction trouvée.</div>';
 }
 async function searchPublicSources(){
   const q=$("publicQuery").value.trim();
@@ -91,7 +91,7 @@ async function searchPublicSources(){
     const parts=[
       "<strong>"+apiEsc(c.city)+"</strong> · code INSEE "+apiEsc(c.cityCode),
       dpe ? dpe.rawCount+" DPE récupérés" : "ADEME indisponible",
-      dvf ? dvf.rawCount+" transactions récupérées" : "DVF+ indisponible ("+apiEsc(dvfError)+")"
+      dvf ? dvf.rawCount+" transactions récupérées · "+apiEsc(dvf.source||"DVF open-data")+(dvf.fallback?" (secours après indisponibilité Cerema)":"") : "DVF indisponible ("+apiEsc(dvfError)+")"
     ];
     $("publicStatus").innerHTML=parts.join(" · ");
   }catch(e){
