@@ -109,3 +109,10 @@ Ajout d'une couche de contrôle qualité entre les sources publiques et les mote
 ## V1.16.0 — Connecteurs annonces
 - Ajout du test serveur **ChercherTrouver.immo** via `/api/integrations-health` et son endpoint `/api/v1/ping`, qui ne consomme pas le quota d'annonces.
 - Les clés API restent côté Render et ne sont jamais exposées au navigateur.
+
+
+## V1.17.0 — calibration du radar
+- Séparation explicite entre **Score radar** et **Indice comportemental à 6 mois**.
+- Classification des données : complètes / suffisantes / à compléter.
+- Backtest historique : rapprochement exact corrigé avec numéro + rue normalisés et contrôle commune/CP.
+- Le taux de base à 180 jours et le taux de correspondance exacte sont exposés pour distinguer une absence de ventes détectées d'un défaut de données.
