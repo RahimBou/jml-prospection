@@ -527,7 +527,7 @@ async function resolveCommune(query){
   return known[norm(query)]||null;
 }
 async function api(pathname,url){
-  if(pathname==="/api/health") return {ok:true,sources:{dpe:"ADEME",dvf:"DVF+ Cerema",geocoding:"API Adresse"},server:"jml-prospection",version:"1.10.10"};
+  if(pathname==="/api/health") return {ok:true,sources:{dpe:"ADEME",dvf:"DVF+ Cerema",geocoding:"API Adresse"},server:"jml-prospection",version:"1.11.2"};
   if(pathname==="/api/data-agent"){
     let codeInsee=url.searchParams.get("codeInsee")?.trim();
     const q=url.searchParams.get("q")?.trim();
@@ -641,23 +641,32 @@ async function api(pathname,url){
         if(comparable.dispersion!==null)reasons.push("Dispersion des prix : "+Math.round(comparable.dispersion*100)+" %");
       }else reasons.push("Aucun comparable local suffisamment proche");
 
-      if(["F","G"].includes(p.dpe)){energy+=18;reasons.push("DPE F/G +18")}
-      else if(p.dpe==="E"){energy+=8;reasons.push("DPE E +8")}
-      else if(p.dpe==="D"){energy+=3;reasons.push("DPE D +3")}
-      if(dpeAge!==null){
-        if(dpeAge>=7){energy+=7;reasons.push("DPE très ancien +7")}
-        else if(dpeAge>=5){energy+=5;reasons.push("DPE ancien +5")}
-        else if(dpeAge>=3){energy+=2;reasons.push("DPE de plus de 3 ans +2")}
-      }
-      if(p.energyConsumption>0){
-        if(p.energyConsumption>=450){energy+=5;reasons.push("Consommation énergétique très élevée +5")}
-        else if(p.energyConsumption>=330){energy+=4;reasons.push("Consommation énergétique élevée +4")}
-        else if(p.energyConsumption>=250){energy+=2;reasons.push("Consommation énergétique élevée +2")}
-      }
-      if(p.gesValue>0){
-        if(p.gesValue>=80){energy+=4;reasons.push("GES très élevé +4")}
-        else if(p.gesValue>=50){energy+=3;reasons.push("GES élevé +3")}
-        else if(p.gesValue>=30){energy+=1;reasons.push("GES notable +1")}
+      const dpeAddressStatus=match.matchQuality==="exact"?"confirmed":(match.matchQuality==="none"?"none":"uncertain");
+      const dpeConfirmed=dpeAddressStatus==="confirmed";
+      if(dpeConfirmed){
+        reasons.push("DPE confirmé · même adresse · correspondance forte");
+        if(["F","G"].includes(p.dpe)){energy+=18;reasons.push("DPE F/G confirmé +18")}
+        else if(p.dpe==="E"){energy+=10;reasons.push("DPE E confirmé +10")}
+        else if(p.dpe==="D"){energy+=4;reasons.push("DPE D confirmé +4")}
+        if(dpeAge!==null){
+          if(dpeAge>=7){energy+=7;reasons.push("DPE très ancien +7")}
+          else if(dpeAge>=5){energy+=5;reasons.push("DPE ancien +5")}
+          else if(dpeAge>=3){energy+=2;reasons.push("DPE de plus de 3 ans +2")}
+        }
+        if(p.energyConsumption>0){
+          if(p.energyConsumption>=450){energy+=5;reasons.push("Consommation énergétique très élevée +5")}
+          else if(p.energyConsumption>=330){energy+=4;reasons.push("Consommation énergétique élevée +4")}
+          else if(p.energyConsumption>=250){energy+=2;reasons.push("Consommation énergétique élevée +2")}
+        }
+        if(p.gesValue>0){
+          if(p.gesValue>=80){energy+=4;reasons.push("GES très élevé +4")}
+          else if(p.gesValue>=50){energy+=3;reasons.push("GES élevé +3")}
+          else if(p.gesValue>=30){energy+=1;reasons.push("GES notable +1")}
+        }
+      }else if(dpeAddressStatus==="uncertain"){
+        reasons.push("DPE trouvé · correspondance d'adresse incertaine · bonus DPE = 0");
+      }else{
+        reasons.push("DPE trouvé · aucune correspondance DVF fiable · bonus DPE = 0");
       }
       if(p.constructionYear>0){
         const age=Math.max(0,new Date().getFullYear()-p.constructionYear);
@@ -708,10 +717,12 @@ async function api(pathname,url){
         residenceName:p.residenceName||"",banId:p.banId||"",dpeAgeYears:dpeAge?Math.round(dpeAge*10)/10:null,buildingType:p.buildingType||"",
         energyConsumption:p.energyConsumption||0,gesValue:p.gesValue||0,constructionYear:p.constructionYear||0,
         latestSale:best?{date:best.date,value:best.value,type:best.type,builtArea:best.builtArea,carrezArea:best.carrezArea,landArea:best.landArea,rooms:best.rooms}:null,
-        matchQuality:"local",matchReason:"Comparables géographiques · aucune mutation attribuée automatiquement au logement",
-        distanceMeters:best?.distanceMeters??null,postalCandidateCount:0,unitConfidence:"not_applicable",
-        unitReason:"Le moteur ne tente plus d'attribuer une mutation individuelle au logement",
-        matchedMutationCount:match.matchedCount||0,selectedMutationCount:0,
+        matchQuality:match.matchQuality,matchReason:match.matchReason,
+        dpeAddressStatus,dpeConfirmed,
+        distanceMeters:best?.distanceMeters??null,matchDistanceMeters:match.distanceMeters??null,
+        postalCandidateCount:match.postalCount||0,unitConfidence:match.unitConfidence||"not_applicable",
+        unitReason:match.unitReason||"",
+        matchedMutationCount:match.txs?.length||0,selectedMutationCount:match.selectedMutationCount||0,
         comparableCount:comparable.count,comparableRadius:comparable.radius,comparableMedianPriceM2:comparable.medianPriceM2,
         comparableQ1:comparable.q1,comparableQ3:comparable.q3,comparableDispersion:comparable.dispersion,
         comparableMedianDistance:comparable.medianDistance,comparableRecentCount:comparable.recentCount,comparables:comparable.items,
