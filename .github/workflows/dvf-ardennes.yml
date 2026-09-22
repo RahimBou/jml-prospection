@@ -1,0 +1,40 @@
+name: Mise a jour DVF Ardennes
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 4 * * 1"
+  push:
+    branches: [main]
+    paths-ignore:
+      - "data/dvf_ardennes.csv.gz"
+      - ".github/workflows/dvf-ardennes.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  update-dvf:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Telecharger le DVF geolocalise des Ardennes
+        run: |
+          mkdir -p data
+          curl -fL --retry 3 --retry-delay 2 \\
+            "https://files.data.gouv.fr/geo-dvf/latest/csv/2025/departements/08.csv.gz" \\
+            -o data/dvf_ardennes.csv.gz
+          gzip -t data/dvf_ardennes.csv.gz
+          ls -lh data/dvf_ardennes.csv.gz
+      - name: Commit si le fichier a change
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/dvf_ardennes.csv.gz
+          if git diff --cached --quiet; then
+            echo "DVF Ardennes deja a jour"
+          else
+            git commit -m "data: mise a jour DVF Ardennes [skip ci]"
+            git push
+          fi
