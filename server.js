@@ -108,34 +108,6 @@ async function fetchChercherTrouver(params={}){
   }finally{clearTimeout(timer)}
 }
 
-async function fetchLogiScanAccount(){
-  const apiKey=String(process.env.LOGISCAN_API_KEY||"").trim();
-  if(!apiKey) throw new Error("LOGISCAN_API_KEY non configurée sur le serveur Render");
-  const controller=new AbortController();
-  const timer=setTimeout(()=>controller.abort(),15000);
-  try{
-    const r=await fetch("https://logiscan.fr/v1/account",{
-      headers:{Accept:"application/json",Authorization:"Bearer "+apiKey,"User-Agent":"JML-Prospection/1.15.0"},
-      signal:controller.signal
-    });
-    const text=await r.text();
-    let data; try{data=JSON.parse(text)}catch{data={raw:text}};
-    if(!r.ok){
-      const detail=data?.detail||data?.error||("LogiScan HTTP "+r.status);
-      throw new Error(detail);
-    }
-    return {
-      source:"LogiScan",
-      ok:true,
-      mode:String(data?.mode||data?.key?.mode||"").trim()||null,
-      balanceCredits:Number(data?.balance_credits),
-      usage:data?.usage||null,
-      tarifs:data?.tarifs||null,
-      keyExpiresAt:data?.key?.expires_at||data?.expires_at||null
-    };
-  }finally{clearTimeout(timer)}
-}
-
 async function fetchChercherTrouverPing(){
   const apiKey=String(process.env.CHERCHERTROUVER_API_KEY||"").trim();
   if(!apiKey) throw new Error("CHERCHERTROUVER_API_KEY non configurée sur le serveur Render");
@@ -153,35 +125,6 @@ async function fetchChercherTrouverPing(){
       throw new Error(detail);
     }
     return {source:"ChercherTrouver.immo",ok:true,tier:data?.tier||null,rateLimitPerMin:Number(data?.rate_limit_per_min)||null,itemsPerDay:Number(data?.items_per_day)||null,serverTime:data?.server_time||null};
-  }finally{clearTimeout(timer)}
-}
-
-async function fetchLogiScanAnalysis(listingUrl){
-  const apiKey=String(process.env.LOGISCAN_API_KEY||"").trim();
-  if(!apiKey) throw new Error("LOGISCAN_API_KEY non configurée sur le serveur Render");
-  const url=String(listingUrl||"").trim();
-  if(!/^https?:\/\//i.test(url)) throw new Error("URL d'annonce invalide");
-  const controller=new AbortController();
-  const timer=setTimeout(()=>controller.abort(),30000);
-  try{
-    const r=await fetch("https://logiscan.fr/v1/analyses?wait=20",{
-      method:"POST",
-      headers:{
-        Accept:"application/json",
-        "Content-Type":"application/json",
-        Authorization:"Bearer "+apiKey,
-        "User-Agent":"JML-Prospection/1.15.0"
-      },
-      body:JSON.stringify({source:{listing_url:url},radii:[300,500,800,1000]}),
-      signal:controller.signal
-    });
-    const text=await r.text();
-    let data; try{data=JSON.parse(text)}catch{data={raw:text}};
-    if(!r.ok){
-      const detail=data?.detail||data?.error||data?.raison||("LogiScan HTTP "+r.status);
-      throw new Error(detail);
-    }
-    return {source:"LogiScan",httpStatus:r.status,ok:true,billed:Boolean(data?.billed),mode:data?.mode||null,costCredits:Number(data?.cost_credits)||0,result:data};
   }finally{clearTimeout(timer)}
 }
 
@@ -690,20 +633,10 @@ async function geocodeAddress(query,limit=5){
 }
 
 async function api(pathname,url){
-  if(pathname==="/api/health") return {ok:true,sources:{dpe:"ADEME",dvf:"DVF+ Cerema",geocoding:"Géoplateforme",chercherTrouver:"ChercherTrouver.immo",logiScan:"LogiScan"},server:"jml-prospection",version:"1.15.0"};
+  if(pathname==="/api/health") return {ok:true,sources:{dpe:"ADEME",dvf:"DVF+ Cerema",geocoding:"Géoplateforme",chercherTrouver:"ChercherTrouver.immo"},server:"jml-prospection",version:"1.16.0"};
   if(pathname==="/api/integrations-health"){
-    const [ct,ls]=await Promise.allSettled([fetchChercherTrouverPing(),fetchLogiScanAccount()]);
-    return {
-      ok:ct.status==="fulfilled"&&ls.status==="fulfilled",
-      checkedAt:new Date().toISOString(),
-      chercherTrouver:ct.status==="fulfilled"?ct.value:{source:"ChercherTrouver.immo",ok:false,error:ct.reason?.message||"Erreur inconnue"},
-      logiScan:ls.status==="fulfilled"?ls.value:{source:"LogiScan",ok:false,error:ls.reason?.message||"Erreur inconnue"}
-    };
-  }
-  if(pathname==="/api/logiscan-analyze"){
-    const listingUrl=url.searchParams.get("url")?.trim();
-    if(!listingUrl)throw new Error("Paramètre url manquant");
-    return await fetchLogiScanAnalysis(listingUrl);
+    const ct=await fetchChercherTrouverPing();
+    return {ok:ct.ok===true,checkedAt:new Date().toISOString(),chercherTrouver:ct};
   }
   if(pathname==="/api/data-agent"){
     let codeInsee=url.searchParams.get("codeInsee")?.trim();
