@@ -1,7 +1,7 @@
-# JML Prospection — V1.12.0
+# JML Prospection — V1.13.0
 
 ## Version de référence
-- Version : **1.6.2**
+- Version : **1.13.0**
 - Branche : **main**
 - Application : jml-prospection
 - Architecture : Node.js + interface web
@@ -91,3 +91,11 @@ Toute modification fonctionnelle doit :
 - DVF+ récupéré par pagination de 500 lignes, jusqu'à 10 000 transactions.
 - Secours open-data porté à 10 000 transactions.
 - Le moteur conserve ensuite son filtrage avant calcul du score.
+
+
+## V1.13.0 — Prospection annonce publique + carte
+- Carte interactive Leaflet/OpenStreetMap pour visualiser une adresse d'annonce.
+- Géocodage via BAN / Géoplateforme.
+- Croisement de l'adresse avec DVF et DPE.
+- Affichage des niveaux de correspondance sans ré-identification automatique du propriétaire.
+- Conservation facultative du lien public de l'annonce dans le CRM.
