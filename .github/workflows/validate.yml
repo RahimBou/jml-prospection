@@ -13,5 +13,6 @@ jobs:
         with:
           node-version: 20
       - run: node --check server.js
+      - run: node --check data-agent.js
       - run: node --check stats.js
       - run: node --check app.js
