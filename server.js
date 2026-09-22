@@ -4,7 +4,7 @@ const path = require("node:path");
 
 const PORT = Number(process.env.PORT || 10000);
 const ROOT = __dirname;
-const DPE_URL = "https://data.ademe.fr/data-fair/api/v1/datasets/dpe-v2-logements-existants/lines";
+const DPE_URL = "https://data.ademe.fr/data-fair/api/v1/datasets/dpe03existant/lines";
 const DVF_URL = "https://apidf.cerema.fr/dvf_opendata/mutations/";
 const ADDRESS_URL = "https://api-adresse.data.gouv.fr/search/";
 
@@ -39,15 +39,15 @@ async function jsonFetch(url){
 function first(obj,keys){for(const k of keys){if(obj?.[k]!==undefined&&obj?.[k]!==null&&obj[k]!=="")return obj[k]}return ""}
 function normalizeDpe(x){
   return {
-    dpeNumber:first(x,["N°DPE","Numero_DPE","N°DPE_(CSTB)","numero_dpe"]),
-    address:first(x,["Adresse_brute","Adresse_(BAN)","Adresse_BAN","adresse_ban"]),
-    postalCode:first(x,["Code_postal_(BAN)","Code_postal","code_postal_ban"]),
-    city:first(x,["Nom_commune_(BAN)","Nom_commune","nom_commune_ban"]),
-    cityCode:first(x,["Code_INSEE_(BAN)","Code_INSEE","code_insee_ban"]),
+    dpeNumber:first(x,["numero_dpe","N°DPE","Numero_DPE","N°DPE_(CSTB)"]),
+    address:first(x,["adresse_ban","Adresse_brute","Adresse_(BAN)","Adresse_BAN"]),
+    postalCode:first(x,["code_postal_ban","Code_postal_(BAN)","Code_postal"]),
+    city:first(x,["nom_commune_ban","Nom_commune_(BAN)","Nom_commune"]),
+    cityCode:first(x,["code_insee_ban","Code_INSEE_(BAN)","Code_INSEE"]),
     area:Number(first(x,["Surface_habitable_logement","Surface_habitable","surface_habitable_logement"]))||0,
-    dpe:first(x,["Etiquette_DPE","Etiquette_DPE_(à_date)","Etiquette_DPE_logement"]),
-    ges:first(x,["Etiquette_GES","Etiquette_GES_logement"]),
-    date:first(x,["Date_établissement_DPE","Date_établissement","date_etablissement_dpe"]),
+    dpe:first(x,["etiquette_dpe","Etiquette_DPE","Etiquette_DPE_(à_date)","Etiquette_DPE_logement"]),
+    ges:first(x,["etiquette_ges","Etiquette_GES","Etiquette_GES_logement"]),
+    date:first(x,["date_visite_diagnostiqueur","Date_établissement_DPE","Date_établissement","date_etablissement_dpe"]),
     source:"DPE ADEME"
   };
 }
@@ -78,7 +78,7 @@ async function resolveCommune(query){
   return {city:f.properties?.city||f.properties?.label||"",cityCode:f.properties?.citycode||"",postalCode:f.properties?.postcode||"",label:f.properties?.label||""};
 }
 async function api(pathname,url){
-  if(pathname==="/api/health") return {ok:true,sources:{dpe:"ADEME",dvf:"DVF+ Cerema",geocoding:"API Adresse"},server:"jml-prospection",version:"1.6.0"};
+  if(pathname==="/api/health") return {ok:true,sources:{dpe:"ADEME",dvf:"DVF+ Cerema",geocoding:"API Adresse"},server:"jml-prospection",version:"1.6.1"};
   if(pathname==="/api/commune"){
     const q=url.searchParams.get("q")?.trim();
     if(!q) throw new Error("Paramètre q manquant");
@@ -91,7 +91,7 @@ async function api(pathname,url){
     const codeInsee=url.searchParams.get("codeInsee")?.trim();
     if(!q&&!codeInsee) throw new Error("Indique une commune, une adresse ou un code INSEE");
     const u=new URL(DPE_URL);u.searchParams.set("size",String(cleanLimit(url.searchParams.get("limit"),30)));
-    if(codeInsee){u.searchParams.set("q_fields","Code_INSEE_(BAN)");u.searchParams.set("q",codeInsee)}
+    if(codeInsee){u.searchParams.set("qs","code_insee_ban:"+codeInsee)}
     else u.searchParams.set("q",q);
     const data=await jsonFetch(u);
     const rows=Array.isArray(data?.results)?data.results:Array.isArray(data?.data)?data.data:[];
@@ -103,7 +103,7 @@ async function api(pathname,url){
     if(!codeInsee&&q){const c=await resolveCommune(q);codeInsee=c?.cityCode||""}
     if(!codeInsee) throw new Error("Commune introuvable : indique un nom de commune ou un code INSEE");
     const u=new URL(DVF_URL);
-    u.searchParams.set("code_commune",codeInsee);
+    u.searchParams.set("code_insee",codeInsee);
     u.searchParams.set("page_size",String(cleanLimit(url.searchParams.get("limit"),50)));
     const yearMin=url.searchParams.get("yearMin");if(yearMin)u.searchParams.set("anneemut_min",yearMin);
     const yearMax=url.searchParams.get("yearMax");if(yearMax)u.searchParams.set("anneemut_max",yearMax);
