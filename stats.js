@@ -1,4 +1,4 @@
-/* JML Prospection — Laboratoire statistique V1.9.2
+/* JML Prospection — Laboratoire statistique V1.9.3
    Objectif: mesurer quelles méthodes repèrent le mieux les biens ayant ensuite
    un résultat commercial réel. Les scores restent des indicateurs, pas des
    probabilités ni des prédictions certaines. */
@@ -157,6 +157,26 @@ function statsRender(){
         ?"Les méthodes sont comparées sur les 20 % de biens les mieux classés. La colonne Lift mesure l'amélioration par rapport au taux de base."
         :"Données en cours d'apprentissage.";
 }
+function statsRenderBacktest(data){
+  const status=document.getElementById("statsBacktestStatus"),box=document.getElementById("statsBacktestResults");
+  if(!status||!box)return;
+  status.textContent=data.matched+" observations historiques · "+data.dvfCount+" mutations DVF · taux de base 180 j : "+data.baseline.toFixed(1)+" %";
+  box.innerHTML="<table class='stats-table'><thead><tr><th>Méthode</th><th>Échantillon</th><th>Top 20 % positif</th><th>Précision</th><th>Lift</th></tr></thead><tbody>"+
+    data.metrics.map(m=>"<tr><td><strong>"+esc(m.label)+"</strong></td><td>"+m.n+"</td><td>"+m.success+" / "+m.k+"</td><td>"+m.precision.toFixed(1)+" %</td><td>"+(m.lift===null?"—":m.lift.toFixed(2)+"×")+"</td></tr>").join("")+
+    "</tbody></table><div class='stats-foot'>"+esc(data.disclaimer)+"</div>";
+}
+async function statsBacktest(){
+  const status=document.getElementById("statsBacktestStatus");
+  const q=document.getElementById("publicQuery")?.value.trim();
+  if(!q){if(status)status.textContent="Indique d’abord une commune, par exemple Sedan.";return}
+  if(status)status.textContent="Test historique en cours…";
+  try{
+    const r=await fetch("/api/backtest?q="+encodeURIComponent(q)+"&years=5");
+    const data=await r.json();
+    if(!r.ok)throw new Error(data.error||"Erreur du backtest");
+    statsRenderBacktest(data);
+  }catch(e){if(status)status.textContent="Erreur : "+e.message}
+}
 function statsExport(){
   const blob=new Blob([JSON.stringify(statsLoad(),null,2)],{type:"application/json"});
   const url=URL.createObjectURL(blob),a=document.createElement("a");
@@ -166,6 +186,7 @@ function statsInit(){
   statsSync();
   const b=document.getElementById("statsRefresh");if(b)b.onclick=statsSync;
   const e=document.getElementById("statsExport");if(e)e.onclick=statsExport;
+  const b=document.getElementById("statsBacktest");if(b)b.onclick=statsBacktest;
   setInterval(statsSync,30000);
 }
 document.addEventListener("DOMContentLoaded",statsInit);
