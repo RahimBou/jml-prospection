@@ -68,17 +68,37 @@ function normalizeDvf(x){
 }
 async function resolveCommune(query){
   if(!query) return null;
-  const u=new URL(ADDRESS_URL);
-  u.searchParams.set("q",query);
-  u.searchParams.set("type","municipality");
-  u.searchParams.set("limit","1");
-  const data=await jsonFetch(u);
-  const f=data?.features?.[0];
-  if(!f) return null;
-  return {city:f.properties?.city||f.properties?.label||"",cityCode:f.properties?.citycode||"",postalCode:f.properties?.postcode||"",label:f.properties?.label||""};
+  try{
+    const u=new URL(ADDRESS_URL);
+    u.searchParams.set("q",query);
+    u.searchParams.set("type","municipality");
+    u.searchParams.set("limit","1");
+    const data=await jsonFetch(u);
+    const f=data?.features?.[0];
+    if(f) return {city:f.properties?.city||f.properties?.label||"",cityCode:f.properties?.citycode||"",postalCode:f.properties?.postcode||"",label:f.properties?.label||""};
+  }catch(e){}
+  try{
+    const u=new URL(DPE_URL);
+    u.searchParams.set("q",query);
+    u.searchParams.set("size","5");
+    const data=await jsonFetch(u);
+    const rows=Array.isArray(data?.results)?data.results:Array.isArray(data?.data)?data.data:[];
+    const p=rows.map(normalizeDpe).find(x=>x.cityCode||x.city);
+    if(p) return {city:p.city||query,cityCode:p.cityCode||"",postalCode:p.postalCode||"",label:p.address||p.city||query};
+  }catch(e){}
+  const known={
+    "charleville-mézières":{city:"Charleville-Mézières",cityCode:"08105",postalCode:"08000"},
+    "charleville mezieres":{city:"Charleville-Mézières",cityCode:"08105",postalCode:"08000"},
+    "sedan":{city:"Sedan",cityCode:"08409",postalCode:"08200"},
+    "rethel":{city:"Rethel",cityCode:"08362",postalCode:"08300"},
+    "revin":{city:"Revin",cityCode:"08363",postalCode:"08500"},
+    "givet":{city:"Givet",cityCode:"08190",postalCode:"08600"},
+    "vouziers":{city:"Vouziers",cityCode:"08490",postalCode:"08400"}
+  };
+  return known[norm(query)]||null;
 }
 async function api(pathname,url){
-  if(pathname==="/api/health") return {ok:true,sources:{dpe:"ADEME",dvf:"DVF+ Cerema",geocoding:"API Adresse"},server:"jml-prospection",version:"1.6.1"};
+  if(pathname==="/api/health") return {ok:true,sources:{dpe:"ADEME",dvf:"DVF+ Cerema",geocoding:"API Adresse"},server:"jml-prospection",version:"1.6.2"};
   if(pathname==="/api/commune"){
     const q=url.searchParams.get("q")?.trim();
     if(!q) throw new Error("Paramètre q manquant");
