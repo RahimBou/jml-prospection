@@ -160,7 +160,8 @@ function statsRender(){
 function statsRenderBacktest(data){
   const status=document.getElementById("statsBacktestStatus"),box=document.getElementById("statsBacktestResults");
   if(!status||!box)return;
-  status.textContent=data.matched+" observations historiques · "+data.dvfCount+" mutations DVF · taux de base 180 j : "+data.baseline.toFixed(1)+" %";
+  status.textContent=data.matched+" observations historiques · "+data.dvfCount+" mutations DVF · correspondances exactes : "+(data.exactMatched||0)+" ("+Number(data.exactMatchRate||0).toFixed(1)+" %) · taux de base 180 j : "+data.baseline.toFixed(1)+" %";
+  const note=data.baseline===0?"Aucune vente à la même adresse n’est actuellement détectée dans la fenêtre de 180 jours. Ce 0 % décrit le résultat du protocole de rapprochement historique, pas la performance du radar.":"Le taux de base est calculé sur les ventes correspondant à la même adresse dans les 180 jours.";
   box.innerHTML="<table class='stats-table'><thead><tr><th>Méthode</th><th>Échantillon</th><th>Top 20 % positif</th><th>Précision</th><th>Lift</th></tr></thead><tbody>"+
     data.metrics.map(m=>"<tr><td><strong>"+esc(m.label)+"</strong></td><td>"+m.n+"</td><td>"+m.success+" / "+m.k+"</td><td>"+m.precision.toFixed(1)+" %</td><td>"+(m.lift===null?"—":m.lift.toFixed(2)+"×")+"</td></tr>").join("")+
     "</tbody></table><div class='stats-foot'>"+esc(data.disclaimer)+"</div>";
