@@ -1,4 +1,4 @@
-# JML Prospection — V1.13.0
+# JML Prospection — V1.18.0
 
 ## V1.6.2 — serveur et sources publiques
 - Passage de Render Static Site à un service Node.
@@ -116,3 +116,21 @@ Ajout d'une couche de contrôle qualité entre les sources publiques et les mote
 - Classification des données : complètes / suffisantes / à compléter.
 - Backtest historique : rapprochement exact corrigé avec numéro + rue normalisés et contrôle commune/CP.
 - Le taux de base à 180 jours et le taux de correspondance exacte sont exposés pour distinguer une absence de ventes détectées d'un défaut de données.
+
+
+## V1.18.0 — Radar sécurisé par preuves
+Le Radar futur distingue désormais trois niveaux de preuve qui ne doivent plus être confondus :
+1. **DPE confirmé à la même adresse** : le bonus énergétique n'est appliqué que lorsque l'adresse et l'unité sont suffisamment discriminées.
+2. **Vente DVF à la même adresse** : l'historique du logement n'est confirmé que lorsqu'une mutation exacte peut être rattachée à l'unité ; une adresse exacte mais ambiguë reste non confirmée.
+3. **Comparables DVF à proximité** : les mutations de la même adresse sont exclues de ce panier. Elles servent à l'historique, pas au calcul des comparables voisins.
+
+### Nouveau score transparent /100
+- Qualité des données : **15 points**
+- Ancienneté de la dernière vente DVF confirmée : **15 points**
+- DPE confirmé : **20 points**
+- Type / surface / pièces par rapport aux comparables : **15 points**
+- Terrain documenté à la même adresse : **5 points**
+- Proximité et nombre de comparables distincts : **15 points**
+- Historique DVF confirmé à la même adresse : **15 points**
+
+Le score est un **indice de surveillance** et non une probabilité de vente. Chaque candidat affiche maintenant les preuves utilisées et les éléments qui expliquent son score.
