@@ -239,7 +239,7 @@ async function resolveCommune(query){
   return known[norm(query)]||null;
 }
 async function api(pathname,url){
-  if(pathname==="/api/health") return {ok:true,sources:{dpe:"ADEME",dvf:"DVF+ Cerema",geocoding:"API Adresse"},server:"jml-prospection",version:"1.9.4"};
+  if(pathname==="/api/health") return {ok:true,sources:{dpe:"ADEME",dvf:"DVF+ Cerema",geocoding:"API Adresse"},server:"jml-prospection",version:"1.9.5"};
   if(pathname==="/api/commune"){
     const q=url.searchParams.get("q")?.trim();
     if(!q) throw new Error("Paramètre q manquant");
@@ -283,12 +283,12 @@ async function api(pathname,url){
     const [dpeResult,dvfResult]=await Promise.allSettled([
       jsonFetch(dpeUrl),
       (async()=>{
-        const u=new URL(DVF_URL);u.searchParams.set("code_insee",codeInsee);u.searchParams.set("page_size","100");u.searchParams.set("anneemut_min",yearMin);u.searchParams.set("anneemut_max",yearMax);
+        const u=new URL(DVF_URL);u.searchParams.set("code_insee",codeInsee);u.searchParams.set("page_size","1000");u.searchParams.set("anneemut_min",yearMin);u.searchParams.set("anneemut_max",yearMax);
         try{
           const data=await jsonFetch(u);const rows=Array.isArray(data?.results)?data.results:Array.isArray(data?.data)?data.data:Array.isArray(data)?data:[];
           return {source:"DVF+ Cerema",rows:rows.map(normalizeDvf)};
         }catch(e){
-          const rows=await dvfGeoOpenData({codeInsee,yearMin,yearMax,limit:100});
+          const rows=await dvfGeoOpenData({codeInsee,yearMin,yearMax,limit:1000});
           return {source:"DVF open-data · data.gouv.fr",fallback:true,rows:rows.map(x=>({mutationId:first(x,["id_mutation"]),date:first(x,["date_mutation"]),year:(first(x,["date_mutation"])||"").slice(0,4),value:Number(first(x,["valeur_fonciere"]))||0,typeCode:first(x,["code_type_local"]),type:first(x,["type_local"]),builtArea:Number(first(x,["surface_reelle_bati"]))||0,landArea:Number(first(x,["surface_terrain"]))||0,cityCode:first(x,["code_commune"]),department:first(x,["code_departement"]),address:[first(x,["adresse_numero"]),first(x,["adresse_nom_voie"])].filter(Boolean).join(" "),postalCode:first(x,["code_postal"]),rooms:Number(first(x,["nombre_pieces_principales"]))||0,source:"DVF open-data · data.gouv.fr"}))};
         }
       })()
