@@ -310,22 +310,91 @@ async function api(pathname,url){
       const dpeAge=dpeDate&&Number.isFinite(dpeDate.getTime())?Math.max(0,(nowMs-dpeDate.getTime())/86400000/365.25):null;
       const saleDate=latest?.date?new Date(latest.date):null;
       const saleAge=saleDate&&Number.isFinite(saleDate.getTime())?Math.max(0,(nowMs-saleDate.getTime())/86400000/365.25):null;
-      const reasons=[];let energy=0,holding=0,market=0,data=0;
-      if(["F","G"].includes(p.dpe)){energy+=20;reasons.push("DPE F/G")}
-      else if(p.dpe==="E"){energy+=8;reasons.push("DPE E")}
-      if(dpeAge!==null&&dpeAge>=5){energy+=12;reasons.push("DPE ancien")}
-      if(saleAge!==null&&saleAge>=7){holding+=18;reasons.push("Dernière mutation ancienne")}
-      else if(!latest&&streetOnly){reasons.push("Transactions retrouvées sur la même rue, sans correspondance exacte")}
-      else if(!latest){reasons.push("Aucune mutation exacte retrouvée dans l'échantillon")}
-      if(txs.length>=3){market+=12;reasons.push("Adresse exacte présente dans plusieurs mutations")}
-      else if(txs.length>=1){market+=6;reasons.push("Mutation exacte retrouvée")}
-      else if(streetTxs.length>=2){market+=3;reasons.push("Activité retrouvée sur la même rue")}
-      if(p.area>=40&&p.area<=250){data+=4;reasons.push("Surface exploitable")}
-      if(p.address)data+=4;
-      if(p.cityCode===codeInsee)data+=2;
-      const score=Math.min(100,energy+holding+market+data);
-      const methodScores={energy:Math.min(100,energy*3),holding:Math.min(100,holding*4),market:Math.min(100,market*5),data:Math.min(100,data*10)};
-      const matchQuality=txs.length?"exact":streetOnly?"street":"none";
+      const reasons=[];
+      let energy=0,holding=0,market=0,similarity=0,data=0;
+
+      // V1.9.6 : score différencié sur 5 familles de signaux.
+      // L'absence de mutation exacte ne donne plus de points artificiels.
+      if(["F","G"].includes(p.dpe)){
+        energy+=18;
+        reasons.push("DPE F/G +18");
+      }else if(p.dpe==="E"){
+        energy+=8;
+        reasons.push("DPE E +8");
+      }else if(p.dpe==="D"){
+        energy+=3;
+        reasons.push("DPE D +3");
+      }
+      if(dpeAge!==null){
+        if(dpeAge>=7){energy+=7;reasons.push("DPE très ancien +7")}
+        else if(dpeAge>=5){energy+=5;reasons.push("DPE ancien +5")}
+        else if(dpeAge>=3){energy+=2;reasons.push("DPE de plus de 3 ans +2")}
+      }
+
+      if(saleAge!==null){
+        if(saleAge>=10){holding+=25;reasons.push("Mutation exacte >10 ans +25")}
+        else if(saleAge>=7){holding+=20;reasons.push("Mutation exacte 7–10 ans +20")}
+        else if(saleAge>=5){holding+=14;reasons.push("Mutation exacte 5–7 ans +14")}
+        else if(saleAge>=3){holding+=8;reasons.push("Mutation exacte 3–5 ans +8")}
+        else if(saleAge>=2){holding+=4;reasons.push("Mutation exacte 2–3 ans +4")}
+      }
+
+      if(txs.length>=3){
+        market+=20;
+        reasons.push("Adresse exacte : 3+ mutations +20");
+      }else if(txs.length===2){
+        market+=14;
+        reasons.push("Adresse exacte : 2 mutations +14");
+      }else if(txs.length===1){
+        market+=8;
+        reasons.push("Adresse exacte : 1 mutation +8");
+      }else if(streetTxs.length>=3){
+        market+=4;
+        reasons.push("Activité sur la même rue +4");
+      }else if(streetTxs.length>=1){
+        market+=2;
+        reasons.push("Mutation sur la même rue +2");
+      }
+
+      const latestArea=Number(latest?.builtArea)||0;
+      if(latestArea>0&&p.area>0){
+        const ratio=Math.abs(p.area-latestArea)/Math.max(p.area,latestArea);
+        if(ratio<=0.10){similarity+=10;reasons.push("Surface proche de la dernière mutation +10")}
+        else if(ratio<=0.20){similarity+=6;reasons.push("Surface assez proche de la dernière mutation +6")}
+        else if(ratio<=0.35){similarity+=3;reasons.push("Surface partiellement comparable +3")}
+      }
+      const bt=String(p.buildingType||"").toLowerCase();
+      const lt=String(latest?.type||"").toLowerCase();
+      const houseLike=/(maison|house)/.test(bt)&&/(maison|house)/.test(lt);
+      const aptLike=/(appartement|appart|apartment)/.test(bt)&&/(appartement|appart|apartment)/.test(lt);
+      if(latest&&((houseLike||aptLike))){
+        similarity+=6;
+        reasons.push("Type de bien cohérent avec la mutation +6");
+      }
+      if(latest?.rooms&&p.rooms&&Number(latest.rooms)===Number(p.rooms)){
+        similarity+=4;
+        reasons.push("Nombre de pièces identique +4");
+      }else if(latest?.rooms&&p.rooms&&Math.abs(Number(latest.rooms)-Number(p.rooms))===1){
+        similarity+=2;
+        reasons.push("Nombre de pièces proche +2");
+      }
+
+      if(p.address){data+=3}
+      if(p.cityCode===codeInsee){data+=2}
+      if(p.postalCode){data+=2}
+      if(p.area>0){data+=2}
+      if(p.date){data+=1}
+      if(data>=9)reasons.push("Données DPE complètes +9");
+      else reasons.push("Complétude des données +"+data);
+
+      const score=Math.min(100,energy+holding+market+similarity+data);
+      const methodScores={
+        energy:Math.min(100,Math.round(energy/25*100)),
+        holding:Math.min(100,Math.round(holding/25*100)),
+        market:Math.min(100,Math.round(market/20*100)),
+        similarity:Math.min(100,Math.round(similarity/20*100)),
+        data:Math.min(100,Math.round(data/10*100))
+      };
       return {id:"dpe-"+(p.dpeNumber||index)+"-"+codeInsee,address:p.address,postalCode:p.postalCode,city:p.city,cityCode:p.cityCode,area:p.area,dpe:p.dpe,ges:p.ges,dpeDate:p.date,dpeAgeYears:dpeAge?Math.round(dpeAge*10)/10:null,buildingType:p.buildingType||"",latestSale:latest?{date:latest.date,value:latest.value,type:latest.type,builtArea:latest.builtArea,landArea:latest.landArea,rooms:latest.rooms}:null,matchQuality,source:"ADEME DPE + DVF",score,methodScores,reasons,disclaimer:"Indice de surveillance future basé sur des signaux publics immobiliers. Ce n'est pas une probabilité de vente ni l'identification d'un propriétaire."};
     }).filter(x=>x.address).sort((a,b)=>b.score-a.score).slice(0,limit);
     return {source:"ADEME DPE + DVF",codeInsee,dpeCount:dpeRows.length,dvfCount:dvfRows.length,dvfSource:dvf.source,dvfFallback:!!dvf.fallback,results:candidates};
