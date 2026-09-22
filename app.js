@@ -1,4 +1,4 @@
-const APP_VERSION="1.6.4";
+const APP_VERSION="1.6.5";
 const KEY="jml_prospection_v1";let prospects=load(),pendingImport=[];const $=id=>document.getElementById(id);
 function load(){try{const x=JSON.parse(localStorage.getItem(KEY)||"[]");return Array.isArray(x)?x:[]}catch(e){return[]}}
 function save(){localStorage.setItem(KEY,JSON.stringify(prospects));render()}
@@ -85,12 +85,13 @@ async function searchPublicSources(){
     ]);
     const dpe=dpeResult.status==="fulfilled"?dpeResult.value:null;
     const dvf=dvfResult.status==="fulfilled"?dvfResult.value:null;
+    const dvfError=dvfResult.status==="rejected"?String(dvfResult.reason?.message||"erreur source DVF+"): "";
     renderPublicDpe(dpe?.results||[]);
     renderPublicDvf(dvf?.results||[]);
     const parts=[
       "<strong>"+apiEsc(c.city)+"</strong> · code INSEE "+apiEsc(c.cityCode),
       dpe ? dpe.rawCount+" DPE récupérés" : "ADEME indisponible",
-      dvf ? dvf.rawCount+" transactions récupérées" : "DVF+ indisponible"
+      dvf ? dvf.rawCount+" transactions récupérées" : "DVF+ indisponible ("+apiEsc(dvfError)+")"
     ];
     $("publicStatus").innerHTML=parts.join(" · ");
   }catch(e){
