@@ -1,4 +1,4 @@
-/* JML Data Agent V1.10.1
+/* JML Data Agent V1.10.2
    Contrôle qualité des données immobilières avant alimentation du radar.
    Le module ne profile pas de particuliers : il travaille sur des biens/données publiques.
 */
@@ -46,8 +46,27 @@ function analyze({dpeRows=[],dvfRows=[]}={}){
     for(const item of items){const kind=item.areaKind||"unknown";if(!comparableGroups.has(kind))comparableGroups.set(kind,[]);comparableGroups.get(kind).push(item)}
     for(const [kind,comparableItems] of comparableGroups){
       if(kind==="unknown")continue;
-      const areas=comparableItems.map(x=>Number(x.area)||0).filter(Boolean);
-      if(areas.length>=2){const min=Math.min(...areas),max=Math.max(...areas);if(min>0&&(max-min)/Math.max(min,max)>0.25)conflicts.push({key,reason:"Surfaces divergentes de plus de 25 % entre données de même nature",surfaceKind:kind,values:comparableItems});}
+      // Une même source peut contenir plusieurs versions/historiques du même bien.
+      // On ne considère donc pas deux lignes de la même source comme une preuve de conflit.
+      const bySource=new Map();
+      for(const item of comparableItems){
+        if(!bySource.has(item.source))bySource.set(item.source,[]);
+        bySource.get(item.source).push(item);
+      }
+      if(bySource.size<2)continue;
+      const representatives=[...bySource.values()].map(items=>items[items.length-1]).filter(x=>Number(x.area)>0);
+      const areas=representatives.map(x=>Number(x.area));
+      if(areas.length>=2){
+        const min=Math.min(...areas),max=Math.max(...areas);
+        if(min>0&&(max-min)/Math.max(min,max)>0.25){
+          conflicts.push({
+            key,
+            reason:"Surfaces divergentes de plus de 25 % entre sources et de même nature",
+            surfaceKind:kind,
+            values:representatives
+          });
+        }
+      }
     }}
   const sourceStats={dpe:{received:dpeRows.length,accepted:acceptedDpe.length,rejected:dpeRows.length-acceptedDpe.length},dvf:{received:dvfRows.length,accepted:acceptedDvf.length,rejected:dvfRows.length-acceptedDvf.length}};
   const rejected=[...dpeChecks.map((c,i)=>({...c,index:i,source:"DPE ADEME"})).filter(x=>!x.accepted),...dvfChecks.map((c,i)=>({...c,index:i,source:"DVF"})).filter(x=>!x.accepted)];
