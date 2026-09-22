@@ -249,7 +249,13 @@ function addressParts(item){
   const rawNumber=item?.addressNumber||((address.match(/^\s*(\d+[A-Za-z]?(?:[-/]\d+[A-Za-z]?)?)/)||[])[1]||"");
   const number=canonicalNumber(rawNumber);
   let street=String(item?.street||"");
+  if(!street){
+    street=address.replace(/^\s*\d+[A-Za-z]?(?:[-/]\d+[A-Za-z]?)?\s*/,"");
+    if(postal)street=street.replace(new RegExp("\\b"+postal+"\\b.*$","i"),"");
+    if(city)street=street.replace(new RegExp("\\b"+city.replace(/[.*+?^{}()|[\\]\\\\]/g,"\\\\  let street=String(item?.street||"");
   if(!street)street=address.replace(/^\s*\d+[A-Za-z]?(?:[-/]\d+[A-Za-z]?)?\s*/,"");
+  street=canonicalStreet(street);")+"\\s*$","i"),"");
+  }
   street=canonicalStreet(street);
   const postal=norm(item?.postalCode||"");
   const cityCode=norm(item?.cityCode||"");
@@ -335,7 +341,7 @@ async function resolveCommune(query){
   return known[norm(query)]||null;
 }
 async function api(pathname,url){
-  if(pathname==="/api/health") return {ok:true,sources:{dpe:"ADEME",dvf:"DVF+ Cerema",geocoding:"API Adresse"},server:"jml-prospection",version:"1.10.5"};
+  if(pathname==="/api/health") return {ok:true,sources:{dpe:"ADEME",dvf:"DVF+ Cerema",geocoding:"API Adresse"},server:"jml-prospection",version:"1.10.6"};
   if(pathname==="/api/data-agent"){
     let codeInsee=url.searchParams.get("codeInsee")?.trim();
     const q=url.searchParams.get("q")?.trim();
