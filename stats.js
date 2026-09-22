@@ -88,10 +88,14 @@ function statsSync(){
   let changed=false;
   for(const p of prospects){
     if(!p.id)continue;
-    if(!db[p.id]){
-      db[p.id]=statsSnapshotFor(p);
-      changed=true;
+    const previous=db[p.id];
+    const next=statsSnapshotFor(p);
+    if(previous){
+      next.createdAt=previous.createdAt||next.createdAt;
+      next.detectionDate=previous.detectionDate||next.detectionDate;
     }
+    db[p.id]=next;
+    changed=true;
   }
   const ids=new Set(prospects.map(p=>p.id));
   for(const id of Object.keys(db))if(!ids.has(id)){delete db[id];changed=true}
@@ -142,8 +146,10 @@ function statsRender(){
     return "<tr><td><strong>"+esc(label)+"</strong></td><td>"+m.n+"</td><td>"+(m.n?m.precision.toFixed(1)+" %":"—")+"</td><td>"+lift+"</td><td>"+(m.n?m.low.toFixed(1)+"–"+m.high.toFixed(1)+" %":"—")+"</td></tr>";
   }).join("");
   const best=by.filter(x=>x[2].n).sort((a,b)=>(b[2].precision||0)-(a[2].precision||0))[0];
-  panel.querySelector("#statsMessage").textContent=!rows.length
-    ?"Le laboratoire est prêt. Il doit maintenant observer de vrais résultats commerciaux avant de conclure."
+  panel.querySelector("#statsMessage").textContent=!total
+    ?"Aucun prospect n'est encore enregistré. Ajoute les candidats du Radar futur pour alimenter le laboratoire."
+    :!rows.length
+      ?"Le laboratoire est prêt. Les biens récents sont en apprentissage et seront évalués après 180 jours."
     :!enough
       ?"Pas assez de résultats pour tirer une conclusion robuste : on conserve toutes les méthodes en parallèle."
       :best
