@@ -393,18 +393,19 @@ function percentile(values,p){
 function localComparables(property,rows){
   const targetPoint=pointOf(property),targetArea=Number(property?.area)||0,targetRooms=Number(property?.rooms)||0;
   const now=Date.now(),seen=new Set(),pool=[];
+  const propertyType=String(property?.buildingType||"").toLowerCase();
+  const isApartment=/appartement|appart|apartment/.test(propertyType);
   for(const tx of rows||[]){
     const id=tx.mutationId||[tx.date,tx.value,tx.address,tx.builtArea].join("|");
     if(seen.has(id))continue;
     seen.add(id);
     if(!tx?.value||tx.value<10000)continue;
-    const typeOk=comparableType(property,tx);
-    if(typeOk!==true)continue;
+    if(comparableType(property,tx)!==true)continue;
     const area=comparableArea(tx,property);
     if(targetArea<=0||area<=0)continue;
     const surfaceRatio=Math.abs(targetArea-area)/Math.max(targetArea,area);
-    if(surfaceRatio>0.25)continue;
-    if(/appartement|appart|apartment/i.test(String(property?.buildingType||""))&&Number(tx?.lotCount)>1)continue;
+    if(surfaceRatio>0.20)continue;
+    if(isApartment&&Number(tx?.lotCount)>1)continue;
     const rooms=Number(tx?.rooms)||0;
     const roomDiff=targetRooms&&rooms?Math.abs(targetRooms-rooms):null;
     if(roomDiff!==null&&roomDiff>1)continue;
@@ -416,26 +417,28 @@ function localComparables(property,rows){
     if(ageYears!==null&&ageYears>5.5)continue;
     const priceM2=tx.value/area;
     if(!Number.isFinite(priceM2)||priceM2<100||priceM2>15000)continue;
-    const distanceScore=distance===null?4:Math.max(0,20*(1-distance/500));
-    const surfaceScore=Math.max(0,35*(1-surfaceRatio/0.25));
-    const roomScore=roomDiff===null?8:(roomDiff===0?15:7);
-    const recencyScore=ageYears===null?3:Math.max(0,10*(1-ageYears/5.5));
+    const distanceScore=distance===null?3:Math.max(0,30*(1-distance/500));
+    const surfaceScore=Math.max(0,35*(1-surfaceRatio/0.20));
+    const roomScore=roomDiff===null?5:(roomDiff===0?15:7);
+    const recencyScore=ageYears===null?2:Math.max(0,7*(1-ageYears/5.5));
     pool.push({tx,distance,area,rooms,priceM2,ageYears,surfaceRatio,qualityScore:distanceScore+surfaceScore+roomScore+recencyScore});
   }
-  let selected=pool.filter(x=>x.distance===null||x.distance<=100),radius=100;
-  if(selected.length<5){selected=pool.filter(x=>x.distance===null||x.distance<=250);radius=250}
-  if(selected.length<5){selected=pool.filter(x=>x.distance===null||x.distance<=500);radius=500}
+  let radius=100;
+  let selected=pool.filter(x=>x.distance===null||x.distance<=100);
+  if(selected.length<5){radius=250;selected=pool.filter(x=>x.distance===null||x.distance<=250)}
+  if(selected.length<5){radius=500;selected=pool.filter(x=>x.distance===null||x.distance<=500)}
   selected.sort((a,b)=>b.qualityScore-a.qualityScore);
-  selected=selected.slice(0,20);
+  selected=selected.slice(0,10);
   const prices=selected.map(x=>x.priceM2);
   const med=median(prices),q1=percentile(prices,.25),q3=percentile(prices,.75);
   const recent=selected.filter(x=>x.ageYears!==null&&x.ageYears<=2).length;
   const medianDistance=median(selected.map(x=>x.distance).filter(Number.isFinite));
   const dispersion=med&&q1!==null&&q3!==null?(q3-q1)/med:null;
   let marketScore=0;
-  if(selected.length>=8)marketScore+=10;else if(selected.length>=5)marketScore+=8;else if(selected.length>=3)marketScore+=6;else if(selected.length>=2)marketScore+=4;else if(selected.length===1)marketScore+=2;
-  if(recent>=5)marketScore+=5;else if(recent>=3)marketScore+=4;else if(recent>=1)marketScore+=2;
-  if(dispersion!==null){if(dispersion<=0.15)marketScore+=5;else if(dispersion<=0.25)marketScore+=3;else if(dispersion<=0.4)marketScore+=1}
+  if(selected.length>=8)marketScore+=5;else if(selected.length>=5)marketScore+=4;else if(selected.length>=3)marketScore+=3;else if(selected.length>=2)marketScore+=2;else if(selected.length===1)marketScore+=1;
+  if(recent>=4)marketScore+=2;else if(recent>=2)marketScore+=1;
+  if(dispersion!==null){if(dispersion<=0.15)marketScore+=3;else if(dispersion<=0.25)marketScore+=2;else if(dispersion<=0.40)marketScore+=1}
+  marketScore=Math.min(10,marketScore);
   const best=selected[0]||null;
   return {
     count:selected.length,radius,medianPriceM2:med,q1,q3,dispersion,medianDistance,recentCount:recent,marketScore,
