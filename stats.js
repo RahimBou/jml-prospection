@@ -113,7 +113,7 @@ function statsWilson(success,n){
 }
 function statsMethodMetrics(rows,key){
   if(!rows.length)return {n:0,success:0,rate:0,precision:0,lift:null};
-  const eligible=rows.map(s=>({...s,outcome:statsCurrentOutcome(s)}));
+  const eligible=rows.filter(s=>Number.isFinite(s.features?.[key])).map(s=>({...s,outcome:statsCurrentOutcome(s)}));
   const maturedSuccess=eligible.filter(s=>s.outcome==="success").length;
   const base=statsWilson(maturedSuccess,eligible.length);
   const sorted=eligible.slice().sort((a,b)=>statsNum(b.features?.[key])-statsNum(a.features?.[key]));
