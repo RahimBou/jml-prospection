@@ -2,32 +2,38 @@
 
 Application indépendante de prospection immobilière pour JML Immobilier.
 
-## V1.3 — recherche avancée
+## V1.4 — radar de signaux
 - Tableau de bord
-- Base de biens/prospects dans le navigateur
-- Recherche générale, commune et quartier/rue
-- Filtres par type, statut et DPE
-- Filtres avec/sans signal
-- Prix min/max
-- Surface min/max
-- Terrain min/max
-- Pièces min/max
-- Date de détection min/max
-- Tri par récence, détection, relance, commune, prix, prix/m² et surface
-- Calcul indicatif du prix/m² affiché lorsque prix et surface sont connus
-- Fiche bien complète
-- Code postal, source et identifiant source
-- Historique commercial
-- Anti-doublons par adresse + code postal + commune + type
-- Fusion des mises à jour
+- Recherche avancée
+- Anti-doublons et fusion des sources
 - Import/export CSV
+- Calcul indicatif du prix/m²
+- Date de détection
+- Radar automatique de signaux
+- Score de signal par bien
+- Filtres : nouveau détecté, fiche ancienne, relance en retard, DPE F/G, terrain important, sources multiples, données incomplètes
+- Boutons rapides pour filtrer les signaux détectés
+- Tri par priorité de signal
+
+### Règles actuelles du radar
+Le score est volontairement transparent et basé uniquement sur les données déjà présentes :
+- nouveau détecté ≤ 7 jours : +3
+- fiche ancienne ≥ 60 jours : +2
+- relance dépassée : +3
+- DPE F ou G : +2
+- terrain ≥ 1 000 m² : +2
+- plusieurs mises à jour/sources : +3
+- données essentielles manquantes : +1
+
+Ce score n'est pas une probabilité de vente. Il sert uniquement à prioriser la revue des biens.
 
 ## Feuille de route
 1. Carte Ardennes
-2. Moteur de signaux immobiliers
-3. Connexion progressive aux sources publiques et données DPE
-4. Pige et mises à jour automatiques, dans le respect du cadre légal et de la vie privée
-5. Base distante / synchronisation multi-appareils
+2. Historique structuré des changements de prix et caractéristiques
+3. Moteur de signaux enrichi
+4. Connexion progressive aux sources publiques et données DPE
+5. Pige et mises à jour automatiques, dans le respect du cadre légal et de la vie privée
+6. Base distante / synchronisation multi-appareils
 
 ## Principe
 Le projet travaille au niveau des biens et des informations publiquement accessibles. Il ne doit pas servir à réidentifier des particuliers à partir de données privées, de compteurs, de consommations ou de comptes personnels.
