@@ -188,6 +188,8 @@ function normalizeDvf(x){
     builtAreaKind:"built",
     landArea:Number(first(x,["sterr","surface_terrain"]))||0,
     landAreaKind:"land",
+    carrezArea:Number(first(x,["lot_1_surface_carrez","lot_1_surface_carrez_m2","surface_carrez"]))||0,
+    lotCount:Number(first(x,["nombre_lots","nblot"]))||0,
     cityCode:first(x,["codcomm","code_commune","l_codinsee"]),
     department:first(x,["coddep","code_departement"]),
     address:first(x,["adresse","l_adresse"]) || [first(x,["adresse_numero","numero_voie"]),first(x,["adresse_nom_voie","nom_voie"])]
@@ -287,42 +289,72 @@ function unitTypeCompatible(property,tx){
 }
 function unitMatchScore(property,tx){
   let score=0,evidence=0;
-  const pa=Number(property?.area)||0,ta=Number(tx?.builtArea)||0;
-  if(pa>0&&ta>0){
-    const ratio=Math.abs(pa-ta)/Math.max(pa,ta);
+  const pa=Number(property?.area)||0;
+  const ta=Number(tx?.builtArea)||0;
+  const ca=Number(tx?.carrezArea)||0;
+  const referenceArea=ca>0?ca:ta;
+  let surfaceRatio=null;
+  if(pa>0&&referenceArea>0){
+    surfaceRatio=Math.abs(pa-referenceArea)/Math.max(pa,referenceArea);
     evidence++;
-    if(ratio<=0.10)score+=4;
-    else if(ratio<=0.20)score+=3;
-    else if(ratio<=0.35)score+=2;
-    else score-=3;
+    if(surfaceRatio<=0.08)score+=7;
+    else if(surfaceRatio<=0.15)score+=5;
+    else if(surfaceRatio<=0.25)score+=2;
+    else score-=5;
   }
   const type=unitTypeCompatible(property,tx);
-  if(type!==null){evidence++;score+=type?2:-1}
-  const pr=Number(property?.rooms)||0,tr=Number(tx?.rooms)||0;
+  if(type!==null){evidence++;score+=type?3:-2}
+  const pr=Number(property?.rooms)||0;
+  const tr=Number(tx?.rooms)||0;
   if(pr>0&&tr>0){
     evidence++;
-    if(pr===tr)score+=2;
+    if(pr===tr)score+=3;
     else if(Math.abs(pr-tr)===1)score+=1;
-    else score-=1;
+    else score-=2;
   }
   const distance=distanceMeters(pointOf(property),pointOf(tx));
-  if(distance!==null&&distance<=30){evidence++;score+=1}
-  return {score,evidence,distance};
+  if(distance!==null&&distance<=30){evidence++;score+=2}
+  return {score,evidence,distance,surfaceRatio};
 }
 function selectUnitTransactions(property,txs){
   const list=Array.from(txs||[]);
-  if(!list.length)return {txs:[],unitConfidence:"none",unitReason:"Aucune mutation à l'adresse"};
+  if(!list.length)return {txs:[],unitConfidence:"none",unitReason:"Aucune mutation à l'adresse",matchedCount:0,selectedCount:0};
   const scored=list.map(tx=>({tx,...unitMatchScore(property,tx)}));
   const informative=scored.filter(x=>x.evidence>0);
-  if(!informative.length)return {txs:list,unitConfidence:"unknown",unitReason:"Adresse exacte mais aucune caractéristique d'unité exploitable"};
+  if(!informative.length){
+    return {txs:list,unitConfidence:"unknown",unitReason:"Adresse exacte mais aucune caractéristique d'unité exploitable",matchedCount:list.length,selectedCount:list.length};
+  }
   const best=Math.max(...informative.map(x=>x.score));
   const top=informative.filter(x=>x.score===best);
-  if(best<2)return {txs:[],unitConfidence:"ambiguous",unitReason:"Adresse commune mais caractéristiques trop différentes"};
-  if(top.length===1){
-    const selected=informative.filter(x=>x.score>=best-1).map(x=>x.tx);
-    return {txs:selected,unitConfidence:"probable",unitReason:"Unité rapprochée par surface/type/pièces"};
+  if(best<3){
+    return {txs:[],unitConfidence:"ambiguous",unitReason:"Adresse commune mais caractéristiques insuffisantes pour isoler le logement",matchedCount:list.length,selectedCount:0};
   }
-  return {txs:top.map(x=>x.tx),unitConfidence:"ambiguous",unitReason:"Plusieurs logements compatibles à la même adresse"};
+
+  // Regroupe l'historique autour du meilleur logement : même type/pièces
+  // et surface suffisamment proche. Une autre surface dans le même immeuble
+  // ne doit pas hériter automatiquement de toutes les mutations.
+  const bestRef=top[0];
+  const selected=informative.filter(x=>{
+    if(x.score<best-1)return false;
+    const typeOk=unitTypeCompatible(property,x.tx)!==false;
+    const roomsOk=(!Number(property?.rooms)||!Number(x.tx?.rooms))||Math.abs(Number(property.rooms)-Number(x.tx.rooms))<=1;
+    const ratio=x.surfaceRatio;
+    const bestRatio=bestRef.surfaceRatio;
+    const surfaceOk=ratio===null||bestRatio===null||Math.abs(ratio-bestRatio)<=0.04;
+    return typeOk&&roomsOk&&surfaceOk;
+  }).map(x=>x.tx);
+
+  if(selected.length===0){
+    return {txs:[],unitConfidence:"ambiguous",unitReason:"Plusieurs logements à la même adresse, aucun rapprochement assez discriminant",matchedCount:list.length,selectedCount:0};
+  }
+  const ambiguousTop=top.length>1;
+  return {
+    txs:selected,
+    unitConfidence:ambiguousTop?"probable":"probable",
+    unitReason:selected.length===1?"Logement rapproché par surface/type/pièces":"Logement rapproché · historique de mutations conservé",
+    matchedCount:list.length,
+    selectedCount:selected.length
+  };
 }
 function buildDvfIndexes(rows){
   const numberStreet=new Map(),streetCity=new Map(),streetPostal=new Map(),postal=new Map(),fullAddress=new Map(),streetOnly=new Map(),geo=[];
@@ -405,7 +437,7 @@ async function resolveCommune(query){
   return known[norm(query)]||null;
 }
 async function api(pathname,url){
-  if(pathname==="/api/health") return {ok:true,sources:{dpe:"ADEME",dvf:"DVF+ Cerema",geocoding:"API Adresse"},server:"jml-prospection",version:"1.10.8"};
+  if(pathname==="/api/health") return {ok:true,sources:{dpe:"ADEME",dvf:"DVF+ Cerema",geocoding:"API Adresse"},server:"jml-prospection",version:"1.10.9"};
   if(pathname==="/api/data-agent"){
     let codeInsee=url.searchParams.get("codeInsee")?.trim();
     const q=url.searchParams.get("q")?.trim();
@@ -486,7 +518,7 @@ async function api(pathname,url){
           const rows=await dvfGeoOpenData({codeInsee,yearMin,yearMax,limit:1000});
           return {source:"DVF open-data · data.gouv.fr",fallback:true,rows:rows.map(x=>({mutationId:first(x,["id_mutation"]),date:first(x,["date_mutation"]),year:(first(x,["date_mutation"])||"").slice(0,4),value:Number(first(x,["valeur_fonciere"]))||0,typeCode:first(x,["code_type_local"]),type:first(x,["type_local"]),builtArea:Number(first(x,["surface_reelle_bati"]))||0,landArea:Number(first(x,["surface_terrain"]))||0,cityCode:first(x,["code_commune"]),department:first(x,["code_departement"]),address:[first(x,["adresse_numero"]),first(x,["adresse_nom_voie"])].filter(Boolean).join(" "),postalCode:first(x,["code_postal"]),
             longitude:Number(first(x,["longitude","lon"]))||0,
-            latitude:Number(first(x,["latitude","lat"]))||0,rooms:Number(first(x,["nombre_pieces_principales"]))||0,source:"DVF open-data · data.gouv.fr"}))};
+            latitude:Number(first(x,["latitude","lat"]))||0,rooms:Number(first(x,["nombre_pieces_principales"]))||0,carrezArea:Number(first(x,["lot_1_surface_carrez"]))||0,lotCount:Number(first(x,["nombre_lots"]))||0,source:"DVF open-data · data.gouv.fr"}))};
         }
       })()
     ]);
@@ -543,7 +575,7 @@ async function api(pathname,url){
       if(btNorm.includes("maison")){building+=2;reasons.push("Type maison +2")}
       else if(btNorm.includes("appartement")){building+=1;reasons.push("Type appartement +1")}
 
-      if(match.matchQuality==="exact"&&saleAge!==null){
+      if(match.matchQuality==="exact"&&unitConfidence==="probable"&&saleAge!==null){
         if(saleAge>=10){holding+=25;reasons.push("Mutation exacte >10 ans +25")}
         else if(saleAge>=7){holding+=20;reasons.push("Mutation exacte 7–10 ans +20")}
         else if(saleAge>=5){holding+=14;reasons.push("Mutation exacte 5–7 ans +14")}
@@ -605,7 +637,7 @@ async function api(pathname,url){
         building:Math.min(100,Math.round(building/7*100))
       };
       const matchQuality=match.matchQuality;
-      return {id:"dpe-"+(p.dpeNumber||index)+"-"+codeInsee,address:p.address,postalCode:p.postalCode,city:p.city,cityCode:p.cityCode,area:p.area,dpe:p.dpe,ges:p.ges,dpeDate:p.date,buildingRef:p.buildingRef||"",apartmentRef:p.apartmentRef||"",floor:p.floor||"",residenceName:p.residenceName||"",banId:p.banId||"",unitConfidence,unitReason:match.unitReason||"",dpeAgeYears:dpeAge?Math.round(dpeAge*10)/10:null,buildingType:p.buildingType||"",energyConsumption:p.energyConsumption||0,gesValue:p.gesValue||0,constructionYear:p.constructionYear||0,latestSale:latest?{date:latest.date,value:latest.value,type:latest.type,builtArea:latest.builtArea,landArea:latest.landArea,rooms:latest.rooms}:null,matchQuality:match.matchQuality,matchReason:match.matchReason,distanceMeters:match.distanceMeters,postalCandidateCount:match.postalCount,source:"ADEME DPE + DVF",score,methodScores,reasons,disclaimer:"Indice de surveillance future basé sur des signaux publics immobiliers. Ce n'est pas une probabilité de vente ni l'identification d'un propriétaire."};
+      return {id:"dpe-"+(p.dpeNumber||index)+"-"+codeInsee,address:p.address,postalCode:p.postalCode,city:p.city,cityCode:p.cityCode,area:p.area,dpe:p.dpe,ges:p.ges,dpeDate:p.date,buildingRef:p.buildingRef||"",apartmentRef:p.apartmentRef||"",floor:p.floor||"",residenceName:p.residenceName||"",banId:p.banId||"",unitConfidence,unitReason:match.unitReason||"",dpeAgeYears:dpeAge?Math.round(dpeAge*10)/10:null,buildingType:p.buildingType||"",energyConsumption:p.energyConsumption||0,gesValue:p.gesValue||0,constructionYear:p.constructionYear||0,latestSale:latest?{date:latest.date,value:latest.value,type:latest.type,builtArea:latest.builtArea,landArea:latest.landArea,rooms:latest.rooms}:null,matchQuality:match.matchQuality,matchReason:match.matchReason,distanceMeters:match.distanceMeters,postalCandidateCount:match.postalCount,unitConfidence,unitReason:match.unitReason||"",matchedMutationCount:match.matchedCount||0,selectedMutationCount:match.selectedCount||txs.length,source:"ADEME DPE + DVF",score,methodScores,reasons,disclaimer:"Indice de surveillance future basé sur des signaux publics immobiliers. Ce n'est pas une probabilité de vente ni l'identification d'un propriétaire."};
     }).filter(x=>x.address).sort((a,b)=>b.score-a.score).slice(0,limit);
     return {source:"ADEME DPE + DVF",codeInsee,dpeCount:dpeRows.length,dvfCount:dvfRows.length,dvfSource:dvf.source,dvfFallback:!!dvf.fallback,results:candidates};
   }
