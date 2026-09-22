@@ -2,7 +2,7 @@
 
 Application indépendante de prospection immobilière pour JML Immobilier.
 
-## V1.4 — radar de signaux
+## V1.5 — historique des prix et signaux enrichis
 - Tableau de bord
 - Recherche avancée
 - Anti-doublons et fusion des sources
@@ -14,6 +14,10 @@ Application indépendante de prospection immobilière pour JML Immobilier.
 - Filtres : nouveau détecté, fiche ancienne, relance en retard, DPE F/G, terrain important, sources multiples, données incomplètes
 - Boutons rapides pour filtrer les signaux détectés
 - Tri par priorité de signal
+- Historique structuré des prix
+- Détection des baisses de prix
+- Historique des apparitions par source
+- Affichage de l'évolution du prix sur chaque fiche
 
 ### Règles actuelles du radar
 Le score est volontairement transparent et basé uniquement sur les données déjà présentes :
@@ -22,7 +26,8 @@ Le score est volontairement transparent et basé uniquement sur les données dé
 - relance dépassée : +3
 - DPE F ou G : +2
 - terrain ≥ 1 000 m² : +2
-- plusieurs mises à jour/sources : +3
+- plusieurs sources réellement distinctes : +3
+- baisse de prix détectée : +4
 - données essentielles manquantes : +1
 
 Ce score n'est pas une probabilité de vente. Il sert uniquement à prioriser la revue des biens.
