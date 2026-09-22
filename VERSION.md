@@ -1,4 +1,4 @@
-# JML Prospection — V1.10.1
+# JML Prospection — V1.10.2
 
 ## Version de référence
 - Version : **1.6.2**
@@ -31,3 +31,9 @@ Toute modification fonctionnelle doit :
 - Le Data Agent ne compare plus une surface habitable DPE avec une surface bâtie DVF.
 - Les conflits de surface ne sont signalés que lorsque les surfaces comparées sont de même nature.
 - Une divergence entre surface habitable, surface bâtie et terrain reste une différence de définition, pas une anomalie.
+
+
+## V1.10.2 — Faux conflits de même source
+- Une même source peut contenir plusieurs historiques d'un même bien.
+- Le Data Agent ne traite plus ces historiques comme plusieurs sources indépendantes.
+- Un conflit de surface n'est signalé que si plusieurs sources fournissent la même nature de surface et divergent de plus de 25 %.
