@@ -77,6 +77,8 @@ function normalizeDpe(x){
     city:first(x,["nom_commune_ban","Nom_commune_(BAN)","Nom_commune"]),
     cityCode:first(x,["code_insee_ban","Code_INSEE_(BAN)","Code_INSEE"]),
     area:Number(first(x,["Surface_habitable_logement","surface_habitable_logement","surface_habitable_immeuble","Surface_habitable_immeuble","Surface_habitable"]))||0,
+    areaKind:"habitable",
+    surfaceHabitable:Number(first(x,["Surface_habitable_logement","surface_habitable_logement","surface_habitable_immeuble","Surface_habitable_immeuble","Surface_habitable"]))||0,
     dpe:first(x,["etiquette_dpe","Etiquette_DPE","Etiquette_DPE_(à_date)","Etiquette_DPE_logement"]),
     buildingType:first(x,["type_batiment","Type_bâtiment","Type_bâtiment_(DPE)","type_batiment_dpe"]),
     energyConsumption:Number(first(x,["consommation_energie","Consommation_energie","Consommation_énergie"]))||0,
@@ -174,7 +176,9 @@ function normalizeDvf(x){
     typeCode:first(x,["codtypbien","code_type_bien"]),
     type:first(x,["libtypbien","lib_type_bien"]),
     builtArea:Number(first(x,["sbati","surface_batie"]))||0,
+    builtAreaKind:"built",
     landArea:Number(first(x,["sterr","surface_terrain"]))||0,
+    landAreaKind:"land",
     cityCode:first(x,["codcomm","code_commune","l_codinsee"]),
     department:first(x,["coddep","code_departement"]),
     address:first(x,["adresse","l_adresse"]) || [first(x,["adresse_numero","numero_voie"]),first(x,["adresse_nom_voie","nom_voie"])]
@@ -244,7 +248,7 @@ async function resolveCommune(query){
   return known[norm(query)]||null;
 }
 async function api(pathname,url){
-  if(pathname==="/api/health") return {ok:true,sources:{dpe:"ADEME",dvf:"DVF+ Cerema",geocoding:"API Adresse"},server:"jml-prospection",version:"1.10.0"};
+  if(pathname==="/api/health") return {ok:true,sources:{dpe:"ADEME",dvf:"DVF+ Cerema",geocoding:"API Adresse"},server:"jml-prospection",version:"1.10.1"};
   if(pathname==="/api/data-agent"){
     let codeInsee=url.searchParams.get("codeInsee")?.trim();
     const q=url.searchParams.get("q")?.trim();
