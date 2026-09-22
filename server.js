@@ -49,6 +49,30 @@ async function jsonFetch(url){
   }
   throw new Error("Source inaccessible après 3 tentatives : "+(lastError?.message||"connexion impossible"));
 }
+async function fetchDvfPaginated(baseUrl,{codeInsee,yearMin,yearMax,maxRows=10000}){
+  const rows=[];
+  const seenPages=new Set();
+  let page=1;
+  while(rows.length<maxRows){
+    const u=new URL(baseUrl);
+    u.searchParams.set("code_insee",codeInsee);
+    u.searchParams.set("anneemut_min",String(yearMin));
+    u.searchParams.set("anneemut_max",String(yearMax));
+    u.searchParams.set("page_size","500");
+    u.searchParams.set("page",String(page));
+    const data=await jsonFetch(u);
+    const batch=Array.isArray(data?.results)?data.results:Array.isArray(data?.data)?data.data:Array.isArray(data)?data:[];
+    if(!batch.length)break;
+    rows.push(...batch);
+    const next=String(data?.next||"");
+    if(!next)break;
+    if(seenPages.has(next))break;
+    seenPages.add(next);
+    page++;
+    if(page>100)break;
+  }
+  return rows.slice(0,maxRows);
+}
 async function binaryFetch(url){
   let lastError;
   for(let attempt=1;attempt<=2;attempt++){
@@ -527,7 +551,7 @@ async function resolveCommune(query){
   return known[norm(query)]||null;
 }
 async function api(pathname,url){
-  if(pathname==="/api/health") return {ok:true,sources:{dpe:"ADEME",dvf:"DVF+ Cerema",geocoding:"API Adresse"},server:"jml-prospection",version:"1.11.2"};
+  if(pathname==="/api/health") return {ok:true,sources:{dpe:"ADEME",dvf:"DVF+ Cerema",geocoding:"API Adresse"},server:"jml-prospection",version:"1.12.0"};
   if(pathname==="/api/data-agent"){
     let codeInsee=url.searchParams.get("codeInsee")?.trim();
     const q=url.searchParams.get("q")?.trim();
@@ -600,12 +624,11 @@ async function api(pathname,url){
     const [dpeResult,dvfResult]=await Promise.allSettled([
       jsonFetch(dpeUrl),
       (async()=>{
-        const u=new URL(DVF_URL);u.searchParams.set("code_insee",codeInsee);u.searchParams.set("page_size","1000");u.searchParams.set("anneemut_min",yearMin);u.searchParams.set("anneemut_max",yearMax);
         try{
-          const data=await jsonFetch(u);const rows=Array.isArray(data?.results)?data.results:Array.isArray(data?.data)?data.data:Array.isArray(data)?data:[];
-          return {source:"DVF+ Cerema",rows:rows.map(normalizeDvf)};
+          const rows=await fetchDvfPaginated(DVF_URL,{codeInsee,yearMin,yearMax,maxRows:10000});
+          return {source:"DVF+ Cerema · pagination jusqu'à 10 000",rows:rows.map(normalizeDvf)};
         }catch(e){
-          const rows=await dvfGeoOpenData({codeInsee,yearMin,yearMax,limit:1000});
+          const rows=await dvfGeoOpenData({codeInsee,yearMin,yearMax,limit:10000});
           return {source:"DVF open-data · data.gouv.fr",fallback:true,rows:rows.map(x=>({mutationId:first(x,["id_mutation"]),date:first(x,["date_mutation"]),year:(first(x,["date_mutation"])||"").slice(0,4),natureMutation:first(x,["nature_mutation","libnatmut"]),value:Number(first(x,["valeur_fonciere"]))||0,typeCode:first(x,["code_type_local"]),type:first(x,["type_local"]),builtArea:Number(first(x,["surface_reelle_bati"]))||0,landArea:Number(first(x,["surface_terrain"]))||0,cityCode:first(x,["code_commune"]),department:first(x,["code_departement"]),address:[first(x,["adresse_numero"]),first(x,["adresse_nom_voie"])].filter(Boolean).join(" "),
             addressNumber:first(x,["adresse_numero"]),
             street:first(x,["adresse_nom_voie"]),
