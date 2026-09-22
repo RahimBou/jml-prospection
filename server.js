@@ -100,25 +100,41 @@ function parseDvfGeoCsv(text){
   }
   return rows;
 }
+async function getDvfGeoCommune(codeInsee,year){
+  const department=String(codeInsee).slice(0,2);
+  const key="commune-"+codeInsee+"-"+year;
+  if(dvfGeoCache.has(key))return dvfGeoCache.get(key);
+  const url=DVF_GEO_BASE+"/"+year+"/communes/"+department+"/"+codeInsee+".csv";
+  const text=await binaryFetch(url).then(b=>b.toString("utf8"));
+  const rows=parseDvfGeoCsv(text);
+  dvfGeoCache.set(key,rows);
+  if(dvfGeoCache.size>24)dvfGeoCache.delete(dvfGeoCache.keys().next().value);
+  return rows;
+}
 async function getDvfGeoDepartment(department,year){
-  const key=department+"-"+year;
+  const key="department-"+department+"-"+year;
   if(dvfGeoCache.has(key))return dvfGeoCache.get(key);
   const url=DVF_GEO_BASE+"/"+year+"/departements/"+department+".csv.gz";
   const gz=await binaryFetch(url);
   const text=require("node:zlib").gunzipSync(gz).toString("utf8");
   const rows=parseDvfGeoCsv(text);
   dvfGeoCache.set(key,rows);
-  if(dvfGeoCache.size>12)dvfGeoCache.delete(dvfGeoCache.keys().next().value);
+  if(dvfGeoCache.size>24)dvfGeoCache.delete(dvfGeoCache.keys().next().value);
   return rows;
 }
 async function dvfGeoOpenData({codeInsee,yearMin,yearMax,limit}){
   const department=String(codeInsee).slice(0,2);
-  const min=Math.max(2019,Number(yearMin)||DVF_GEO_LATEST_YEAR-4);
+  const min=Math.max(2021,Number(yearMin)||DVF_GEO_LATEST_YEAR-4);
   const max=Math.min(DVF_GEO_LATEST_YEAR,Number(yearMax)||DVF_GEO_LATEST_YEAR);
   const all=[];
   for(let year=min;year<=max;year++){
-    const rows=await getDvfGeoDepartment(department,year);
-    for(const x of rows)if(String(x.code_commune||"")===String(codeInsee))all.push(x);
+    try{
+      const rows=await getDvfGeoCommune(codeInsee,year);
+      all.push(...rows);
+    }catch(communeError){
+      const rows=await getDvfGeoDepartment(department,year);
+      for(const x of rows)if(String(x.code_commune||"")===String(codeInsee))all.push(x);
+    }
   }
   all.sort((a,b)=>String(b.date_mutation||"").localeCompare(String(a.date_mutation||"")));
   return all.slice(0,limit);
@@ -170,7 +186,7 @@ async function resolveCommune(query){
   return known[norm(query)]||null;
 }
 async function api(pathname,url){
-  if(pathname==="/api/health") return {ok:true,sources:{dpe:"ADEME",dvf:"DVF+ Cerema",geocoding:"API Adresse"},server:"jml-prospection",version:"1.6.5"};
+  if(pathname==="/api/health") return {ok:true,sources:{dpe:"ADEME",dvf:"DVF+ Cerema",geocoding:"API Adresse"},server:"jml-prospection",version:"1.6.6"};
   if(pathname==="/api/commune"){
     const q=url.searchParams.get("q")?.trim();
     if(!q) throw new Error("Paramètre q manquant");
