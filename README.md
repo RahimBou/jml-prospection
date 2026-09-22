@@ -1,6 +1,6 @@
-# JML Prospection — V1.6.0
+# JML Prospection — V1.6.1
 
-## V1.6.0 — serveur et sources publiques
+## V1.6.1 — serveur et sources publiques
 - Passage de Render Static Site à un service Node.
 - API serveur `/api/health`, `/api/commune`, `/api/dpe` et `/api/dvf`.
 - Recherche DPE via l'API ADEME.
