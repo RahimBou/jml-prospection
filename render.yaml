@@ -5,3 +5,4 @@ services:
     buildCommand: ""
     startCommand: node server.js
     autoDeploy: true
+    healthCheckPath: /api/health
