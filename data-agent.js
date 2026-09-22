@@ -1,4 +1,4 @@
-/* JML Data Agent V1.10.0
+/* JML Data Agent V1.10.1
    Contrôle qualité des données immobilières avant alimentation du radar.
    Le module ne profile pas de particuliers : il travaille sur des biens/données publiques.
 */
@@ -39,15 +39,21 @@ function analyze({dpeRows=[],dvfRows=[]}={}){
   const acceptedDpe=dpeRows.filter((_,i)=>dpeChecks[i].accepted);
   const acceptedDvf=dvfRows.filter((_,i)=>dvfChecks[i].accepted);
   const groups=new Map();
-  for(const p of acceptedDpe){const k=duplicateKey(p);if(!k)continue;if(!groups.has(k))groups.set(k,[]);groups.get(k).push({source:"DPE ADEME",id:p.dpeNumber||"",area:p.area||0,dpe:p.dpe||"",address:p.address||""});}
-  for(const t of acceptedDvf){const k=duplicateKey(t);if(!k)continue;if(!groups.has(k))groups.set(k,[]);groups.get(k).push({source:"DVF",id:t.mutationId||"",area:t.builtArea||0,value:t.value||0,address:t.address||""});}
+  for(const p of acceptedDpe){const k=duplicateKey(p);if(!k)continue;if(!groups.has(k))groups.set(k,[]);groups.get(k).push({source:"DPE ADEME",id:p.dpeNumber||"",area:p.area||0,areaKind:"habitable",surfaceLabel:"Surface habitable",dpe:p.dpe||"",address:p.address||""});}
+  for(const t of acceptedDvf){const k=duplicateKey(t);if(!k)continue;if(!groups.has(k))groups.set(k,[]);groups.get(k).push({source:"DVF",id:t.mutationId||"",area:t.builtArea||0,areaKind:"built",surfaceLabel:"Surface bâtie",value:t.value||0,address:t.address||""});}
   const conflicts=[];
-  for(const [key,items] of groups){const areas=items.map(x=>Number(x.area)||0).filter(Boolean);if(areas.length>=2){const min=Math.min(...areas),max=Math.max(...areas);if(min>0&&(max-min)/Math.max(min,max)>0.25)conflicts.push({key,reason:"Surfaces divergentes de plus de 25 %",values:items});}}
+  for(const [key,items] of groups){const comparableGroups=new Map();
+    for(const item of items){const kind=item.areaKind||"unknown";if(!comparableGroups.has(kind))comparableGroups.set(kind,[]);comparableGroups.get(kind).push(item)}
+    for(const [kind,comparableItems] of comparableGroups){
+      if(kind==="unknown")continue;
+      const areas=comparableItems.map(x=>Number(x.area)||0).filter(Boolean);
+      if(areas.length>=2){const min=Math.min(...areas),max=Math.max(...areas);if(min>0&&(max-min)/Math.max(min,max)>0.25)conflicts.push({key,reason:"Surfaces divergentes de plus de 25 % entre données de même nature",surfaceKind:kind,values:comparableItems});}
+    }}
   const sourceStats={dpe:{received:dpeRows.length,accepted:acceptedDpe.length,rejected:dpeRows.length-acceptedDpe.length},dvf:{received:dvfRows.length,accepted:acceptedDvf.length,rejected:dvfRows.length-acceptedDvf.length}};
   const rejected=[...dpeChecks.map((c,i)=>({...c,index:i,source:"DPE ADEME"})).filter(x=>!x.accepted),...dvfChecks.map((c,i)=>({...c,index:i,source:"DVF"})).filter(x=>!x.accepted)];
   const warningCount=dpeChecks.concat(dvfChecks).reduce((n,c)=>n+c.warnings.length,0);
   const conflictCount=conflicts.length;
   const base=100-Math.min(70,rejected.length*8+conflictCount*5+warningCount*2);
-  return {engine:"JML Data Agent",version:"1.10.0",qualityScore:Math.max(0,Math.round(base)),qualityLevel:qualityLevel(base),sourceStats,conflicts:conflicts.slice(0,50),rejected:rejected.slice(0,50),recommendations:["Les données rejetées ne doivent pas alimenter le radar.","Les conflits doivent rester visibles et être conservés dans l'historique.","Une information absente reste inconnue : aucune valeur ne doit être inventée.","Le score de qualité mesure la fiabilité des données récupérées, pas une probabilité de vente."]};
+  return {engine:"JML Data Agent",version:"1.10.1",qualityScore:Math.max(0,Math.round(base)),qualityLevel:qualityLevel(base),sourceStats,conflicts:conflicts.slice(0,50),rejected:rejected.slice(0,50),recommendations:["Les données rejetées ne doivent pas alimenter le radar.","Les conflits doivent rester visibles et être conservés dans l'historique.","Une information absente reste inconnue : aucune valeur ne doit être inventée.","Le score de qualité mesure la fiabilité des données récupérées, pas une probabilité de vente."]};
 }
 module.exports={analyze,validateDpe,validateDvf,qualityLevel};
