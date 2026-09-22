@@ -28,7 +28,9 @@ function movement6mInfo(p){
    tags.push({key:"priceDown",label:"Baisse de prix",points:pct>=10?22:15});
  }
  if(priceChanges>=2)tags.push({key:"repeatedPrice",label:"Plusieurs changements de prix",points:15});
- if(a.length>=3)tags.push({key:"repeatedAppearance",label:"Présence répétée dans les sources",points:10});
+ const appearanceDates=a.map(x=>new Date(x.date||0).getTime()).filter(Number.isFinite).sort((x,y)=>x-y);
+ const distinctAppearanceDays=new Set(a.map(x=>String(x.date||"").slice(0,10)).filter(Boolean)).size;
+ if(a.length>=3&&distinctAppearanceDays>=2&&appearanceDates[appearanceDates.length-1]-appearanceDates[0]>=7*86400000)tags.push({key:"repeatedAppearance",label:"Présence répétée dans les sources",points:10});
  if(sources.size>=2)tags.push({key:"multiSource",label:"Présent sur plusieurs sources",points:10});
  if(age>=90)tags.push({key:"old",label:"Bien ancien dans le suivi",points:10});
  if(p.dpe&&["F","G"].includes(p.dpe))tags.push({key:"dpe",label:"DPE F/G",points:8});
@@ -47,7 +49,7 @@ function movement6mInfo(p){
 function movement6mHtml(p){
  const m=movement6mInfo(p);
  if(!m.score)return '<div class="movement-box low"><div><strong>Potentiel de mouvement à 6 mois</strong><span>Faible signal</span></div><div class="movement-score">0/100</div></div>';
- return '<div class="movement-box '+m.cls+'"><div><strong>Potentiel de mouvement à 6 mois</strong><span>'+esc(m.level)+'</span><small>Indice de suivi basé sur les signaux observés — pas une prédiction de vente.</small></div><div class="movement-score">'+m.score+'/100</div></div><div class="movement-reasons">'+m.tags.map(t=>'<span>'+esc(t.label)+' · +'+t.points+'</span>').join("")+'</div>';
+ return '<div class="movement-box '+m.cls+'"><div><strong>Potentiel de mouvement à 6 mois</strong><span>'+esc(m.level)+'</span><small>Indice comportemental basé sur l'historique observé — pas une prédiction de vente.</small></div><div class="movement-score">'+m.score+'/100</div></div>'+(Number.isFinite(Number(p.futureRadarScore))?'<div class="meta">Radar futur indépendant : <strong>'+Math.round(Number(p.futureRadarScore))+'/100</strong></div>':'')+'<div class="movement-reasons">'+m.tags.map(t=>'<span>'+esc(t.label)+' · +'+t.points+'</span>').join("")+'</div>';
 }
 function hasSignal(p){return signalInfo(p).tags.some(t=>t.points>0)||Boolean(String(p.description||"").trim())}
 function priceHistoryHtml(p){ensureHistory(p);const pc=priceChangeInfo(p);if(!p.priceHistory?.length)return"";return '<section class="price-history"><div class="price-history-head"><strong>Historique du prix</strong>'+(pc?(pc.delta<0?'<span class="price-down">▼ Baisse de '+Math.abs(pc.pct).toFixed(1)+' %</span>':'<span class="price-up">▲ Hausse de '+pc.pct.toFixed(1)+' %</span>'):"")+'</div><div class="price-history-list">'+p.priceHistory.slice().reverse().map(h=>'<div><span>'+new Date(h.date).toLocaleDateString("fr-FR")+'</span><strong>'+Number(h.price).toLocaleString("fr-FR")+' €</strong><em>'+esc(h.reason||"")+'</em></div>').join("")+'</div></section>'}
