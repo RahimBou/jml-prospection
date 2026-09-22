@@ -37,6 +37,7 @@ async function jsonFetch(url){
   }finally{clearTimeout(timer)}
 }
 function first(obj,keys){for(const k of keys){if(obj?.[k]!==undefined&&obj?.[k]!==null&&obj[k]!=="")return obj[k]}return ""}
+function norm(value){return String(value||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().trim().replace(/[’']/g," ").replace(/[^a-z0-9]+/g," ").trim().replace(/\s+/g," ")}
 function normalizeDpe(x){
   return {
     dpeNumber:first(x,["numero_dpe","N°DPE","Numero_DPE","N°DPE_(CSTB)"]),
@@ -102,9 +103,19 @@ async function api(pathname,url){
   if(pathname==="/api/commune"){
     const q=url.searchParams.get("q")?.trim();
     if(!q) throw new Error("Paramètre q manquant");
-    const u=new URL(ADDRESS_URL);u.searchParams.set("q",q);u.searchParams.set("type","municipality");u.searchParams.set("limit","5");
-    const data=await jsonFetch(u);
-    return (data.features||[]).map(f=>({city:f.properties?.city||"",cityCode:f.properties?.citycode||"",postalCode:f.properties?.postcode||"",label:f.properties?.label||""}));
+    const known={
+      "charleville mezieres":{city:"Charleville-Mézières",cityCode:"08105",postalCode:"08000"},
+      "sedan":{city:"Sedan",cityCode:"08409",postalCode:"08200"},
+      "rethel":{city:"Rethel",cityCode:"08362",postalCode:"08300"},
+      "revin":{city:"Revin",cityCode:"08363",postalCode:"08500"},
+      "givet":{city:"Givet",cityCode:"08190",postalCode:"08600"},
+      "vouziers":{city:"Vouziers",cityCode:"08490",postalCode:"08400"}
+    };
+    const k=known[norm(q)];
+    if(k) return [k];
+    const c=await resolveCommune(q);
+    if(c) return [c];
+    return [];
   }
   if(pathname==="/api/dpe"){
     const q=url.searchParams.get("q")?.trim();
