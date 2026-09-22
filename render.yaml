@@ -1,7 +1,7 @@
 services:
   - type: web
     name: jml-prospection
-    runtime: static
+    runtime: node
     buildCommand: ""
-    staticPublishPath: .
+    startCommand: node server.js
     autoDeploy: true
