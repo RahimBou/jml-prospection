@@ -27,9 +27,23 @@ Le score est volontairement transparent et basé uniquement sur les données dé
 
 Ce score n'est pas une probabilité de vente. Il sert uniquement à prioriser la revue des biens.
 
+## Mise en ligne de test — Render
+
+Le dépôt contient maintenant un `render.yaml` prêt pour un déploiement **Static Site** sur Render.
+
+### Connexion
+1. Ouvrir Render et choisir **New → Blueprint**.
+2. Connecter le compte GitHub.
+3. Sélectionner le dépôt `RahimBou/jml-prospection`.
+4. Render détectera automatiquement `render.yaml`.
+5. Créer le service `jml-prospection`.
+6. Chaque mise à jour de `main` pourra ensuite être redéployée automatiquement.
+
+L'application actuelle est un prototype navigateur : les données de test sont stockées dans le `localStorage` du navigateur. Le déploiement Render sert donc à tester l'interface en ligne ; il ne constitue pas encore une base de données partagée entre appareils.
+
 ## Feuille de route
-1. Carte Ardennes
-2. Historique structuré des changements de prix et caractéristiques
+1. Historique structuré des changements de prix et caractéristiques
+2. Carte Ardennes
 3. Moteur de signaux enrichi
 4. Connexion progressive aux sources publiques et données DPE
 5. Pige et mises à jour automatiques, dans le respect du cadre légal et de la vie privée
