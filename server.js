@@ -639,8 +639,102 @@ function classifyDataQuality(p){
   if(score>=3)return {level:"sufficient",label:"Données suffisantes",score};
   return {level:"incomplete",label:"Données à compléter",score};
 }
+
+function mutationIdentity(tx){
+  return tx?.mutationId||[tx?.date,tx?.value,tx?.address,tx?.builtArea].join("|");
+}
+function sameAddressForRadar(property,tx){
+  const a=addressParts(property),b=addressParts(tx);
+  const sameCommune=(a.cityCode&&b.cityCode&&a.cityCode===b.cityCode)||(a.postal&&b.postal&&a.postal===b.postal);
+  return Boolean(sameCommune && a.fullAddress && b.fullAddress && a.fullAddress===b.fullAddress);
+}
+function confirmedSaleHistory(property,match){
+  const exact=match?.matchQuality==="exact";
+  const strong=exact && (match?.unitConfidence==="probable" || (match?.unitConfidence==="unknown" && (match?.txs?.length||0)===1));
+  if(!strong){
+    return {
+      status:exact?"ambiguous":"none",
+      count:0,
+      latest:null,
+      first:null,
+      totalValue:0,
+      reason:exact?(match?.unitReason||"Adresse exacte mais logement non isolé"):"Aucune vente DVF à la même adresse"
+    };
+  }
+  const txs=Array.from(match?.txs||[])
+    .filter(tx=>tx?.date&&Number.isFinite(new Date(tx.date).getTime())&&Number(tx?.value)>0)
+    .sort((a,b)=>new Date(a.date)-new Date(b.date));
+  const latest=txs[txs.length-1]||null;
+  const first=txs[0]||null;
+  return {
+    status:txs.length?"confirmed":"none",
+    count:txs.length,
+    latest:latest?{
+      date:latest.date,value:latest.value,type:latest.type,builtArea:latest.builtArea,
+      carrezArea:latest.carrezArea,landArea:latest.landArea,rooms:latest.rooms
+    }:null,
+    first:first?{date:first.date,value:first.value}:null,
+    totalValue:txs.reduce((sum,tx)=>sum+Number(tx.value||0),0),
+    reason:txs.length?"Vente(s) DVF confirmée(s) à la même adresse":"Aucune vente DVF exploitable à la même adresse"
+  };
+}
+function radarSaleAgeScore(ageYears){
+  if(ageYears===null)return 0;
+  if(ageYears>=10)return 15;
+  if(ageYears>=5)return 12;
+  if(ageYears>=2)return 8;
+  if(ageYears>=1)return 4;
+  return 1;
+}
+function radarHistoryScore(count){
+  if(count>=4)return 15;
+  if(count===3)return 12;
+  if(count===2)return 8;
+  if(count===1)return 4;
+  return 0;
+}
+function radarDataScore(quality){
+  return Math.min(15,Math.max(0,Number(quality?.score)||0)*3);
+}
+function radarTypeSurfaceScore(property,bestComparable){
+  if(!bestComparable)return {score:0,reasons:[]};
+  const reasons=[];let score=0;
+  const pType=String(property?.buildingType||"").toLowerCase();
+  const cType=String(bestComparable?.type||"").toLowerCase();
+  const typeOk=(/maison|house/.test(pType)&&/maison|house/.test(cType))||(/appartement|appart|apartment/.test(pType)&&/appartement|appart|apartment/.test(cType));
+  if(typeOk){score+=5;reasons.push("Type cohérent avec les comparables +5")}
+  const ratio=Number(bestComparable?.surfaceRatio);
+  if(Number.isFinite(ratio)){
+    if(ratio<=0.08){score+=7;reasons.push("Surface comparable très proche +7")}
+    else if(ratio<=0.15){score+=5;reasons.push("Surface comparable proche +5")}
+    else if(ratio<=0.20){score+=3;reasons.push("Surface comparable acceptable +3")}
+  }
+  const pr=Number(property?.rooms)||0,cr=Number(bestComparable?.rooms)||0;
+  if(pr>0&&cr>0){
+    if(pr===cr){score+=3;reasons.push("Nombre de pièces identique +3")}
+    else if(Math.abs(pr-cr)===1){score+=1;reasons.push("Nombre de pièces proche +1")}
+  }
+  return {score:Math.min(15,score),reasons};
+}
+function radarProximityScore(comparable){
+  let score=0;
+  const count=Number(comparable?.count)||0;
+  if(count>=5)score+=8;else if(count>=3)score+=6;else if(count===2)score+=4;else if(count===1)score+=2;
+  const d=Number(comparable?.medianDistance);
+  if(Number.isFinite(d)){
+    if(d<=100)score+=7;else if(d<=250)score+=5;else if(d<=500)score+=2;
+  }
+  return Math.min(15,score);
+}
+function radarTerrainScore(saleHistory){
+  const area=Number(saleHistory?.latest?.landArea)||0;
+  if(area>=1000)return 5;
+  if(area>=300)return 3;
+  if(area>0)return 1;
+  return 0;
+}
 async function api(pathname,url){
-  if(pathname==="/api/health") return {ok:true,sources:{dpe:"ADEME",dvf:"DVF+ Cerema",geocoding:"Géoplateforme",chercherTrouver:"ChercherTrouver.immo"},server:"jml-prospection",version:"1.17.2"};
+  if(pathname==="/api/health") return {ok:true,sources:{dpe:"ADEME",dvf:"DVF+ Cerema",geocoding:"Géoplateforme",chercherTrouver:"ChercherTrouver.immo"},server:"jml-prospection",version:"1.18.0"};
   if(pathname==="/api/integrations-health"){
     const ct=await fetchChercherTrouverPing();
     return {ok:ct.ok===true,checkedAt:new Date().toISOString(),chercherTrouver:ct};
@@ -864,108 +958,125 @@ async function api(pathname,url){
     const indexes=buildDvfIndexes(dvfRows);
     const candidates=dpeRows.map((p,index)=>{
       const match=findDvfMatches(p,indexes);
-      const comparable=localComparables(p,dvfRows);
-      const best=comparable.best;
-      const nowMs=Date.now();
-      const dpeDate=p.date?new Date(p.date):null;
-      const dpeAge=dpeDate&&Number.isFinite(dpeDate.getTime())?Math.max(0,(nowMs-dpeDate.getTime())/86400000/365.25):null;
-      const reasons=[];let energy=0,holding=0,market=comparable.marketScore,similarity=0,data=0,building=0;
+      const saleHistory=confirmedSaleHistory(p,match);
+      const saleDate=saleHistory.latest?.date?new Date(saleHistory.latest.date):null;
+      const saleAgeYears=saleDate&&Number.isFinite(saleDate.getTime())?Math.max(0,(Date.now()-saleDate.getTime())/86400000/365.25):null;
 
-      if(comparable.count){
-        reasons.push("Comparables locaux : "+comparable.count+" vente(s) retenue(s) dans ≤ "+comparable.radius+" m");
-        if(comparable.medianPriceM2)reasons.push("Médiane locale : "+Math.round(comparable.medianPriceM2).toLocaleString("fr-FR")+" €/m²");
-        if(comparable.medianDistance!==null)reasons.push("Distance médiane : "+Math.round(comparable.medianDistance)+" m");
-        if(comparable.dispersion!==null)reasons.push("Dispersion des prix : "+Math.round(comparable.dispersion*100)+" %");
-      }else reasons.push("Aucun comparable local suffisamment proche");
+      // Séparation stricte : les mutations de la même adresse ne sont jamais
+      // comptées comme « comparables à proximité ».
+      const comparableRows=dvfRows.filter(tx=>!sameAddressForRadar(p,tx));
+      const comparable=localComparables(p,comparableRows);
+      const bestComparable=comparable.best;
+      const quality=classifyDataQuality(p);
 
       const dpeAddressStatus=match.matchQuality==="exact"?"confirmed":(match.matchQuality==="none"?"none":"uncertain");
-      const dpeConfirmed=dpeAddressStatus==="confirmed" && (\n        match.unitConfidence==="probable" ||\n        (match.unitConfidence==="unknown" && (match.txs?.length||0)===1)\n      );
+      const dpeConfirmed=dpeAddressStatus==="confirmed" && (
+        match.unitConfidence==="probable" ||
+        (match.unitConfidence==="unknown" && (match.txs?.length||0)===1)
+      );
+
+      const reasons=[];
+      const dpeScore=dpeConfirmed
+        ? (["F","G"].includes(p.dpe)?20:(p.dpe==="E"?12:(p.dpe==="D"?6:0)))
+        : 0;
       if(dpeConfirmed){
-        reasons.push("DPE confirmé · même adresse · correspondance forte");
-        if(["F","G"].includes(p.dpe)){energy+=18;reasons.push("DPE F/G confirmé +18")}
-        else if(p.dpe==="E"){energy+=10;reasons.push("DPE E confirmé +10")}
-        else if(p.dpe==="D"){energy+=4;reasons.push("DPE D confirmé +4")}
-        if(dpeAge!==null){
-          if(dpeAge>=7){energy+=7;reasons.push("DPE très ancien +7")}
-          else if(dpeAge>=5){energy+=5;reasons.push("DPE ancien +5")}
-          else if(dpeAge>=3){energy+=2;reasons.push("DPE de plus de 3 ans +2")}
-        }
-        if(p.energyConsumption>0){
-          if(p.energyConsumption>=450){energy+=5;reasons.push("Consommation énergétique très élevée +5")}
-          else if(p.energyConsumption>=330){energy+=4;reasons.push("Consommation énergétique élevée +4")}
-          else if(p.energyConsumption>=250){energy+=2;reasons.push("Consommation énergétique élevée +2")}
-        }
-        if(p.gesValue>0){
-          if(p.gesValue>=80){energy+=4;reasons.push("GES très élevé +4")}
-          else if(p.gesValue>=50){energy+=3;reasons.push("GES élevé +3")}
-          else if(p.gesValue>=30){energy+=1;reasons.push("GES notable +1")}
-        }
+        reasons.push("DPE "+(p.dpe||"—")+" confirmé à la même adresse +"+dpeScore);
       }else if(dpeAddressStatus==="uncertain"){
-        reasons.push("DPE trouvé · correspondance d'adresse incertaine · bonus DPE = 0");
+        reasons.push("DPE trouvé mais adresse/unité non confirmée · bonus DPE 0");
       }else{
-        reasons.push("DPE trouvé · aucune correspondance DVF fiable · bonus DPE = 0");
-      }
-      if(p.constructionYear>0){
-        const age=Math.max(0,new Date().getFullYear()-p.constructionYear);
-        if(age>=80){building+=5;reasons.push("Bâtiment très ancien +5")}
-        else if(age>=50){building+=3;reasons.push("Bâtiment ancien +3")}
-        else if(age>=30){building+=1;reasons.push("Bâtiment de plus de 30 ans +1")}
-      }
-      const btNorm=String(p.buildingType||"").toLowerCase();
-      if(btNorm.includes("maison")){building+=2;reasons.push("Type maison +2")}
-      else if(btNorm.includes("appartement")){building+=1;reasons.push("Type appartement +1")}
-
-      if(best?.date){
-        const saleAge=Math.max(0,(nowMs-new Date(best.date).getTime())/86400000/365.25);
-        if(saleAge>=3){holding+=3;reasons.push("Marché documenté sur plusieurs années +3")}
+        reasons.push("DPE non confirmé à la même adresse · bonus DPE 0");
       }
 
-      if(best){
-        const ratio=Number(best.surfaceRatio);
-        if(ratio<=0.10){similarity+=10;reasons.push("Surface comparable très proche +10")}
-        else if(ratio<=0.15){similarity+=7;reasons.push("Surface comparable proche +7")}
-        else if(ratio<=0.25){similarity+=3;reasons.push("Surface comparable acceptable +3")}
-        const houseLike=/(maison|house)/.test(btNorm)&&/(maison|house)/.test(String(best.type||"").toLowerCase());
-        const aptLike=/(appartement|appart|apartment)/.test(btNorm)&&/(appartement|appart|apartment)/.test(String(best.type||"").toLowerCase());
-        if(houseLike||aptLike){similarity+=6;reasons.push("Type cohérent avec les comparables +6")}
-        if(best.rooms&&p.rooms&&Number(best.rooms)===Number(p.rooms)){similarity+=4;reasons.push("Nombre de pièces identique +4")}
-        else if(best.rooms&&p.rooms&&Math.abs(Number(best.rooms)-Number(p.rooms))===1){similarity+=2;reasons.push("Nombre de pièces proche +2")}
+      const saleAgeScore=radarSaleAgeScore(saleAgeYears);
+      if(saleHistory.status==="confirmed"){
+        reasons.push("Dernière vente DVF confirmée : "+new Date(saleHistory.latest.date).toLocaleDateString("fr-FR")+" · "+Math.round(saleAgeYears||0)+" an(s) · +"+saleAgeScore);
+      }else if(saleHistory.status==="ambiguous"){
+        reasons.push("Adresse DVF exacte mais logement ambigu · vente à la même adresse non confirmée");
+      }else{
+        reasons.push("Aucune vente DVF confirmée à la même adresse");
       }
 
-      if(p.address)data+=3;
-      if(p.cityCode===codeInsee)data+=2;
-      if(p.postalCode)data+=2;
-      if(p.area>0)data+=2;
-      if(p.date)data+=1;
-      if(data>=9)reasons.push("Données DPE complètes +9");else reasons.push("Complétude des données +"+data);
+      const typeSurface=radarTypeSurfaceScore(p,bestComparable);
+      reasons.push(...typeSurface.reasons);
 
-      const score=Math.min(100,energy+holding+market+similarity+data+building);
-      const dataQuality=classifyDataQuality(p);
+      const terrainScore=radarTerrainScore(saleHistory);
+      const terrainArea=Number(saleHistory.latest?.landArea)||0;
+      if(terrainScore)reasons.push("Terrain documenté par la vente DVF : "+Math.round(terrainArea)+" m² +"+terrainScore);
+
+      const proximityScore=radarProximityScore(comparable);
+      if(comparable.count){
+        reasons.push(comparable.count+" comparable(s) distinct(s) à proximité · distance médiane "+(comparable.medianDistance!==null?Math.round(comparable.medianDistance)+" m":"non disponible"));
+      }else{
+        reasons.push("Aucun comparable DVF distinct suffisamment proche");
+      }
+
+      const historyScore=radarHistoryScore(saleHistory.count);
+      if(saleHistory.count>=2)reasons.push("Historique confirmé : "+saleHistory.count+" vente(s) DVF à la même adresse +"+historyScore);
+      else if(saleHistory.count===1)reasons.push("1 vente DVF confirmée à la même adresse +"+historyScore);
+
+      const dataScore=radarDataScore(quality);
+      reasons.push((quality.label||"Qualité des données")+" · "+quality.score+"/5 · +"+dataScore);
+
+      const score=Math.min(100,dpeScore+saleAgeScore+typeSurface.score+terrainScore+proximityScore+historyScore+dataScore);
       const methodScores={
-        energy:Math.min(100,Math.round(energy/35*100)),
-        holding:Math.min(100,Math.round(holding/5*100)),
-        market:Math.min(100,Math.round(market/20*100)),
-        similarity:Math.min(100,Math.round(similarity/20*100)),
-        data:Math.min(100,Math.round(data/10*100)),
-        building:Math.min(100,Math.round(building/7*100))
+        dpe:Math.round(dpeScore/20*100),
+        saleAge:Math.round(saleAgeScore/15*100),
+        typeSurface:Math.round(typeSurface.score/15*100),
+        terrain:Math.round(terrainScore/5*100),
+        proximity:Math.round(proximityScore/15*100),
+        history:Math.round(historyScore/15*100),
+        data:Math.round(dataScore/15*100)
       };
+
+      const sameAddressSale=saleHistory.status==="confirmed";
+      const nearestComparableDistance=(comparable.items||[]).map(x=>Number(x.distanceMeters)).filter(Number.isFinite).sort((a,b)=>a-b)[0]??null;
+      const historyDates=(match.txs||[]).map(tx=>tx.date).filter(Boolean).sort();
       return {
-        id:"dpe-"+(p.dpeNumber||index)+"-"+codeInsee,address:p.address,postalCode:p.postalCode,city:p.city,cityCode:p.cityCode,area:p.area,
+        id:"dpe-"+(p.dpeNumber||index)+"-"+codeInsee,
+        address:p.address,postalCode:p.postalCode,city:p.city,cityCode:p.cityCode,area:p.area,
         dpe:p.dpe,ges:p.ges,dpeDate:p.date,buildingRef:p.buildingRef||"",apartmentRef:p.apartmentRef||"",floor:p.floor||"",
-        residenceName:p.residenceName||"",banId:p.banId||"",dpeAgeYears:dpeAge?Math.round(dpeAge*10)/10:null,buildingType:p.buildingType||"",
-        energyConsumption:p.energyConsumption||0,gesValue:p.gesValue||0,constructionYear:p.constructionYear||0,
-        latestSale:best?{date:best.date,value:best.value,type:best.type,builtArea:best.builtArea,carrezArea:best.carrezArea,landArea:best.landArea,rooms:best.rooms}:null,
+        residenceName:p.residenceName||"",banId:p.banId||"",
+        dpeAgeYears:p.date?Math.round(Math.max(0,(Date.now()-new Date(p.date).getTime())/86400000/365.25)*10)/10:null,
+        buildingType:p.buildingType||"",energyConsumption:p.energyConsumption||0,gesValue:p.gesValue||0,
+        constructionYear:p.constructionYear||0,
+        latestSale:saleHistory.latest,
+        sameAddressSale:{
+          status:saleHistory.status,count:saleHistory.count,latest:saleHistory.latest,first:saleHistory.first,
+          totalValue:saleHistory.totalValue,ageYears:saleAgeYears!==null?Math.round(saleAgeYears*10)/10:null,
+          historyDates,reason:saleHistory.reason
+        },
+        history:{
+          count:saleHistory.count,firstDate:saleHistory.first?.date||null,lastDate:saleHistory.latest?.date||null,
+          durationYears:(saleHistory.first?.date&&saleHistory.latest?.date)?Math.round(Math.max(0,(new Date(saleHistory.latest.date)-new Date(saleHistory.first.date))/86400000/365.25)*10)/10:null
+        },
+        terrainArea:terrainArea||0,terrainSource:terrainArea?"DVF · même adresse":"none",
         matchQuality:match.matchQuality,matchReason:match.matchReason,
         dpeAddressStatus,dpeConfirmed,
-        distanceMeters:best?.distanceMeters??null,matchDistanceMeters:match.distanceMeters??null,
-        postalCandidateCount:match.postalCount||0,unitConfidence:match.unitConfidence||"not_applicable",
-        unitReason:match.unitReason||"",
+        sameAddressSaleConfirmed:sameAddressSale,
+        distanceMeters:bestComparable?.distanceMeters??null,
+        matchDistanceMeters:match.distanceMeters??null,
+        nearestComparableDistance,
+        postalCandidateCount:match.postalCount||0,
+        unitConfidence:match.unitConfidence||"not_applicable",unitReason:match.unitReason||"",
         matchedMutationCount:match.txs?.length||0,selectedMutationCount:match.selectedCount||0,
-        comparableCount:comparable.count,comparableRadius:comparable.radius,comparableMedianPriceM2:comparable.medianPriceM2,
-        comparableQ1:comparable.q1,comparableQ3:comparable.q3,comparableDispersion:comparable.dispersion,
-        comparableMedianDistance:comparable.medianDistance,comparableRecentCount:comparable.recentCount,comparables:comparable.items,
-        source:"ADEME + DVF comparables locaux",score,methodScores,reasons,dataQuality,
-        disclaimer:"Indice de surveillance basé sur des signaux publics immobiliers et un contexte de marché local. Ce n'est pas une probabilité de vente ni l'identification d'un propriétaire."
+        comparableCount:comparable.count,comparableRadius:comparable.radius,
+        comparableMedianPriceM2:comparable.medianPriceM2,comparableQ1:comparable.q1,comparableQ3:comparable.q3,
+        comparableDispersion:comparable.dispersion,comparableMedianDistance:comparable.medianDistance,
+        comparableRecentCount:comparable.recentCount,comparables:comparable.items,
+        bestComparable,
+        score,methodScores,
+        evidence:{
+          dataQuality:{level:quality.level,label:quality.label,score:quality.score},
+          dpe:{confirmed:dpeConfirmed,status:dpeAddressStatus,grade:p.dpe||null,points:dpeScore},
+          sameAddressSale:{confirmed:sameAddressSale,status:saleHistory.status,count:saleHistory.count,lastDate:saleHistory.latest?.date||null,ageYears:saleAgeYears!==null?Math.round(saleAgeYears*10)/10,points:saleAgeScore},
+          typeSurface:{points:typeSurface.score,ratio:bestComparable?.surfaceRatio??null,type:p.buildingType||null},
+          terrain:{area:terrainArea,points:terrainScore},
+          proximity:{count:comparable.count,medianDistance:comparable.medianDistance,nearestDistance:nearestComparableDistance,points:proximityScore},
+          history:{count:saleHistory.count,firstDate:saleHistory.first?.date||null,lastDate:saleHistory.latest?.date||null,points:historyScore}
+        },
+        reasons,
+        dataQuality:quality,
+        disclaimer:"Indice de surveillance transparent basé sur des données publiques. Une vente DVF à la même adresse n'est confirmée que lorsque l'unité est suffisamment discriminée ; les comparables sont séparés des mutations de la même adresse. Ce score n'est pas une probabilité de vente et n'identifie pas un propriétaire."
       };
     }).filter(x=>x.address).sort((a,b)=>b.score-a.score).slice(0,limit);
     return {source:"ADEME + DVF comparables locaux",codeInsee,dpeCount:dpeRows.length,dvfCount:dvfRows.length,dvfSource:dvf.source,dvfFallback:!!dvf.fallback,results:candidates};
