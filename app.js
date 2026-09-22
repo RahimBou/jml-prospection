@@ -99,34 +99,15 @@ function futureRadarRender(){
     return;
   }
   box.innerHTML=futureRadarCandidates.slice(0,100).map((p,i)=>{
-    const ms=p.methodScores||{},ev=p.evidence||{};
-    const comps=p.comparableCount||0;
-    const median=p.comparableMedianPriceM2?Math.round(p.comparableMedianPriceM2).toLocaleString("fr-FR")+" €/m²":"—";
-    const radius=p.comparableRadius?p.comparableRadius+" m":"—";
-    const compText=comps
-      ? "🔵 "+comps+" comparable(s) distinct(s) · distance médiane "+(p.comparableMedianDistance!=null?Math.round(p.comparableMedianDistance)+" m":"—")+" · rayon "+radius
-      : "⚪ Aucun comparable DVF distinct suffisamment proche";
-    const dpeConfirmed=p.dpeConfirmed===true;
-    const dpeText=dpeConfirmed
-      ? "🟢 DPE "+(p.dpe||"—")+" confirmé · même adresse"
-      : p.dpeAddressStatus==="uncertain"
-        ? "🟠 DPE trouvé · adresse/unité non confirmée"
-        : "⚪ DPE non confirmé à la même adresse";
-    const dpeClass=dpeConfirmed?"confirmed":p.dpeAddressStatus==="uncertain"?"uncertain":"none";
-
+    const ms=p.methodScores||{},ev=p.evidence||{},quality=ev.dataQuality||p.dataQuality||{};
     const sale=p.sameAddressSale||{};
-    const saleText=sale.status==="confirmed"
-      ? "🟢 Vente DVF à la même adresse · "+(sale.count||0)+" mutation(s) · dernière "+(sale.latest?.date?new Date(sale.latest.date).toLocaleDateString("fr-FR"):"date inconnue")+" · "+(sale.ageYears!=null?Math.round(sale.ageYears)+" an(s)":"âge —")
-      : sale.status==="ambiguous"
-        ? "🟠 Adresse DVF exacte mais logement ambigu · vente non confirmée"
-        : "⚪ Aucune vente DVF confirmée à la même adresse";
-    const saleClass=sale.status==="confirmed"?"confirmed":sale.status==="ambiguous"?"uncertain":"none";
-
-    const terrain=p.terrainArea?("🌳 Terrain documenté par DVF : "+Math.round(p.terrainArea)+" m²"):"🌳 Terrain non documenté à la même adresse";
-    const quality=ev.dataQuality||p.dataQuality||{};
-    const why=(p.reasons||[]).filter(x=>!String(x).startsWith("DPE ")&&!String(x).startsWith("Dernière vente")&&!String(x).startsWith("Aucune vente")&&!String(x).startsWith("Adresse DVF")).slice(0,5);
-
-    return '<article class="future-candidate"><div class="future-candidate-main"><label class="future-check"><input type="checkbox" data-future-check="'+i+'" checked><span></span></label><div><strong>'+apiEsc(p.address||"Adresse non renseignée")+'</strong><div class="meta">'+apiEsc((p.postalCode?p.postalCode+" ":"")+(p.city||""))+' · '+apiEsc(futureRadarType(p.buildingType))+(p.area?" · "+p.area+" m²":"")+'</div><div class="future-reasons"><span class="dpe-match '+dpeClass+'">'+apiEsc(dpeText)+'</span><span class="dpe-match '+saleClass+'">'+apiEsc(saleText)+'</span><span>'+apiEsc(compText)+'</span><span>'+apiEsc(terrain)+'</span></div><div class="future-reasons">'+why.map(x=>'<span>'+apiEsc(x)+'</span>').join("")+'</div><div class="meta"><strong>Pourquoi ce candidat ?</strong> Qualité '+(quality.score||0)+'/5 · type/surface '+(ms.typeSurface||0)+'% · proximité '+(ms.proximity||0)+'% · historique '+(ms.history||0)+'%</div></div></div><div class="future-score"><strong>'+p.score+'/100</strong><small>indice de surveillance</small><em>DPE '+(ms.dpe||0)+' · vente '+(ms.saleAge||0)+' · type/surface '+(ms.typeSurface||0)+' · terrain '+(ms.terrain||0)+' · proximité '+(ms.proximity||0)+' · historique '+(ms.history||0)+' · données '+(ms.data||0)+'</em></div></article>';
+    const dpeConfirmed=p.dpeConfirmed===true;
+    const dpeText=dpeConfirmed?"🟢 DPE "+(p.dpe||"—")+" confirmé à la même adresse":p.dpeAddressStatus==="uncertain"?"🟠 DPE trouvé · unité non confirmée":"⚪ DPE non confirmé";
+    const saleText=sale.status==="confirmed"?"🟢 Vente DVF à la même adresse · "+sale.count+" mutation(s) · dernière "+(sale.latest?.date?new Date(sale.latest.date).toLocaleDateString("fr-FR"):"—")+" · "+(sale.ageYears!=null?Math.round(sale.ageYears)+" an(s)":"—"):sale.status==="ambiguous"?"🟠 Adresse exacte mais unité ambiguë · vente non confirmée":"⚪ Aucune vente DVF confirmée à la même adresse";
+    const compText=(p.comparableCount||0)>0?"🔵 Comparables DVF distincts à proximité · "+p.comparableCount+" · médiane "+(p.comparableMedianDistance!=null?Math.round(p.comparableMedianDistance)+" m":"—")+" · rayon "+(p.comparableRadius||"—")+" m":"⚪ Aucun comparable DVF distinct suffisamment proche";
+    const terrainText=p.terrainArea?"🌳 Terrain documenté : "+Math.round(p.terrainArea)+" m²":"🌳 Terrain non documenté";
+    const reasons=(p.reasons||[]).filter(x=>!/^DPE |^Dernière vente|^Aucune vente|^Adresse DVF|^Comparables locaux|^Médiane locale|^Dispersion des prix/.test(String(x))).slice(0,4);
+    return '<article class="future-candidate"><div class="future-candidate-main"><label class="future-check"><input type="checkbox" data-future-check="'+i+'" checked><span></span></label><div><strong>'+apiEsc(p.address||"Adresse non renseignée")+'</strong><div class="meta">'+apiEsc((p.postalCode?p.postalCode+" ":"")+(p.city||""))+" · "+apiEsc(futureRadarType(p.buildingType))+(p.area?" · "+p.area+" m²":"")+'</div><div class="future-reasons"><span class="dpe-match '+(dpeConfirmed?"confirmed":p.dpeAddressStatus==="uncertain"?"uncertain":"none")+'">'+apiEsc(dpeText)+'</span><span class="dpe-match '+(sale.status==="confirmed"?"confirmed":sale.status==="ambiguous"?"uncertain":"none")+'">'+apiEsc(saleText)+'</span><span>'+apiEsc(compText)+'</span><span>'+apiEsc(terrainText)+'</span></div><div class="future-reasons">'+reasons.map(x=>'<span>'+apiEsc(x)+'</span>').join("")+'</div><div class="meta"><strong>Pourquoi ce prospect ?</strong> Qualité "+(quality.score||0)+"/5 · DPE "+(ms.dpe||0)+"% · vente "+(ms.saleAge||0)+"% · type/surface "+(ms.typeSurface||0)+"% · terrain "+(ms.terrain||0)+"% · proximité "+(ms.proximity||0)+"% · historique "+(ms.history||0)+"%</div></div></div><div class="future-score"><strong>'+p.score+'/100</strong><small>indice de surveillance</small><em>Données "+(quality.score||0)+"/5 · DPE "+(ms.dpe||0)+" · vente "+(ms.saleAge||0)+" · type/surface "+(ms.typeSurface||0)+" · terrain "+(ms.terrain||0)+" · proximité "+(ms.proximity||0)+" · historique "+(ms.history||0)+"</em></div></article>';
   }).join("");
   add.disabled=false;
 }
