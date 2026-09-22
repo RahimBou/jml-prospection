@@ -78,3 +78,11 @@ Le projet travaille au niveau des biens et des informations publiquement accessi
 
 ## V1.10.0 — Data Agent
 Ajout d'une couche de contrôle qualité entre les sources publiques et les moteurs d'analyse. Le Data Agent vérifie les champs essentiels, repère les valeurs incohérentes, signale les conflits entre sources et sépare la qualité des données de toute analyse commerciale.
+
+
+## V1.11.2 — rapprochement DPE ↔ adresse
+- Le Radar distingue désormais **DPE confirmé à la même adresse**, **correspondance incertaine** et **aucune correspondance DVF fiable**.
+- Le bonus de classe énergétique est appliqué uniquement sur une correspondance d'adresse exacte : **F/G +18, E +10, D +4**.
+- Les correspondances rue, code postal ou proximité ne donnent aucun bonus de classe DPE.
+- Les signaux complémentaires liés à l'âge du DPE, à la consommation et au GES sont également conditionnés à une adresse confirmée.
+- Le statut de rapprochement est affiché directement dans chaque candidat du Radar.
