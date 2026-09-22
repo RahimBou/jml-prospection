@@ -1,0 +1,7 @@
+services:
+  - type: web
+    name: jml-prospection
+    runtime: static
+    buildCommand: ""
+    staticPublishPath: .
+    autoDeploy: true
