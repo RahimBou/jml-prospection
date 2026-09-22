@@ -100,7 +100,7 @@ function futureRadarRender(){
   }
   box.innerHTML=futureRadarCandidates.slice(0,100).map((p,i)=>{
     const ms=p.methodScores||{};
-    const match=p.matchQuality==="exact"?"Correspondance DVF exacte":p.matchQuality==="street"?"Même rue uniquement":"Pas de correspondance DVF exacte";
+    const match=p.matchQuality==="exact"?"Numéro + rue + commune/CP":p.matchQuality==="street"?"Rue + commune/CP":p.matchQuality==="postal"?"Code postal seul":p.matchQuality==="proximity"?"Proximité ≤ 80 m":"Aucune correspondance fiable";
     return '<article class="future-candidate"><div class="future-candidate-main"><label class="future-check"><input type="checkbox" data-future-check="'+i+'" checked><span></span></label><div><strong>'+apiEsc(p.address||"Adresse non renseignée")+'</strong><div class="meta">'+apiEsc((p.postalCode?p.postalCode+" ":"")+(p.city||""))+' · '+apiEsc(futureRadarType(p.buildingType))+(p.area?" · "+p.area+" m²":"")+'</div><div class="future-reasons"><span>'+match+'</span>'+(p.reasons||[]).map(x=>'<span>'+apiEsc(x)+'</span>').join("")+'</div></div></div><div class="future-score"><strong>'+p.score+'/100</strong><small>potentiel de surveillance</small><em>Énergie '+(ms.energy||0)+' · ancienneté '+(ms.holding||0)+' · marché '+(ms.market||0)+' · complétude '+(ms.data||0)+'</em></div></article>';
   }).join("");
   add.disabled=false;
