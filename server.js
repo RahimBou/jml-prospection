@@ -12,6 +12,7 @@ const dvfGeoCache = new Map();
 const DVF_LOCAL_FILE = path.join(ROOT,"data","dvf_ardennes.csv.gz");
 let dvfLocalCache = null;
 const ADDRESS_URL = "https://api-adresse.data.gouv.fr/search/";
+const { analyze: analyzeDataQuality } = require("./data-agent");
 
 const MIME = {
   ".html":"text/html; charset=utf-8",
@@ -243,7 +244,36 @@ async function resolveCommune(query){
   return known[norm(query)]||null;
 }
 async function api(pathname,url){
-  if(pathname==="/api/health") return {ok:true,sources:{dpe:"ADEME",dvf:"DVF+ Cerema",geocoding:"API Adresse"},server:"jml-prospection",version:"1.9.7"};
+  if(pathname==="/api/health") return {ok:true,sources:{dpe:"ADEME",dvf:"DVF+ Cerema",geocoding:"API Adresse"},server:"jml-prospection",version:"1.10.0"};
+  if(pathname==="/api/data-agent"){
+    let codeInsee=url.searchParams.get("codeInsee")?.trim();
+    const q=url.searchParams.get("q")?.trim();
+    if(!codeInsee&&q){const cc=await resolveCommune(q);codeInsee=cc?.cityCode||""}
+    if(!codeInsee)throw new Error("Commune introuvable : indique une commune ou un code INSEE");
+    const limit=cleanLimit(url.searchParams.get("limit"),100);
+    const dpeUrl=new URL(DPE_URL);
+    dpeUrl.searchParams.set("code_insee_ban_eq",codeInsee);
+    dpeUrl.searchParams.set("size",String(Math.min(100,limit)));
+    const [dpeResult,dvfResult]=await Promise.allSettled([
+      jsonFetch(dpeUrl),
+      (async()=>{
+        try{
+          const u=new URL(DVF_URL);u.searchParams.set("code_insee",codeInsee);u.searchParams.set("page_size","500");u.searchParams.set("anneemut_min",String(Math.max(2021,DVF_GEO_LATEST_YEAR-4)));u.searchParams.set("anneemut_max",String(DVF_GEO_LATEST_YEAR));
+          const data=await jsonFetch(u);const rows=Array.isArray(data?.results)?data.results:Array.isArray(data?.data)?data.data:Array.isArray(data)?data:[];
+          return {source:"DVF+ Cerema",rows:rows.map(normalizeDvf),fallback:false};
+        }catch(e){
+          const rows=await dvfGeoOpenData({codeInsee,yearMin:String(Math.max(2021,DVF_GEO_LATEST_YEAR-4)),yearMax:String(DVF_GEO_LATEST_YEAR),limit:500});
+          return {source:"DVF open-data · data.gouv.fr",rows:rows.map(x=>normalizeDvf({id_mutation:first(x,["id_mutation"]),date_mutation:first(x,["date_mutation"]),valeur_fonciere:first(x,["valeur_fonciere"]),code_type_local:first(x,["code_type_local"]),type_local:first(x,["type_local"]),surface_reelle_bati:first(x,["surface_reelle_bati"]),surface_terrain:first(x,["surface_terrain"]),code_commune:first(x,["code_commune"]),code_departement:first(x,["code_departement"]),adresse_numero:first(x,["adresse_numero"]),adresse_nom_voie:first(x,["adresse_nom_voie"]),code_postal:first(x,["code_postal"]),nombre_pieces_principales:first(x,["nombre_pieces_principales"])})),fallback:true};
+        }
+      })()
+    ]);
+    if(dpeResult.status!=="fulfilled")throw new Error("ADEME DPE indisponible : "+(dpeResult.reason?.message||"erreur source"));
+    const dpeRaw=Array.isArray(dpeResult.value?.results)?dpeResult.value.results:Array.isArray(dpeResult.value?.data)?dpeResult.value.data:[];
+    const dpeRows=dpeRaw.map(normalizeDpe);
+    const dvfPack=dvfResult.status==="fulfilled"?dvfResult.value:{source:"DVF indisponible",rows:[],fallback:false};
+    const report=analyzeDataQuality({dpeRows,dvfRows:dvfPack.rows||[]});
+    return {...report,cityCode:codeInsee,dpeCount:dpeRows.length,dvfCount:(dvfPack.rows||[]).length,dvfSource:dvfPack.source,dvfFallback:Boolean(dvfPack.fallback)};
+  }
   if(pathname==="/api/commune"){
     const q=url.searchParams.get("q")?.trim();
     if(!q) throw new Error("Paramètre q manquant");
