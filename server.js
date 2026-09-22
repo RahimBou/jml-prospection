@@ -484,7 +484,7 @@ function localComparables(property,rows){
     if(targetArea<=0||area<=0)continue;
     const surfaceRatio=Math.abs(targetArea-area)/Math.max(targetArea,area);
     if(surfaceRatio>0.20)continue;
-    if(isApartment&&Number(tx?.lotCount)>1)continue;
+    // Ne pas exclure un appartement parce que la mutation contient plusieurs lots :\n    // cave, parking ou dépendance peuvent faire monter lotCount sans invalider le logement.
     const rooms=Number(tx?.rooms)||0;
     const roomDiff=targetRooms&&rooms?Math.abs(targetRooms-rooms):null;
     if(roomDiff!==null&&roomDiff>1)continue;
@@ -640,7 +640,7 @@ function classifyDataQuality(p){
   return {level:"incomplete",label:"Données à compléter",score};
 }
 async function api(pathname,url){
-  if(pathname==="/api/health") return {ok:true,sources:{dpe:"ADEME",dvf:"DVF+ Cerema",geocoding:"Géoplateforme",chercherTrouver:"ChercherTrouver.immo"},server:"jml-prospection",version:"1.16.0"};
+  if(pathname==="/api/health") return {ok:true,sources:{dpe:"ADEME",dvf:"DVF+ Cerema",geocoding:"Géoplateforme",chercherTrouver:"ChercherTrouver.immo"},server:"jml-prospection",version:"1.17.2"};
   if(pathname==="/api/integrations-health"){
     const ct=await fetchChercherTrouverPing();
     return {ok:ct.ok===true,checkedAt:new Date().toISOString(),chercherTrouver:ct};
@@ -879,7 +879,7 @@ async function api(pathname,url){
       }else reasons.push("Aucun comparable local suffisamment proche");
 
       const dpeAddressStatus=match.matchQuality==="exact"?"confirmed":(match.matchQuality==="none"?"none":"uncertain");
-      const dpeConfirmed=dpeAddressStatus==="confirmed";
+      const dpeConfirmed=dpeAddressStatus==="confirmed" && (\n        match.unitConfidence==="probable" ||\n        (match.unitConfidence==="unknown" && (match.txs?.length||0)===1)\n      );
       if(dpeConfirmed){
         reasons.push("DPE confirmé · même adresse · correspondance forte");
         if(["F","G"].includes(p.dpe)){energy+=18;reasons.push("DPE F/G confirmé +18")}
@@ -960,7 +960,7 @@ async function api(pathname,url){
         distanceMeters:best?.distanceMeters??null,matchDistanceMeters:match.distanceMeters??null,
         postalCandidateCount:match.postalCount||0,unitConfidence:match.unitConfidence||"not_applicable",
         unitReason:match.unitReason||"",
-        matchedMutationCount:match.txs?.length||0,selectedMutationCount:match.selectedMutationCount||0,
+        matchedMutationCount:match.txs?.length||0,selectedMutationCount:match.selectedCount||0,
         comparableCount:comparable.count,comparableRadius:comparable.radius,comparableMedianPriceM2:comparable.medianPriceM2,
         comparableQ1:comparable.q1,comparableQ3:comparable.q3,comparableDispersion:comparable.dispersion,
         comparableMedianDistance:comparable.medianDistance,comparableRecentCount:comparable.recentCount,comparables:comparable.items,
