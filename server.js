@@ -228,29 +228,47 @@ function distanceMeters(a,b){
   }
   return Math.hypot(a.x-b.x,a.y-b.y);
 }
+function canonicalStreet(value){
+  let s=norm(value);
+  const replacements=[
+    [/^av\s+/,"avenue "],[/\bav\b/g,"avenue"],[/^bd\s+/,"boulevard "],[/\bbd\b/g,"boulevard"],
+    [/^r\s+/,"rue "],[/\br\b/g,"rue"],[/^pl\s+/,"place "],[/\bpl\b/g,"place"],
+    [/^imp\s+/,"impasse "],[/\bimp\b/g,"impasse"],[/^che\s+/,"chemin "],[/\bche\b/g,"chemin"],
+    [/^all\s+/,"allee "],[/\ball\b/g,"allee"]
+  ];
+  for(const [re,val] of replacements)s=s.replace(re,val);
+  return s.replace(/\s+/g," ").trim();
+}
+function canonicalNumber(value){
+  const s=norm(value);
+  const m=s.match(/^0*(\d+[a-z]?(?:[-/]\d+[a-z]?)?)$/);
+  return m?m[1]:s;
+}
 function addressParts(item){
   const address=String(item?.address||"");
-  const number=norm(item?.addressNumber||((address.match(/^\s*(\d+[A-Za-z]?(?:[-/]\d+[A-Za-z]?)?)/)||[])[1]||""));
+  const rawNumber=item?.addressNumber||((address.match(/^\s*(\d+[A-Za-z]?(?:[-/]\d+[A-Za-z]?)?)/)||[])[1]||"");
+  const number=canonicalNumber(rawNumber);
   let street=String(item?.street||"");
   if(!street)street=address.replace(/^\s*\d+[A-Za-z]?(?:[-/]\d+[A-Za-z]?)?\s*/,"");
-  street=norm(street);
+  street=canonicalStreet(street);
   const postal=norm(item?.postalCode||"");
   const cityCode=norm(item?.cityCode||"");
   const city=norm(item?.city||"");
   const numberStreet=number&&street?number+"|"+street:"";
   const streetCity=street&&(cityCode||city)?(cityCode||city)+"|"+street:"";
   const streetPostal=street&&postal?postal+"|"+street:"";
-  return {number,street,postal,cityCode,city,numberStreet,streetCity,streetPostal,point:pointOf(item)};
+  const fullAddress=number&&street?number+"|"+street:"";
+  return {number,street,postal,cityCode,city,numberStreet,streetCity,streetPostal,fullAddress,point:pointOf(item)};
 }
 function buildDvfIndexes(rows){
-  const numberStreet=new Map(),streetCity=new Map(),streetPostal=new Map(),postal=new Map(),geo=[];
+  const numberStreet=new Map(),streetCity=new Map(),streetPostal=new Map(),postal=new Map(),fullAddress=new Map(),streetOnly=new Map(),geo=[];
   const add=(map,key,tx)=>{if(!key)return;if(!map.has(key))map.set(key,[]);map.get(key).push(tx)};
   for(const tx of rows){
     const p=addressParts(tx);
-    add(numberStreet,p.numberStreet,tx);add(streetCity,p.streetCity,tx);add(streetPostal,p.streetPostal,tx);add(postal,p.postal,tx);
+    add(numberStreet,p.numberStreet,tx);add(streetCity,p.streetCity,tx);add(streetPostal,p.streetPostal,tx);add(postal,p.postal,tx);add(fullAddress,p.fullAddress,tx);add(streetOnly,p.street,tx);
     if(p.point)geo.push({tx,point:p.point});
   }
-  return {numberStreet,streetCity,streetPostal,postal,geo};
+  return {numberStreet,streetCity,streetPostal,postal,fullAddress,streetOnly,geo};
 }
 function findDvfMatches(property,indexes){
   const p=addressParts(property);
@@ -259,21 +277,31 @@ function findDvfMatches(property,indexes){
     return (p.cityCode&&t.cityCode&&p.cityCode===t.cityCode)||(p.postal&&t.postal&&p.postal===t.postal);
   };
   const unique=arr=>Array.from(new Map((arr||[]).map(tx=>[tx.mutationId||String(tx.date||"")+"|"+String(tx.address||""),tx])).values());
-  let candidates=unique(indexes.numberStreet.get(p.numberStreet)||[]).filter(sameCommune);
-  if(candidates.length)return {txs:candidates,matchQuality:"exact",matchReason:"Numéro + rue + commune/CP",distanceMeters:null,postalCount:(indexes.postal.get(p.postal)||[]).length};
-  candidates=unique([...(indexes.streetCity.get(p.streetCity)||[]),...(indexes.streetPostal.get(p.streetPostal)||[])]).filter(sameCommune);
-  if(candidates.length)return {txs:candidates,matchQuality:"street",matchReason:"Rue + commune/CP",distanceMeters:null,postalCount:(indexes.postal.get(p.postal)||[]).length};
   const postalTxs=unique(indexes.postal.get(p.postal)||[]);
-  if(postalTxs.length>0&&postalTxs.length<=5)return {txs:postalTxs,matchQuality:"postal",matchReason:"Code postal seul (échantillon ≤ 5)",distanceMeters:null,postalCount:postalTxs.length};
+  const postalCount=postalTxs.length;
+  let candidates=unique(indexes.fullAddress.get(p.fullAddress)||[]).filter(sameCommune);
+  if(candidates.length)return {txs:candidates,matchQuality:"exact",matchReason:"Adresse normalisée + commune/CP",distanceMeters:null,postalCount};
+  candidates=unique(indexes.numberStreet.get(p.numberStreet)||[]).filter(sameCommune);
+  if(candidates.length)return {txs:candidates,matchQuality:"exact",matchReason:"Numéro + rue + commune/CP",distanceMeters:null,postalCount};
+  candidates=unique([...(indexes.streetCity.get(p.streetCity)||[]),...(indexes.streetPostal.get(p.streetPostal)||[])]).filter(sameCommune);
+  if(candidates.length)return {txs:candidates,matchQuality:"street",matchReason:"Rue + commune/CP",distanceMeters:null,postalCount};
+  if(p.street){
+    const streetCandidates=unique(indexes.streetOnly.get(p.street)||[]).filter(tx=>{
+      const t=addressParts(tx);
+      return (p.cityCode&&t.cityCode&&p.cityCode===t.cityCode)||(p.postal&&t.postal&&p.postal===t.postal)||(!p.cityCode&&!p.postal);
+    });
+    if(streetCandidates.length&&streetCandidates.length<=10)return {txs:streetCandidates,matchQuality:"street",matchReason:"Même rue · commune/CP partiel",distanceMeters:null,postalCount};
+  }
+  if(postalCount>0&&postalCount<=5)return {txs:postalTxs,matchQuality:"postal",matchReason:"Code postal seul (échantillon ≤ 5)",distanceMeters:null,postalCount};
   if(p.point){
     let nearest=null;
     for(const g of indexes.geo){
       const d=distanceMeters(p.point,g.point);
       if(d!==null&&d<=80&&(!nearest||d<nearest.distanceMeters))nearest={tx:g.tx,distanceMeters:d};
     }
-    if(nearest)return {txs:[nearest.tx],matchQuality:"proximity",matchReason:"Proximité géographique ≤ 80 m",distanceMeters:Math.round(nearest.distanceMeters),postalCount:postalTxs.length};
+    if(nearest)return {txs:[nearest.tx],matchQuality:"proximity",matchReason:"Proximité géographique ≤ 80 m",distanceMeters:Math.round(nearest.distanceMeters),postalCount};
   }
-  return {txs:[],matchQuality:"none",matchReason:"Aucune correspondance fiable",distanceMeters:null,postalCount:postalTxs.length};
+  return {txs:[],matchQuality:"none",matchReason:"Aucune correspondance fiable",distanceMeters:null,postalCount};
 }
 async function resolveCommune(query){
   if(!query) return null;
@@ -307,7 +335,7 @@ async function resolveCommune(query){
   return known[norm(query)]||null;
 }
 async function api(pathname,url){
-  if(pathname==="/api/health") return {ok:true,sources:{dpe:"ADEME",dvf:"DVF+ Cerema",geocoding:"API Adresse"},server:"jml-prospection",version:"1.10.4"};
+  if(pathname==="/api/health") return {ok:true,sources:{dpe:"ADEME",dvf:"DVF+ Cerema",geocoding:"API Adresse"},server:"jml-prospection",version:"1.10.5"};
   if(pathname==="/api/data-agent"){
     let codeInsee=url.searchParams.get("codeInsee")?.trim();
     const q=url.searchParams.get("q")?.trim();
