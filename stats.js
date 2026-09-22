@@ -51,7 +51,7 @@ function statsFeatures(p){
   };
 }
 function statsEnsemble(f){
-  const vals=[f.radar,f.movement,f.price,f.persistence,f.sources].filter(v=>Number.isFinite(v));
+  const vals=[f.radar,f.movement,f.price,f.persistence,f.sources,f.futureRadar].filter(v=>Number.isFinite(v));
   return vals.length?Math.round(vals.reduce((a,b)=>a+b,0)/vals.length):0;
 }
 function statsOutcome(p){
