@@ -186,7 +186,7 @@ function statsInit(){
   statsSync();
   const b=document.getElementById("statsRefresh");if(b)b.onclick=statsSync;
   const e=document.getElementById("statsExport");if(e)e.onclick=statsExport;
-  const b=document.getElementById("statsBacktest");if(b)b.onclick=statsBacktest;
+  const backtestBtn=document.getElementById("statsBacktest");if(backtestBtn)backtestBtn.onclick=statsBacktest;
   setInterval(statsSync,30000);
 }
 document.addEventListener("DOMContentLoaded",statsInit);
