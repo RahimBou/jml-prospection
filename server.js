@@ -348,9 +348,18 @@ function selectUnitTransactions(property,txs){
     return {txs:[],unitConfidence:"ambiguous",unitReason:"Plusieurs logements à la même adresse, aucun rapprochement assez discriminant",matchedCount:list.length,selectedCount:0};
   }
   const ambiguousTop=top.length>1;
+  if(ambiguousTop){
+    return {
+      txs:selected,
+      unitConfidence:"ambiguous",
+      unitReason:"Même adresse · plusieurs logements compatibles",
+      matchedCount:list.length,
+      selectedCount:selected.length
+    };
+  }
   return {
     txs:selected,
-    unitConfidence:ambiguousTop?"probable":"probable",
+    unitConfidence:"probable",
     unitReason:selected.length===1?"Logement rapproché par surface/type/pièces":"Logement rapproché · historique de mutations conservé",
     matchedCount:list.length,
     selectedCount:selected.length
@@ -437,7 +446,7 @@ async function resolveCommune(query){
   return known[norm(query)]||null;
 }
 async function api(pathname,url){
-  if(pathname==="/api/health") return {ok:true,sources:{dpe:"ADEME",dvf:"DVF+ Cerema",geocoding:"API Adresse"},server:"jml-prospection",version:"1.10.9"};
+  if(pathname==="/api/health") return {ok:true,sources:{dpe:"ADEME",dvf:"DVF+ Cerema",geocoding:"API Adresse"},server:"jml-prospection",version:"1.10.10"};
   if(pathname==="/api/data-agent"){
     let codeInsee=url.searchParams.get("codeInsee")?.trim();
     const q=url.searchParams.get("q")?.trim();
@@ -516,9 +525,16 @@ async function api(pathname,url){
           return {source:"DVF+ Cerema",rows:rows.map(normalizeDvf)};
         }catch(e){
           const rows=await dvfGeoOpenData({codeInsee,yearMin,yearMax,limit:1000});
-          return {source:"DVF open-data · data.gouv.fr",fallback:true,rows:rows.map(x=>({mutationId:first(x,["id_mutation"]),date:first(x,["date_mutation"]),year:(first(x,["date_mutation"])||"").slice(0,4),value:Number(first(x,["valeur_fonciere"]))||0,typeCode:first(x,["code_type_local"]),type:first(x,["type_local"]),builtArea:Number(first(x,["surface_reelle_bati"]))||0,landArea:Number(first(x,["surface_terrain"]))||0,cityCode:first(x,["code_commune"]),department:first(x,["code_departement"]),address:[first(x,["adresse_numero"]),first(x,["adresse_nom_voie"])].filter(Boolean).join(" "),postalCode:first(x,["code_postal"]),
+          return {source:"DVF open-data · data.gouv.fr",fallback:true,rows:rows.map(x=>({mutationId:first(x,["id_mutation"]),date:first(x,["date_mutation"]),year:(first(x,["date_mutation"])||"").slice(0,4),value:Number(first(x,["valeur_fonciere"]))||0,typeCode:first(x,["code_type_local"]),type:first(x,["type_local"]),builtArea:Number(first(x,["surface_reelle_bati"]))||0,landArea:Number(first(x,["surface_terrain"]))||0,cityCode:first(x,["code_commune"]),department:first(x,["code_departement"]),address:[first(x,["adresse_numero"]),first(x,["adresse_nom_voie"])].filter(Boolean).join(" "),
+            addressNumber:first(x,["adresse_numero"]),
+            street:first(x,["adresse_nom_voie"]),
+            postalCode:first(x,["code_postal"]),
             longitude:Number(first(x,["longitude","lon"]))||0,
-            latitude:Number(first(x,["latitude","lat"]))||0,rooms:Number(first(x,["nombre_pieces_principales"]))||0,carrezArea:Number(first(x,["lot_1_surface_carrez"]))||0,lotCount:Number(first(x,["nombre_lots"]))||0,source:"DVF open-data · data.gouv.fr"}))};
+            latitude:Number(first(x,["latitude","lat"]))||0,
+            rooms:Number(first(x,["nombre_pieces_principales"]))||0,
+            carrezArea:Number(first(x,["lot_1_surface_carrez"]))||0,
+            lotCount:Number(first(x,["nombre_lots"]))||0,
+            source:"DVF open-data · data.gouv.fr"}))};
         }
       })()
     ]);
