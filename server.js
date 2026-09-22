@@ -632,6 +632,13 @@ async function geocodeAddress(query,limit=5){
   });
 }
 
+function classifyDataQuality(p){
+  const checks=[Boolean(String(p?.address||"").trim()),Boolean(String(p?.postalCode||"").trim()||String(p?.cityCode||"").trim()),Number(p?.area)>0,Boolean(String(p?.date||"").trim()),Boolean(String(p?.dpe||"").trim())];
+  const score=checks.filter(Boolean).length;
+  if(score>=5)return {level:"complete",label:"Données complètes",score};
+  if(score>=3)return {level:"sufficient",label:"Données suffisantes",score};
+  return {level:"incomplete",label:"Données à compléter",score};
+}
 async function api(pathname,url){
   if(pathname==="/api/health") return {ok:true,sources:{dpe:"ADEME",dvf:"DVF+ Cerema",geocoding:"Géoplateforme",chercherTrouver:"ChercherTrouver.immo"},server:"jml-prospection",version:"1.16.0"};
   if(pathname==="/api/integrations-health"){
@@ -933,6 +940,7 @@ async function api(pathname,url){
       if(data>=9)reasons.push("Données DPE complètes +9");else reasons.push("Complétude des données +"+data);
 
       const score=Math.min(100,energy+holding+market+similarity+data+building);
+      const dataQuality=classifyDataQuality(p);
       const methodScores={
         energy:Math.min(100,Math.round(energy/35*100)),
         holding:Math.min(100,Math.round(holding/5*100)),
@@ -956,7 +964,7 @@ async function api(pathname,url){
         comparableCount:comparable.count,comparableRadius:comparable.radius,comparableMedianPriceM2:comparable.medianPriceM2,
         comparableQ1:comparable.q1,comparableQ3:comparable.q3,comparableDispersion:comparable.dispersion,
         comparableMedianDistance:comparable.medianDistance,comparableRecentCount:comparable.recentCount,comparables:comparable.items,
-        source:"ADEME + DVF comparables locaux",score,methodScores,reasons,
+        source:"ADEME + DVF comparables locaux",score,methodScores,reasons,dataQuality,
         disclaimer:"Indice de surveillance basé sur des signaux publics immobiliers et un contexte de marché local. Ce n'est pas une probabilité de vente ni l'identification d'un propriétaire."
       };
     }).filter(x=>x.address).sort((a,b)=>b.score-a.score).slice(0,limit);
@@ -1018,8 +1026,12 @@ async function api(pathname,url){
       if(!Number.isFinite(d.getTime()))continue;
       if(d>cutoff){excludedRecent++;continue}
       const parts=addressParts(p);
-      const txs=(parts.exact?indexes.exact.get(parts.exact)||[]:[]).slice().sort((a,b)=>String(a.date||"").localeCompare(String(b.date||"")));
-      const streetTxs=(parts.streetKey?indexes.street.get(parts.streetKey)||[]:[]);
+      const sameCommune=tx=>{const t=addressParts(tx);return (parts.cityCode&&t.cityCode&&parts.cityCode===t.cityCode)||(parts.postal&&t.postal&&parts.postal===t.postal);};
+      const uniqueTxs=arr=>Array.from(new Map((arr||[]).map(tx=>[tx.mutationId||String(tx.date||"")+"|"+String(tx.address||""),tx])).values());
+      const exactCandidates=uniqueTxs([...(indexes.fullAddress.get(parts.fullAddress)||[]),...(indexes.numberStreet.get(parts.numberStreet)||[])]).filter(sameCommune).sort((a,b)=>String(a.date||"").localeCompare(String(b.date||"")));
+      const streetCandidates=uniqueTxs([...(indexes.streetCity.get(parts.streetCity)||[]),...(indexes.streetPostal.get(parts.streetPostal)||[])]).filter(sameCommune);
+      const txs=exactCandidates;
+      const streetTxs=streetCandidates;
       if(txs.length)exactMatched++; else if(streetTxs.length)streetOnly++;
       const prior=txs.filter(t=>{const td=new Date(t.date);return Number.isFinite(td.getTime())&&td<d;});
       const future=txs.filter(t=>{const td=new Date(t.date);return Number.isFinite(td.getTime())&&td>=d&&td.getTime()<=d.getTime()+H;});
@@ -1050,7 +1062,7 @@ async function api(pathname,url){
       const precision=success/k*100;
       return {key,label,n:observations.length,k,success,precision,lift:baseline?precision/baseline:null};
     });
-    return {source:"ADEME DPE + DVF historique",codeInsee,years,yearMin,yearMax,dpeCount:dpeRows.length,dvfCount:(dvf.rows||[]).length,matched:observations.length,baseline,exactMatched,streetOnly,excludedRecent,latestDvfDate:latestDvfDate.toISOString().slice(0,10),cutoffDate:cutoff.toISOString().slice(0,10),metrics,observations,disclaimer:"Backtest rétrospectif corrigé : seules les observations ayant un horizon complet de 180 jours avant la dernière mutation DVF disponible sont évaluées. Une mutation positive doit correspondre à la même adresse (numéro + rue + commune/CP). Une correspondance de rue seule est informative mais ne compte pas comme vente à cette adresse. Cela mesure une association historique, pas une probabilité future ni une identification de propriétaire."};
+    return {source:"ADEME DPE + DVF historique",codeInsee,years,yearMin,yearMax,dpeCount:dpeRows.length,dvfCount:(dvf.rows||[]).length,matched:observations.length,baseline,exactMatched,streetOnly,excludedRecent,exactMatchRate:observations.length?exactMatched/observations.length*100:0,latestDvfDate:latestDvfDate.toISOString().slice(0,10),cutoffDate:cutoff.toISOString().slice(0,10),metrics,observations,disclaimer:"Backtest rétrospectif corrigé : seules les observations ayant un horizon complet de 180 jours avant la dernière mutation DVF disponible sont évaluées. Une mutation positive doit correspondre à la même adresse (numéro + rue + commune/CP). Une correspondance de rue seule est informative mais ne compte pas comme vente à cette adresse. Le rapprochement exact utilise numéro + rue normalisés, avec contrôle commune/CP. Cela mesure une association historique, pas une probabilité future ni une identification de propriétaire."};
   }
   if(pathname==="/api/dvf"){
     let codeInsee=url.searchParams.get("codeInsee")?.trim();
