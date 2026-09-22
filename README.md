@@ -1,4 +1,4 @@
-# JML Prospection — V1.6.2
+# JML Prospection — V1.13.0
 
 ## V1.6.2 — serveur et sources publiques
 - Passage de Render Static Site à un service Node.
@@ -93,3 +93,14 @@ Ajout d'une couche de contrôle qualité entre les sources publiques et les mote
 - Interrogation DVF+ par pages de 500 jusqu'à **10 000 transactions maximum** sur la période sélectionnée.
 - En cas de secours open-data, le moteur peut également charger jusqu'à **10 000 transactions**.
 - Le filtrage et la pondération continuent ensuite sur ce volume élargi.
+
+
+## V1.13.0 — Prospection par annonce publique + carte
+- Ajout d'un module **Prospects vendeurs particuliers** avec carte interactive.
+- Une adresse provenant d'une annonce publique peut être géocodée par la **BAN / Géoplateforme**.
+- L'adresse est ensuite croisée avec jusqu'à **10 000 transactions DVF** et les DPE correspondants.
+- Le module distingue **DPE confirmé à la même adresse**, **DPE incertain** et **aucun DPE correspondant**.
+- La carte affiche le point de l'annonce, les mutations DVF rapprochées et les DPE rapprochés lorsque leurs coordonnées sont disponibles.
+- Le lien public de l'annonce peut être conservé dans la fiche CRM.
+- La collecte automatique de coordonnées personnelles n'est pas activée : le module part d'une annonce publique ou d'une adresse fournie par l'utilisateur.
+- Le service de géocodage utilisé est désormais celui de la Géoplateforme, l'ancien endpoint API Adresse ayant été déprécié.
