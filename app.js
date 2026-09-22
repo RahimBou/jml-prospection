@@ -99,15 +99,34 @@ function futureRadarRender(){
     return;
   }
   box.innerHTML=futureRadarCandidates.slice(0,100).map((p,i)=>{
-    const ms=p.methodScores||{};
+    const ms=p.methodScores||{},ev=p.evidence||{};
     const comps=p.comparableCount||0;
     const median=p.comparableMedianPriceM2?Math.round(p.comparableMedianPriceM2).toLocaleString("fr-FR")+" €/m²":"—";
     const radius=p.comparableRadius?p.comparableRadius+" m":"—";
-    const market=comps?("Comparables locaux : "+comps+" · médiane "+median+" · rayon "+radius):"Aucun comparable local fiable";
-    const best=p.latestSale&&p.latestSale.value?("Dernier comparable : "+Number(p.latestSale.value).toLocaleString("fr-FR")+" €"):"";
-    const dpeStatus=p.dpeAddressStatus==="confirmed"?"DPE "+(p.dpe||"")+" confirmé · même adresse":p.dpeAddressStatus==="uncertain"?"DPE "+(p.dpe||"")+" trouvé · correspondance incertaine":"DPE "+(p.dpe||"")+" trouvé · aucune correspondance DVF fiable";
-    const dpeClass=p.dpeAddressStatus==="confirmed"?"confirmed":p.dpeAddressStatus==="uncertain"?"uncertain":"none";
-    return '<article class="future-candidate"><div class="future-candidate-main"><label class="future-check"><input type="checkbox" data-future-check="'+i+'" checked><span></span></label><div><strong>'+apiEsc(p.address||"Adresse non renseignée")+'</strong><div class="meta">'+apiEsc((p.postalCode?p.postalCode+" ":"")+(p.city||""))+' · '+apiEsc(futureRadarType(p.buildingType))+(p.area?" · "+p.area+" m²":"")+'</div><div class="future-reasons"><span class="dpe-match '+dpeClass+'">'+apiEsc(dpeStatus)+'</span><span>'+apiEsc(market)+'</span>'+(best?'<span>'+apiEsc(best)+'</span>':"")+(p.reasons||[]).map(x=>'<span>'+apiEsc(x)+'</span>').join("")+'</div></div></div><div class="future-score"><strong>'+p.score+'/100</strong><small>potentiel de surveillance</small><em>Énergie '+(ms.energy||0)+' · ancienneté '+(ms.holding||0)+' · comparables '+(ms.market||0)+' · similitude '+(ms.similarity||0)+' · complétude '+(ms.data||0)+'</em></div></article>';
+    const compText=comps
+      ? "🔵 "+comps+" comparable(s) distinct(s) · distance médiane "+(p.comparableMedianDistance!=null?Math.round(p.comparableMedianDistance)+" m":"—")+" · rayon "+radius
+      : "⚪ Aucun comparable DVF distinct suffisamment proche";
+    const dpeConfirmed=p.dpeConfirmed===true;
+    const dpeText=dpeConfirmed
+      ? "🟢 DPE "+(p.dpe||"—")+" confirmé · même adresse"
+      : p.dpeAddressStatus==="uncertain"
+        ? "🟠 DPE trouvé · adresse/unité non confirmée"
+        : "⚪ DPE non confirmé à la même adresse";
+    const dpeClass=dpeConfirmed?"confirmed":p.dpeAddressStatus==="uncertain"?"uncertain":"none";
+
+    const sale=p.sameAddressSale||{};
+    const saleText=sale.status==="confirmed"
+      ? "🟢 Vente DVF à la même adresse · "+(sale.count||0)+" mutation(s) · dernière "+(sale.latest?.date?new Date(sale.latest.date).toLocaleDateString("fr-FR"):"date inconnue")+" · "+(sale.ageYears!=null?Math.round(sale.ageYears)+" an(s)":"âge —")
+      : sale.status==="ambiguous"
+        ? "🟠 Adresse DVF exacte mais logement ambigu · vente non confirmée"
+        : "⚪ Aucune vente DVF confirmée à la même adresse";
+    const saleClass=sale.status==="confirmed"?"confirmed":sale.status==="ambiguous"?"uncertain":"none";
+
+    const terrain=p.terrainArea?("🌳 Terrain documenté par DVF : "+Math.round(p.terrainArea)+" m²"):"🌳 Terrain non documenté à la même adresse";
+    const quality=ev.dataQuality||p.dataQuality||{};
+    const why=(p.reasons||[]).filter(x=>!String(x).startsWith("DPE ")&&!String(x).startsWith("Dernière vente")&&!String(x).startsWith("Aucune vente")&&!String(x).startsWith("Adresse DVF")).slice(0,5);
+
+    return '<article class="future-candidate"><div class="future-candidate-main"><label class="future-check"><input type="checkbox" data-future-check="'+i+'" checked><span></span></label><div><strong>'+apiEsc(p.address||"Adresse non renseignée")+'</strong><div class="meta">'+apiEsc((p.postalCode?p.postalCode+" ":"")+(p.city||""))+' · '+apiEsc(futureRadarType(p.buildingType))+(p.area?" · "+p.area+" m²":"")+'</div><div class="future-reasons"><span class="dpe-match '+dpeClass+'">'+apiEsc(dpeText)+'</span><span class="dpe-match '+saleClass+'">'+apiEsc(saleText)+'</span><span>'+apiEsc(compText)+'</span><span>'+apiEsc(terrain)+'</span></div><div class="future-reasons">'+why.map(x=>'<span>'+apiEsc(x)+'</span>').join("")+'</div><div class="meta"><strong>Pourquoi ce candidat ?</strong> Qualité '+(quality.score||0)+'/5 · type/surface '+(ms.typeSurface||0)+'% · proximité '+(ms.proximity||0)+'% · historique '+(ms.history||0)+'%</div></div></div><div class="future-score"><strong>'+p.score+'/100</strong><small>indice de surveillance</small><em>DPE '+(ms.dpe||0)+' · vente '+(ms.saleAge||0)+' · type/surface '+(ms.typeSurface||0)+' · terrain '+(ms.terrain||0)+' · proximité '+(ms.proximity||0)+' · historique '+(ms.history||0)+' · données '+(ms.data||0)+'</em></div></article>';
   }).join("");
   add.disabled=false;
 }
@@ -133,12 +152,13 @@ function addFutureRadarCandidates(){
   for(const p of selected){
     const incoming={
       address:p.address||"",postalCode:p.postalCode||"",city:p.city||"",district:"",
-      type:futureRadarType(p.buildingType),area:num(p.area),land:num(p.latestSale?.landArea),
-      rooms:num(p.latestSale?.rooms),bedrooms:0,price:0,dpe:p.dpe||"",futureRadarScore:num(p.score),dataQuality:p.dataQuality||null,status:"Nouveau",
+      type:futureRadarType(p.buildingType),area:num(p.area),land:num(p.terrainArea||p.latestSale?.landArea),
+      rooms:num(p.sameAddressSale?.latest?.rooms||p.latestSale?.rooms),bedrooms:0,price:0,dpe:p.dpe||"",
+      futureRadarScore:num(p.score),dataQuality:p.dataQuality||null,status:"Nouveau",
       detectionDate:today(),nextFollow:"",source:"Radar futur · ADEME + comparables DVF",
       externalId:p.id||"",sourceUrl:"https://data.ademe.fr/datasets/dpe03existant",
-      description:"Potentiel de surveillance future : "+p.score+"/100. "+(p.reasons||[]).join(" · "),
-      notes:"Qualité des données : "+(p.dataQuality?.label||"non précisée")+". Méthodes : énergie "+(p.methodScores?.energy||0)+", ancienneté "+(p.methodScores?.holding||0)+", marché "+(p.methodScores?.market||0)+", complétude "+(p.methodScores?.data||0)+". "+(p.disclaimer||"")
+      description:"Indice de surveillance : "+p.score+"/100. "+(p.reasons||[]).join(" · "),
+      notes:"Séparation des preuves : DPE même adresse = "+(p.dpeConfirmed?"confirmé":"non confirmé")+" ; vente DVF même adresse = "+(p.sameAddressSaleConfirmed?"confirmée":"non confirmée")+" ; comparables distincts = "+(p.comparableCount||0)+". Qualité "+(p.dataQuality?.label||"non précisée")+". Historique DVF confirmé : "+(p.sameAddressSale?.count||0)+" vente(s). "+(p.disclaimer||"")
     };
     const result=mergeProspect(incoming);
     result==="created"?created++:merged++;
