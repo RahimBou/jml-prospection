@@ -1,4 +1,4 @@
-const APP_VERSION="1.9.2";
+const APP_VERSION="1.9.4";
 const KEY="jml_prospection_v1";let prospects=load(),pendingImport=[];const $=id=>document.getElementById(id);
 function load(){try{const x=JSON.parse(localStorage.getItem(KEY)||"[]");return Array.isArray(x)?x:[]}catch(e){return[]}}
 function save(){localStorage.setItem(KEY,JSON.stringify(prospects));render();if(typeof statsSync==="function")statsSync()}
@@ -100,7 +100,8 @@ function futureRadarRender(){
   }
   box.innerHTML=futureRadarCandidates.slice(0,100).map((p,i)=>{
     const ms=p.methodScores||{};
-    return '<article class="future-candidate"><div class="future-candidate-main"><label class="future-check"><input type="checkbox" data-future-check="'+i+'" checked><span></span></label><div><strong>'+apiEsc(p.address||"Adresse non renseignée")+'</strong><div class="meta">'+apiEsc((p.postalCode?p.postalCode+" ":"")+(p.city||""))+' · '+apiEsc(futureRadarType(p.buildingType))+(p.area?" · "+p.area+" m²":"")+'</div><div class="future-reasons">'+(p.reasons||[]).map(x=>'<span>'+apiEsc(x)+'</span>').join("")+'</div></div></div><div class="future-score"><strong>'+p.score+'/100</strong><small>potentiel de surveillance</small><em>Énergie '+(ms.energy||0)+' · ancienneté '+(ms.holding||0)+' · marché '+(ms.market||0)+' · qualité '+(ms.data||0)+'</em></div></article>';
+    const match=p.matchQuality==="exact"?"Correspondance DVF exacte":p.matchQuality==="street"?"Même rue uniquement":"Pas de correspondance DVF exacte";
+    return '<article class="future-candidate"><div class="future-candidate-main"><label class="future-check"><input type="checkbox" data-future-check="'+i+'" checked><span></span></label><div><strong>'+apiEsc(p.address||"Adresse non renseignée")+'</strong><div class="meta">'+apiEsc((p.postalCode?p.postalCode+" ":"")+(p.city||""))+' · '+apiEsc(futureRadarType(p.buildingType))+(p.area?" · "+p.area+" m²":"")+'</div><div class="future-reasons"><span>'+match+'</span>'+(p.reasons||[]).map(x=>'<span>'+apiEsc(x)+'</span>').join("")+'</div></div></div><div class="future-score"><strong>'+p.score+'/100</strong><small>potentiel de surveillance</small><em>Énergie '+(ms.energy||0)+' · ancienneté '+(ms.holding||0)+' · marché '+(ms.market||0)+' · complétude '+(ms.data||0)+'</em></div></article>';
   }).join("");
   add.disabled=false;
 }
@@ -131,7 +132,7 @@ function addFutureRadarCandidates(){
       detectionDate:today(),nextFollow:"",source:"Radar futur · ADEME + DVF",
       externalId:p.id||"",sourceUrl:"https://data.ademe.fr/datasets/dpe03existant",
       description:"Potentiel de surveillance future : "+p.score+"/100. "+(p.reasons||[]).join(" · "),
-      notes:"Méthodes : énergie "+(p.methodScores?.energy||0)+", ancienneté "+(p.methodScores?.holding||0)+", marché "+(p.methodScores?.market||0)+", qualité "+(p.methodScores?.data||0)+". "+(p.disclaimer||"")
+      notes:"Méthodes : énergie "+(p.methodScores?.energy||0)+", ancienneté "+(p.methodScores?.holding||0)+", marché "+(p.methodScores?.market||0)+", complétude "+(p.methodScores?.data||0)+". "+(p.disclaimer||"")
     };
     const result=mergeProspect(incoming);
     result==="created"?created++:merged++;
