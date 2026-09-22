@@ -125,7 +125,7 @@ function addFutureRadarCandidates(){
     const incoming={
       address:p.address||"",postalCode:p.postalCode||"",city:p.city||"",district:"",
       type:futureRadarType(p.buildingType),area:num(p.area),land:num(p.latestSale?.landArea),
-      rooms:num(p.latestSale?.rooms),bedrooms:0,price:0,dpe:p.dpe||"",status:"Nouveau",
+      rooms:num(p.latestSale?.rooms),bedrooms:0,price:0,dpe:p.dpe||"",futureRadarScore:num(p.score),status:"Nouveau",
       detectionDate:today(),nextFollow:"",source:"Radar futur · ADEME + DVF",
       externalId:p.id||"",sourceUrl:"https://data.ademe.fr/datasets/dpe03existant",
       description:"Potentiel de surveillance future : "+p.score+"/100. "+(p.reasons||[]).join(" · "),
