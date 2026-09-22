@@ -1,4 +1,4 @@
-const APP_VERSION="1.8.0";
+const APP_VERSION="1.9.0";
 const KEY="jml_prospection_v1";let prospects=load(),pendingImport=[];const $=id=>document.getElementById(id);
 function load(){try{const x=JSON.parse(localStorage.getItem(KEY)||"[]");return Array.isArray(x)?x:[]}catch(e){return[]}}
 function save(){localStorage.setItem(KEY,JSON.stringify(prospects));render()}
@@ -80,6 +80,64 @@ function csvCell(v){const s=String(v??"");return /[,"\n\r]/.test(s)?'"'+s.replac
 function exportCSV(){const fields=["address","postalCode","city","district","type","area","land","rooms","bedrooms","price","dpe","status","detectionDate","nextFollow","source","externalId","sourceUrl","description","notes"],head=["adresse","codePostal","commune","quartier","type","surface","terrain","pieces","chambres","prix","dpe","statut","detection","prochaineRelance","source","identifiantSource","sourceUrl","description","notes"],lines=[head.join(",")];prospects.forEach(p=>lines.push(fields.map(k=>csvCell(p[k])).join(",")));const blob=new Blob(["\ufeff"+lines.join("\r\n")],{type:"text/csv;charset=utf-8"}),url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download="jml-prospection-export.csv";a.click();URL.revokeObjectURL(url)}
 function previewImport(){const file=$("csvFile").files[0];if(!file)return;$("importPreview").textContent="Lecture du fichier…";const reader=new FileReader();reader.onload=()=>{try{pendingImport=parseCSV(reader.result);const existing=pendingImport.filter(x=>prospects.some(p=>dedupeKey(p)===dedupeKey(x))).length;$("importPreview").innerHTML="<strong>"+pendingImport.length+"</strong> ligne(s) valide(s) · <strong>"+existing+"</strong> déjà connue(s) · les doublons seront fusionnés.<br><span class='meta'>Colonnes reconnues : adresse, CP, commune, surface, terrain, pièces, prix, DPE, détection, statut, source…</span>";$("importConfirm").disabled=!pendingImport.length}catch(err){pendingImport=[];$("importPreview").textContent="CSV illisible ou vide.";$("importConfirm").disabled=true}};reader.readAsText(file,"UTF-8")}
 $("importBtn").onclick=()=>{$("csvFile").value="";$("importPreview").textContent="Choisis un fichier CSV." ;pendingImport=[];$("importConfirm").disabled=true;$("importDialog").showModal()};$("importClose").onclick=()=>$("importDialog").close();$("importCancel").onclick=()=>$("importDialog").close();$("csvFile").addEventListener("change",previewImport);$("importConfirm").onclick=()=>{let created=0,merged=0;pendingImport.forEach(x=>{const r=mergeProspect(x);r==="created"?created++:merged++});save();$("importDialog").close();alert("Import terminé : "+created+" nouveau(x), "+merged+" fusionné(s).");pendingImport=[]};$("exportBtn").onclick=exportCSV;
+
+let futureRadarCandidates=[];
+function futureRadarType(v=""){
+  const s=String(v).toLowerCase();
+  if(s.includes("appartement"))return "Appartement";
+  if(s.includes("maison"))return "Maison";
+  return "Autre";
+}
+function futureRadarRender(){
+  const box=$("futureRadarResults"), add=$("futureRadarAddAll");
+  if(!box)return;
+  if(!futureRadarCandidates.length){
+    box.innerHTML='<div class="meta">Aucun candidat exploitable trouvé pour cette analyse.</div>';
+    if(add)add.disabled=true;
+    return;
+  }
+  box.innerHTML=futureRadarCandidates.slice(0,100).map((p,i)=>{
+    const ms=p.methodScores||{};
+    return '<article class="future-candidate"><div class="future-candidate-main"><label class="future-check"><input type="checkbox" data-future-check="'+i+'" checked><span></span></label><div><strong>'+apiEsc(p.address||"Adresse non renseignée")+'</strong><div class="meta">'+apiEsc((p.postalCode?p.postalCode+" ":"")+(p.city||""))+' · '+apiEsc(futureRadarType(p.buildingType))+(p.area?" · "+p.area+" m²":"")+'</div><div class="future-reasons">'+(p.reasons||[]).map(x=>'<span>'+apiEsc(x)+'</span>').join("")+'</div></div></div><div class="future-score"><strong>'+p.score+'/100</strong><small>potentiel de surveillance</small><em>Énergie '+(ms.energy||0)+' · ancienneté '+(ms.holding||0)+' · marché '+(ms.market||0)+' · qualité '+(ms.data||0)+'</em></div></article>';
+  }).join("");
+  add.disabled=false;
+}
+async function runFutureRadar(){
+  const q=$("publicQuery").value.trim();
+  if(!q){$("futureRadarStatus").textContent="Indique d'abord une commune dans le champ « Commune ou adresse ».";return}
+  $("futureRadarStatus").textContent="Analyse multi-signaux ADEME + DVF en cours…";
+  $("futureRadarBtn").disabled=true;
+  try{
+    const data=await publicJson("/api/radar?q="+encodeURIComponent(q)+"&limit=100&years=5");
+    futureRadarCandidates=data.results||[];
+    futureRadarRender();
+    $("futureRadarStatus").innerHTML="<strong>"+apiEsc(q)+"</strong> · "+data.dpeCount+" DPE analysés · "+data.dvfCount+" transactions comparées · "+futureRadarCandidates.length+" candidats classés. "+apiEsc(data.dvfFallback?"DVF open-data utilisé en secours.":"DVF+ utilisé.");
+  }catch(e){
+    futureRadarCandidates=[];
+    futureRadarRender();
+    $("futureRadarStatus").textContent="Erreur radar futur : "+e.message;
+  }finally{$("futureRadarBtn").disabled=false}
+}
+function addFutureRadarCandidates(){
+  const selected=[...document.querySelectorAll("[data-future-check]:checked")].map(x=>futureRadarCandidates[Number(x.dataset.futureCheck)]).filter(Boolean);
+  let created=0,merged=0;
+  for(const p of selected){
+    const incoming={
+      address:p.address||"",postalCode:p.postalCode||"",city:p.city||"",district:"",
+      type:futureRadarType(p.buildingType),area:num(p.area),land:num(p.latestSale?.landArea),
+      rooms:num(p.latestSale?.rooms),bedrooms:0,price:0,dpe:p.dpe||"",status:"Nouveau",
+      detectionDate:today(),nextFollow:"",source:"Radar futur · ADEME + DVF",
+      externalId:p.id||"",sourceUrl:"https://data.ademe.fr/datasets/dpe03existant",
+      description:"Potentiel de surveillance future : "+p.score+"/100. "+(p.reasons||[]).join(" · "),
+      notes:"Méthodes : énergie "+(p.methodScores?.energy||0)+", ancienneté "+(p.methodScores?.holding||0)+", marché "+(p.methodScores?.market||0)+", qualité "+(p.methodScores?.data||0)+". "+(p.disclaimer||"")
+    };
+    const result=mergeProspect(incoming);
+    result==="created"?created++:merged++;
+  }
+  if(selected.length){save();alert("Radar futur : "+created+" candidat(s) ajouté(s), "+merged+" déjà présent(s) fusionné(s).")}
+}
+$("futureRadarBtn").onclick=runFutureRadar;
+$("futureRadarAddAll").onclick=addFutureRadarCandidates;
 let publicDpeResults=[],publicDvfResults=[];
 function apiEsc(v=""){return esc(v)}
 async function publicJson(url){let r;try{r=await fetch(url,{cache:"no-store"});}catch(e){throw new Error("Connexion au serveur JML impossible : "+(e.message||"fetch failed"))}let d;try{d=await r.json()}catch(e){throw new Error("Réponse serveur invalide (HTTP "+r.status+")")}if(!r.ok)throw new Error(d.error||("Erreur serveur HTTP "+r.status));return d}
