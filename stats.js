@@ -137,7 +137,8 @@ function statsRender(){
   const base=statsWilson(successes,rows.length);
   const by=STATS_METHODS.map(([key,label])=>[key,label,statsMethodMetrics(rows,key)]);
   const enough=rows.length>=20;
-  panel.querySelector("#statsHeadline").textContent=total+" bien(s) suivis · "+rows.length+" résultat(s) arrivés à maturité";
+  const learning=total-rows.length;
+  panel.querySelector("#statsHeadline").textContent=total+" bien(s) suivis · "+learning+" en apprentissage · "+rows.length+" résultat(s) arrivés à maturité";
   panel.querySelector("#statsBaseline").textContent=rows.length?base.rate.toFixed(1)+" %":"—";
   panel.querySelector("#statsSuccess").textContent=rows.length?successes:"—";
   panel.querySelector("#statsDataQuality").textContent=enough?"Test exploitable":"Phase d'apprentissage";
