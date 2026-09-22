@@ -1,7 +1,7 @@
-# JML Prospection — V1.6.0
+# JML Prospection — V1.6.1
 
 ## Version de référence
-- Version : **1.6.0**
+- Version : **1.6.1**
 - Branche : **main**
 - Application : jml-prospection
 - Architecture : Node.js + interface web
@@ -17,4 +17,4 @@ Toute modification fonctionnelle doit :
 
 ## Versions
 - V1.5.x : prototype navigateur, historique des prix et radar.
-- V1.6.0 : backend Node, premières connexions aux sources publiques et recherche DPE/DVF+.
+- V1.6.1 : backend Node, premières connexions aux sources publiques et recherche DPE/DVF+.
