@@ -1,4 +1,4 @@
-# JML Prospection — V1.10.7
+# JML Prospection — V1.11.0
 
 ## Version de référence
 - Version : **1.6.2**
@@ -67,3 +67,12 @@ Toute modification fonctionnelle doit :
 ## V1.10.7 — Correction syntaxe
 - Réécriture propre de la normalisation d'adresse pour éviter l'erreur JavaScript de V1.10.6.
 - L'ordre de définition des champs postal/commune est corrigé.
+
+
+## V1.11.0 — Moteur de comparables locaux
+- Le Radar n'attribue plus automatiquement une mutation DVF précise à un logement DPE.
+- Sélection de comparables géographiques dans des rayons progressifs de 100 m, 250 m puis 500 m.
+- Filtrage par type de bien, surface, pièces, distance, récence et cohérence du prix au m².
+- Médiane locale, dispersion, distance médiane et nombre de comparables exposés dans le Radar.
+- Les données d'adresse restent des éléments de contexte ; les ventes voisines sont traitées comme des comparables et non comme l'historique certain du logement.
+- DVF géolocalisé fournit notamment type de local, surface bâtie, pièces, lots, prix, date et coordonnées géographiques, ce qui permet ce calcul spatial.
