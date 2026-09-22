@@ -690,7 +690,21 @@ async function geocodeAddress(query,limit=5){
 }
 
 async function api(pathname,url){
-  if(pathname==="/api/health") return {ok:true,sources:{dpe:"ADEME",dvf:"DVF+ Cerema",geocoding:"API Adresse"},server:"jml-prospection",version:"1.13.0"};
+  if(pathname==="/api/health") return {ok:true,sources:{dpe:"ADEME",dvf:"DVF+ Cerema",geocoding:"Géoplateforme",chercherTrouver:"ChercherTrouver.immo",logiScan:"LogiScan"},server:"jml-prospection",version:"1.15.0"};
+  if(pathname==="/api/integrations-health"){
+    const [ct,ls]=await Promise.allSettled([fetchChercherTrouverPing(),fetchLogiScanAccount()]);
+    return {
+      ok:ct.status==="fulfilled"&&ls.status==="fulfilled",
+      checkedAt:new Date().toISOString(),
+      chercherTrouver:ct.status==="fulfilled"?ct.value:{source:"ChercherTrouver.immo",ok:false,error:ct.reason?.message||"Erreur inconnue"},
+      logiScan:ls.status==="fulfilled"?ls.value:{source:"LogiScan",ok:false,error:ls.reason?.message||"Erreur inconnue"}
+    };
+  }
+  if(pathname==="/api/logiscan-analyze"){
+    const listingUrl=url.searchParams.get("url")?.trim();
+    if(!listingUrl)throw new Error("Paramètre url manquant");
+    return await fetchLogiScanAnalysis(listingUrl);
+  }
   if(pathname==="/api/data-agent"){
     let codeInsee=url.searchParams.get("codeInsee")?.trim();
     const q=url.searchParams.get("q")?.trim();
