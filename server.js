@@ -208,7 +208,7 @@ async function resolveCommune(query){
   return known[norm(query)]||null;
 }
 async function api(pathname,url){
-  if(pathname==="/api/health") return {ok:true,sources:{dpe:"ADEME",dvf:"DVF+ Cerema",geocoding:"API Adresse"},server:"jml-prospection",version:"1.9.2"};
+  if(pathname==="/api/health") return {ok:true,sources:{dpe:"ADEME",dvf:"DVF+ Cerema",geocoding:"API Adresse"},server:"jml-prospection",version:"1.9.3"};
   if(pathname==="/api/commune"){
     const q=url.searchParams.get("q")?.trim();
     if(!q) throw new Error("Paramètre q manquant");
@@ -294,6 +294,91 @@ async function api(pathname,url){
       return {id:"dpe-"+(p.dpeNumber||index)+"-"+codeInsee,address:p.address,postalCode:p.postalCode,city:p.city,cityCode:p.cityCode,area:p.area,dpe:p.dpe,ges:p.ges,dpeDate:p.date,dpeAgeYears:dpeAge?Math.round(dpeAge*10)/10:null,buildingType:p.buildingType||"",latestSale:latest?{date:latest.date,value:latest.value,type:latest.type,builtArea:latest.builtArea,landArea:latest.landArea,rooms:latest.rooms}:null,source:"ADEME DPE + DVF",score,methodScores,reasons,disclaimer:"Indice de surveillance future basé sur des signaux publics immobiliers. Ce n'est pas une probabilité de vente ni l'identification d'un propriétaire."};
     }).filter(x=>x.address).sort((a,b)=>b.score-a.score).slice(0,limit);
     return {source:"ADEME DPE + DVF",codeInsee,dpeCount:dpeRows.length,dvfCount:dvfRows.length,dvfSource:dvf.source,dvfFallback:!!dvf.fallback,results:candidates};
+  }
+  if(pathname==="/api/backtest"){ 
+    let codeInsee=url.searchParams.get("codeInsee")?.trim();
+    const q=url.searchParams.get("q")?.trim();
+    if(!codeInsee&&q){const c=await resolveCommune(q);codeInsee=c?.cityCode||""}
+    if(!codeInsee)throw new Error("Commune introuvable : indique une commune ou un code INSEE");
+    const years=Math.max(2,Math.min(5,Number(url.searchParams.get("years"))||5));
+    const yearMin=String(Math.max(2021,DVF_GEO_LATEST_YEAR-years+1));
+    const yearMax=String(DVF_GEO_LATEST_YEAR);
+    const dpeUrl=new URL(DPE_URL);
+    dpeUrl.searchParams.set("code_insee_ban_eq",codeInsee);
+    dpeUrl.searchParams.set("size","100");
+    const [dpeResult,dvfResult]=await Promise.allSettled([
+      jsonFetch(dpeUrl),
+      (async()=>{
+        const u=new URL(DVF_URL);
+        u.searchParams.set("code_insee",codeInsee);
+        u.searchParams.set("page_size","1000");
+        u.searchParams.set("anneemut_min",yearMin);
+        u.searchParams.set("anneemut_max",yearMax);
+        try{
+          const data=await jsonFetch(u);
+          const rows=Array.isArray(data?.results)?data.results:Array.isArray(data?.data)?data.data:Array.isArray(data)?data:[];
+          return {source:"DVF+ Cerema",rows:rows.map(normalizeDvf)};
+        }catch(e){
+          const rows=await dvfGeoOpenData({codeInsee,yearMin,yearMax,limit:1000});
+          return {source:"DVF open-data · data.gouv.fr",fallback:true,rows:rows.map(x=>({
+            mutationId:first(x,["id_mutation"]),date:first(x,["date_mutation"]),year:(first(x,["date_mutation"])||"").slice(0,4),
+            value:Number(first(x,["valeur_fonciere"]))||0,typeCode:first(x,["code_type_local"]),type:first(x,["type_local"]),
+            builtArea:Number(first(x,["surface_reelle_bati"]))||0,landArea:Number(first(x,["surface_terrain"]))||0,
+            cityCode:first(x,["code_commune"]),department:first(x,["code_departement"]),
+            address:[first(x,["adresse_numero"]),first(x,["adresse_nom_voie"])].filter(Boolean).join(" "),
+            postalCode:first(x,["code_postal"]),rooms:Number(first(x,["nombre_pieces_principales"]))||0,
+            source:"DVF open-data · data.gouv.fr"
+          }))};
+        }
+      })()
+    ]);
+    if(dpeResult.status!=="fulfilled")throw new Error("ADEME DPE indisponible pour le backtest : "+(dpeResult.reason?.message||"erreur source"));
+    const dpeData=dpeResult.value;
+    const dpeRows=(Array.isArray(dpeData?.results)?dpeData.results:Array.isArray(dpeData?.data)?dpeData.data:[]).map(normalizeDpe).filter(x=>x.address&&x.date);
+    const dvf=dvfResult.status==="fulfilled"?dvfResult.value:{source:"DVF indisponible",rows:[]};
+    const txByAddress=new Map();
+    for(const tx of (dvf.rows||[])){
+      const key=norm(String(tx.address||"").replace(/\b\d{5}\b/g,""));
+      if(!key)continue;
+      if(!txByAddress.has(key))txByAddress.set(key,[]);
+      txByAddress.get(key).push(tx);
+    }
+    const H=180*86400000;
+    const observations=[];
+    for(const p of dpeRows){
+      const d=new Date(p.date);
+      if(!Number.isFinite(d.getTime()))continue;
+      const key=norm(String(p.address||"").replace(/\b\d{5}\b/g,""));
+      const txs=(txByAddress.get(key)||[]).slice().sort((a,b)=>String(a.date||"").localeCompare(String(b.date||"")));
+      const prior=txs.filter(t=>{const td=new Date(t.date);return Number.isFinite(td.getTime())&&td<d;});
+      const future=txs.filter(t=>{const td=new Date(t.date);return Number.isFinite(td.getTime())&&td>=d&&td.getTime()<=d.getTime()+H;});
+      const sale=future[0]||null;
+      const previous=prior[prior.length-1]||null;
+      const previousAge=previous?.date?((d.getTime()-new Date(previous.date).getTime())/86400000/365.25):null;
+      const sameAddressPrior=prior.length;
+      let energy=0,holding=0,market=0,data=0;
+      if(["F","G"].includes(p.dpe))energy+=20; else if(p.dpe==="E")energy+=8;
+      if(previousAge!==null&&previousAge>=7)holding+=18;
+      else if(!previous)holding+=8;
+      if(sameAddressPrior>=3)market+=12; else if(sameAddressPrior>=1)market+=6;
+      if(p.area>=40&&p.area<=250)data+=4;
+      if(p.address)data+=4;
+      if(p.cityCode===codeInsee)data+=2;
+      const radar=Math.min(100,energy+holding+market+data);
+      const ensemble=Math.round([radar,Math.min(100,energy*3),Math.min(100,holding*4),Math.min(100,market*5),Math.min(100,data*10)].reduce((a,b)=>a+b,0)/5);
+      observations.push({id:p.dpeNumber||p.address,date:p.date,address:p.address,dpe:p.dpe,area:p.area,saleWithin180:!!sale,saleDate:sale?.date||"",scores:{futureRadar:radar,energy:Math.min(100,energy*3),holding:Math.min(100,holding*4),market:Math.min(100,market*5),data:Math.min(100,data*10),ensemble}});
+    }
+    const methods=[["futureRadar","Radar futur"],["energy","Énergie / DPE"],["holding","Ancienneté"],["market","Historique marché"],["data","Qualité données"],["ensemble","Ensemble"]];
+    const baseline=observations.length?observations.filter(x=>x.saleWithin180).length/observations.length*100:0;
+    const metrics=methods.map(([key,label])=>{
+      const sorted=observations.slice().sort((a,b)=>b.scores[key]-a.scores[key]);
+      const k=Math.max(1,Math.ceil(sorted.length*.2));
+      const top=sorted.slice(0,k);
+      const success=top.filter(x=>x.saleWithin180).length;
+      const precision=success/k*100;
+      return {key,label,n:observations.length,k,success,precision,lift:baseline?precision/baseline:null};
+    });
+    return {source:"ADEME DPE + DVF historique",codeInsee,years,yearMin,yearMax,dpeCount:dpeRows.length,dvfCount:(dvf.rows||[]).length,matched:observations.length,baseline,metrics,observations,disclaimer:"Backtest rétrospectif : un DPE est considéré comme observation positive si une mutation DVF à la même adresse intervient dans les 180 jours suivants. Cela mesure une association historique, pas une probabilité future ni une identification de propriétaire."};
   }
   if(pathname==="/api/dvf"){
     let codeInsee=url.searchParams.get("codeInsee")?.trim();
