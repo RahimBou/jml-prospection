@@ -1,4 +1,4 @@
-# JML Prospection — V1.10.3
+# JML Prospection — V1.10.4
 
 ## Version de référence
 - Version : **1.6.2**
@@ -45,3 +45,8 @@ Toute modification fonctionnelle doit :
 - Exploitation des coordonnées DPE/BAN et des coordonnées longitude/latitude DVF lorsqu'elles sont présentes.
 - Les correspondances secondaires ne reçoivent plus les mêmes points qu'une correspondance exacte.
 - Le radar expose le niveau et le motif de rapprochement.
+
+
+## V1.10.4 — Correction radar
+- Correction du bug `streetOnly is not defined`.
+- Le radar utilise désormais directement le niveau de rapprochement calculé par le moteur DPE ↔ DVF.
