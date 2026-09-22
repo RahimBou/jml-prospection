@@ -74,3 +74,7 @@ Le projet travaille au niveau des biens et des informations publiquement accessi
 - **DVF / data.gouv.fr** : transactions immobilières publiques, utilisées pour l’analyse de marché et les comparables. Les conditions de réutilisation interdisent la ré-identification des personnes.  
 - **DPE / ADEME** : données DPE des logements existants depuis juillet 2021, disponibles en open data et par API.  
 - Étape suivante : construire les connecteurs serveur pour rechercher les données par commune/adresse, normaliser les résultats, dédoublonner les biens et alimenter l’historique des signaux.
+
+
+## V1.10.0 — Data Agent
+Ajout d'une couche de contrôle qualité entre les sources publiques et les moteurs d'analyse. Le Data Agent vérifie les champs essentiels, repère les valeurs incohérentes, signale les conflits entre sources et sépare la qualité des données de toute analyse commerciale.
