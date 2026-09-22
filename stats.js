@@ -1,4 +1,4 @@
-/* JML Prospection — Laboratoire statistique V1.9
+/* JML Prospection — Laboratoire statistique V1.9.1
    Objectif: mesurer quelles méthodes repèrent le mieux les biens ayant ensuite
    un résultat commercial réel. Les scores restent des indicateurs, pas des
    probabilités ni des prédictions certaines. */
@@ -10,7 +10,7 @@ const STATS_METHODS=[
   ["price","Comportement prix"],
   ["persistence","Persistance / apparitions"],
   ["sources","Multi-sources"],
-  ["futureRadar","Radar futur V1.9"],
+  ["futureRadar","Radar futur V1.9.1"],
   ["ensemble","Ensemble des méthodes"]
 ];
 
