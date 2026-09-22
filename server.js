@@ -160,7 +160,7 @@ async function fetchLogiScanAnalysis(listingUrl){
   const apiKey=String(process.env.LOGISCAN_API_KEY||"").trim();
   if(!apiKey) throw new Error("LOGISCAN_API_KEY non configurée sur le serveur Render");
   const url=String(listingUrl||"").trim();
-  if(!/^https?:\\/\\//i.test(url)) throw new Error("URL d'annonce invalide");
+  if(!/^https?:\/\//i.test(url)) throw new Error("URL d'annonce invalide");
   const controller=new AbortController();
   const timer=setTimeout(()=>controller.abort(),30000);
   try{
