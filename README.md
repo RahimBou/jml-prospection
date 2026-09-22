@@ -1,5 +1,16 @@
 # JML Prospection
 
+## V1.6 — serveur et sources publiques
+- Passage de Render Static Site à un service Node.
+- API serveur `/api/health`, `/api/commune`, `/api/dpe` et `/api/dvf`.
+- Recherche DPE via l'API ADEME.
+- Recherche de transactions via DVF+ Cerema.
+- Géocodage des communes via l'API Adresse.
+- Résultats affichés dans l'interface sans ré-identification de personnes.
+- Préparation d'une fiche à partir d'un DPE public, avec validation humaine avant enregistrement.
+
+Le serveur ne télécharge pas toute la base DPE/DVF dans le navigateur : les recherches sont filtrées côté serveur et limitées en volume.
+
 Application indépendante de prospection immobilière pour JML Immobilier.
 
 ## V1.5 — historique des prix et signaux enrichis
