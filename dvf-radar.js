@@ -27,7 +27,7 @@
   document.addEventListener("click",function(ev){
     const b=ev.target.closest("[data-dvf-index]");if(!b)return;
     const p=publicDvfResults[Number(b.dataset.dvfIndex)];if(!p||typeof openForm!=="function")return;
-    const typeMap={Maison:"Maison",Appartement:"Appartement",Dépendance:"Autre",Local industriel. commercial ou assimilé:"Local commercial",Terrain:"Terrain"};
+    const typeMap={Maison:"Maison",Appartement:"Appartement",Dépendance:"Autre","Local industriel. commercial ou assimilé":"Local commercial",Terrain:"Terrain"};
     const type=typeMap[p.type]||(/maison/i.test(p.type||"")?"Maison":/appartement/i.test(p.type||"")?"Appartement":/terrain/i.test(p.type||"")?"Terrain":"Autre");
     openForm({address:p.address||"",postalCode:p.postalCode||"",city:p.city||"",type,area:p.builtArea||0,land:p.landArea||0,rooms:p.rooms||0,bedrooms:0,price:p.value||0,dpe:"",status:"Nouveau",detectionDate:today(),nextFollow:"",source:p.source||"DVF Ardennes",externalId:p.mutationId||"",sourceUrl:"https://www.data.gouv.fr/datasets/demandes-de-valeurs-foncieres-geolocalisees",description:"Transaction immobilière publique DVF. Signal de contexte patrimonial ; ne pas interpréter comme identification d'un vendeur.",notes:"Mutation : "+(p.date||"—")+" · Prix : "+(p.value?money(p.value):"—")+" · Parcelle/localisation publique selon les données disponibles."});
   });
