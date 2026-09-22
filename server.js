@@ -246,20 +246,26 @@ function canonicalNumber(value){
 }
 function addressParts(item){
   const address=String(item?.address||"");
+  const postal=norm(item?.postalCode||"");
+  const cityCode=norm(item?.cityCode||"");
+  const city=norm(item?.city||"");
   const rawNumber=item?.addressNumber||((address.match(/^\s*(\d+[A-Za-z]?(?:[-/]\d+[A-Za-z]?)?)/)||[])[1]||"");
   const number=canonicalNumber(rawNumber);
   let street=String(item?.street||"");
   if(!street){
     street=address.replace(/^\s*\d+[A-Za-z]?(?:[-/]\d+[A-Za-z]?)?\s*/,"");
-    if(postal)street=street.replace(new RegExp("\\b"+postal+"\\b.*$","i"),"");
-    if(city)street=street.replace(new RegExp("\\b"+city.replace(/[.*+?^{}()|[\\]\\\\]/g,"\\\\  let street=String(item?.street||"");
-  if(!street)street=address.replace(/^\s*\d+[A-Za-z]?(?:[-/]\d+[A-Za-z]?)?\s*/,"");
-  street=canonicalStreet(street);")+"\\s*$","i"),"");
+    let streetNorm=norm(street);
+    if(postal){
+      const pi=streetNorm.lastIndexOf(postal);
+      if(pi>=0)street=street.slice(0,pi);
+    }
+    streetNorm=norm(street);
+    if(city){
+      const ci=streetNorm.lastIndexOf(city);
+      if(ci>=0 && ci+city.length===streetNorm.length)street=street.slice(0,ci);
+    }
   }
   street=canonicalStreet(street);
-  const postal=norm(item?.postalCode||"");
-  const cityCode=norm(item?.cityCode||"");
-  const city=norm(item?.city||"");
   const numberStreet=number&&street?number+"|"+street:"";
   const streetCity=street&&(cityCode||city)?(cityCode||city)+"|"+street:"";
   const streetPostal=street&&postal?postal+"|"+street:"";
@@ -341,7 +347,7 @@ async function resolveCommune(query){
   return known[norm(query)]||null;
 }
 async function api(pathname,url){
-  if(pathname==="/api/health") return {ok:true,sources:{dpe:"ADEME",dvf:"DVF+ Cerema",geocoding:"API Adresse"},server:"jml-prospection",version:"1.10.6"};
+  if(pathname==="/api/health") return {ok:true,sources:{dpe:"ADEME",dvf:"DVF+ Cerema",geocoding:"API Adresse"},server:"jml-prospection",version:"1.10.7"};
   if(pathname==="/api/data-agent"){
     let codeInsee=url.searchParams.get("codeInsee")?.trim();
     const q=url.searchParams.get("q")?.trim();
