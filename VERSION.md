@@ -1,4 +1,4 @@
-# JML Prospection — V1.10.4
+# JML Prospection — V1.10.5
 
 ## Version de référence
 - Version : **1.6.2**
@@ -48,5 +48,12 @@ Toute modification fonctionnelle doit :
 
 
 ## V1.10.4 — Correction radar
+
 - Correction du bug `streetOnly is not defined`.
 - Le radar utilise désormais directement le niveau de rapprochement calculé par le moteur DPE ↔ DVF.
+
+## V1.10.5 — Rapprochement DPE ↔ DVF renforcé
+- Normalisation des numéros et types de voies.
+- Ajout d'un rapprochement par adresse normalisée.
+- Ajout d'un rapprochement rue seul, uniquement lorsque l'échantillon reste limité.
+- Le radar conserve les niveaux exact / rue / postal / proximité / aucun.
