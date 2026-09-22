@@ -1,7 +1,7 @@
-# JML Prospection — V1.13.0
+# JML Prospection — V1.17.1
 
 ## Version de référence
-- Version : **1.13.0**
+- Version : **1.17.1**
 - Branche : **main**
 - Application : jml-prospection
 - Architecture : Node.js + interface web
@@ -99,3 +99,9 @@ Toute modification fonctionnelle doit :
 - Croisement de l'adresse avec DVF et DPE.
 - Affichage des niveaux de correspondance sans ré-identification automatique du propriétaire.
 - Conservation facultative du lien public de l'annonce dans le CRM.
+
+
+## V1.17.1 — Synchronisation interface
+- Version affichée synchronisée avec le moteur frontend et Render.
+- Suppression des anciennes mentions de version V1.15.0/V1.17.0 dans l'interface.
+- Libellé du radar futur synchronisé en V1.17.1.
