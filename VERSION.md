@@ -1,4 +1,4 @@
-# JML Prospection — V1.10.5
+# JML Prospection — V1.10.6
 
 ## Version de référence
 - Version : **1.6.2**
@@ -57,3 +57,8 @@ Toute modification fonctionnelle doit :
 - Ajout d'un rapprochement par adresse normalisée.
 - Ajout d'un rapprochement rue seul, uniquement lorsque l'échantillon reste limité.
 - Le radar conserve les niveaux exact / rue / postal / proximité / aucun.
+
+
+## V1.10.6 — Nettoyage des adresses
+- Retrait du code postal et de la commune lorsqu'ils sont inclus dans l'adresse BAN brute.
+- Amélioration du rapprochement DPE ↔ DVF lorsque les sources formatent différemment la même adresse.
