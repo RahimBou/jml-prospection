@@ -160,7 +160,7 @@ async function handle(req,res){
   fs.readFile(full,(err,data)=>{
     if(err)return send(res,404,{error:"Fichier introuvable"});
     const ext=path.extname(full).toLowerCase();
-    res.writeHead(200,{"Content-Type":MIME[ext]||"application/octet-stream","Cache-Control":ext===".html"?"no-cache":"public,max-age=3600"});
+    res.writeHead(200,{"Content-Type":MIME[ext]||"application/octet-stream","Cache-Control":(ext===".html"||ext===".js"||ext===".css")?"no-cache":"public,max-age=3600"});
     res.end(data);
   });
 }
