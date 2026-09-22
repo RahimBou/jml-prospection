@@ -1,4 +1,4 @@
-/* JML Prospection — Laboratoire statistique V1.9.4
+/* JML Prospection — Laboratoire statistique V1.9.5
    Objectif: mesurer quelles méthodes repèrent le mieux les biens ayant ensuite
    un résultat commercial réel. Les scores restent des indicateurs, pas des
    probabilités ni des prédictions certaines. */
