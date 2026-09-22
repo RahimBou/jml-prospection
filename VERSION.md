@@ -1,4 +1,4 @@
-# JML Prospection — V1.11.0
+# JML Prospection — V1.11.1
 
 ## Version de référence
 - Version : **1.6.2**
@@ -69,7 +69,7 @@ Toute modification fonctionnelle doit :
 - L'ordre de définition des champs postal/commune est corrigé.
 
 
-## V1.11.0 — Moteur de comparables locaux
+## V1.11.1 — Moteur de comparables locaux
 - Le Radar n'attribue plus automatiquement une mutation DVF précise à un logement DPE.
 - Sélection de comparables géographiques dans des rayons progressifs de 100 m, 250 m puis 500 m.
 - Filtrage par type de bien, surface, pièces, distance, récence et cohérence du prix au m².
