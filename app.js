@@ -63,16 +63,36 @@ async function searchPublicSources(){
   $("publicStatus").textContent="Recherche ADEME + DVF+ en cours…";
   $("publicSearchBtn").disabled=true;
   try{
-    const communes=await publicJson("/api/commune?q="+encodeURIComponent(q));
-    const c=communes[0];
+    const known={
+      "charleville mezieres":{city:"Charleville-Mézières",cityCode:"08105"},
+      "sedan":{city:"Sedan",cityCode:"08409"},
+      "rethel":{city:"Rethel",cityCode:"08362"},
+      "revin":{city:"Revin",cityCode:"08363"},
+      "givet":{city:"Givet",cityCode:"08190"},
+      "vouziers":{city:"Vouziers",cityCode:"08490"}
+    };
+    const key=String(q).normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/[^a-z0-9]+/g," ").trim();
+    let c=known[key];
+    if(!c){
+      const communes=await publicJson("/api/commune?q="+encodeURIComponent(q));
+      c=communes[0];
+    }
     if(!c)throw new Error("Commune introuvable");
     const params="codeInsee="+encodeURIComponent(c.cityCode);
-    const [dpe,dvf]=await Promise.all([
+    const [dpeResult,dvfResult]=await Promise.allSettled([
       publicJson("/api/dpe?"+params+"&limit=20"),
       publicJson("/api/dvf?"+params+"&limit=20&yearMin="+(new Date().getFullYear()-5))
     ]);
-    renderPublicDpe(dpe.results);renderPublicDvf(dvf.results);
-    $("publicStatus").innerHTML="<strong>"+apiEsc(c.city)+"</strong> · code INSEE "+apiEsc(c.cityCode)+" · "+dpe.rawCount+" DPE et "+dvf.rawCount+" transactions récupérés.";
+    const dpe=dpeResult.status==="fulfilled"?dpeResult.value:null;
+    const dvf=dvfResult.status==="fulfilled"?dvfResult.value:null;
+    renderPublicDpe(dpe?.results||[]);
+    renderPublicDvf(dvf?.results||[]);
+    const parts=[
+      "<strong>"+apiEsc(c.city)+"</strong> · code INSEE "+apiEsc(c.cityCode),
+      dpe ? dpe.rawCount+" DPE récupérés" : "ADEME indisponible",
+      dvf ? dvf.rawCount+" transactions récupérées" : "DVF+ indisponible"
+    ];
+    $("publicStatus").innerHTML=parts.join(" · ");
   }catch(e){
     $("publicStatus").textContent="Erreur : "+e.message;
     renderPublicDpe([]);renderPublicDvf([]);
