@@ -1,4 +1,4 @@
-# JML Prospection — V1.10.6
+# JML Prospection — V1.10.7
 
 ## Version de référence
 - Version : **1.6.2**
@@ -62,3 +62,8 @@ Toute modification fonctionnelle doit :
 ## V1.10.6 — Nettoyage des adresses
 - Retrait du code postal et de la commune lorsqu'ils sont inclus dans l'adresse BAN brute.
 - Amélioration du rapprochement DPE ↔ DVF lorsque les sources formatent différemment la même adresse.
+
+
+## V1.10.7 — Correction syntaxe
+- Réécriture propre de la normalisation d'adresse pour éviter l'erreur JavaScript de V1.10.6.
+- L'ordre de définition des champs postal/commune est corrigé.
