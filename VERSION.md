@@ -1,4 +1,4 @@
-# JML Prospection — V1.10.2
+# JML Prospection — V1.10.3
 
 ## Version de référence
 - Version : **1.6.2**
@@ -37,3 +37,11 @@ Toute modification fonctionnelle doit :
 - Une même source peut contenir plusieurs historiques d'un même bien.
 - Le Data Agent ne traite plus ces historiques comme plusieurs sources indépendantes.
 - Un conflit de surface n'est signalé que si plusieurs sources fournissent la même nature de surface et divergent de plus de 25 %.
+
+
+## V1.10.3 — Rapprochement DPE ↔ DVF
+- Rapprochement hiérarchisé : **numéro + rue + commune/CP**, puis **rue + commune/CP**, puis **code postal** si l'échantillon est suffisamment discriminant.
+- Ajout d'un niveau de rapprochement par **proximité géographique ≤ 80 m** lorsque les coordonnées sont disponibles.
+- Exploitation des coordonnées DPE/BAN et des coordonnées longitude/latitude DVF lorsqu'elles sont présentes.
+- Les correspondances secondaires ne reçoivent plus les mêmes points qu'une correspondance exacte.
+- Le radar expose le niveau et le motif de rapprochement.
