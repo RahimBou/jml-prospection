@@ -1,4 +1,4 @@
-# JML Prospection — V1.6.2
+# JML Prospection — V1.10.1
 
 ## Version de référence
 - Version : **1.6.2**
@@ -24,3 +24,10 @@ Toute modification fonctionnelle doit :
 - Rejet des enregistrements manifestement incohérents avant analyse.
 - Détection des conflits de surface entre sources.
 - Rapport de qualité visible dans l'interface.
+
+
+## V1.10.1 — Comparaison des surfaces
+- Séparation explicite des surfaces : **habitable**, **bâtie** et **terrain**.
+- Le Data Agent ne compare plus une surface habitable DPE avec une surface bâtie DVF.
+- Les conflits de surface ne sont signalés que lorsque les surfaces comparées sont de même nature.
+- Une divergence entre surface habitable, surface bâtie et terrain reste une différence de définition, pas une anomalie.
