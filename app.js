@@ -1,4 +1,4 @@
-const APP_VERSION="1.9.7";
+const APP_VERSION="1.10.0";
 const KEY="jml_prospection_v1";let prospects=load(),pendingImport=[];const $=id=>document.getElementById(id);
 function load(){try{const x=JSON.parse(localStorage.getItem(KEY)||"[]");return Array.isArray(x)?x:[]}catch(e){return[]}}
 function save(){localStorage.setItem(KEY,JSON.stringify(prospects));render();if(typeof statsSync==="function")statsSync()}
@@ -196,6 +196,26 @@ async function searchPublicSources(){
 }
 $("publicSearchBtn").onclick=searchPublicSources;
 $("publicQuery").addEventListener("keydown",e=>{if(e.key==="Enter")searchPublicSources()});
+async function runDataAgent(){
+  const q=$("publicQuery").value.trim();
+  if(!q){$("dataAgentStatus").textContent="Indique d'abord une commune.";return}
+  $("dataAgentStatus").textContent="Contrôle qualité ADEME + DVF en cours…";
+  $("dataAgentBtn").disabled=true;
+  try{
+    const d=await publicJson("/api/data-agent?q="+encodeURIComponent(q)+"&limit=100");
+    $("dataAgentQuality").textContent=d.qualityScore+"/100 · "+d.qualityLevel;
+    $("dataAgentStatus").textContent=d.dpeCount+" DPE · "+d.dvfCount+" mutations · "+d.dvfSource+(d.dvfFallback?" · secours activé":"");
+    $("dataAgentRejected").innerHTML=d.rejected.length?d.rejected.slice(0,10).map(x=>"<div><strong>"+apiEsc(x.source)+"</strong> · "+apiEsc(x.level)+" · "+apiEsc((x.issues||[]).concat(x.warnings||[]).join(" · "))+"</div>").join(""):"Aucune donnée rejetée dans l'échantillon.";
+    $("dataAgentConflicts").innerHTML=d.conflicts.length?d.conflicts.slice(0,10).map(x=>"<div><strong>Conflit</strong> · "+apiEsc(x.reason)+"</div>").join(""):"Aucun conflit majeur détecté.";
+  }catch(e){
+    $("dataAgentQuality").textContent="—";
+    $("dataAgentStatus").textContent="Erreur : "+e.message;
+    $("dataAgentRejected").textContent="";
+    $("dataAgentConflicts").textContent="";
+  }finally{$("dataAgentBtn").disabled=false}
+}
+$("dataAgentBtn").onclick=runDataAgent;
+
 publicJson("/api/health").then(()=>{$("sourceApiStatus").textContent="Connectées"}).catch(()=>{$("sourceApiStatus").textContent="Serveur indisponible"});
 $("publicDpeResults").onclick=e=>{
   const b=e.target.closest("[data-dpe-index]");if(!b)return;
