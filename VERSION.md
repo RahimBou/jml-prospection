@@ -1,4 +1,4 @@
-# JML Prospection — V1.11.2
+# JML Prospection — V1.12.0
 
 ## Version de référence
 - Version : **1.6.2**
@@ -85,3 +85,9 @@ Toute modification fonctionnelle doit :
 - Une absence de correspondance DVF fiable est classée **DPE non confirmé** et donne **0 bonus de classe DPE**.
 - L'interface affiche explicitement : « DPE confirmé · même adresse », « correspondance incertaine » ou « aucune correspondance DVF fiable ».
 - Les signaux d'ancienneté, consommation et GES liés au DPE ne sont également pris en compte que lorsque l'adresse DPE est confirmée.
+
+
+## V1.12.0 — Volume DVF augmenté
+- DVF+ récupéré par pagination de 500 lignes, jusqu'à 10 000 transactions.
+- Secours open-data porté à 10 000 transactions.
+- Le moteur conserve ensuite son filtrage avant calcul du score.
