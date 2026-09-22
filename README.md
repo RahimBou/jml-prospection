@@ -56,3 +56,10 @@ L'application actuelle est un prototype navigateur : les données de test sont s
 
 ## Principe
 Le projet travaille au niveau des biens et des informations publiquement accessibles. Il ne doit pas servir à réidentifier des particuliers à partir de données privées, de compteurs, de consommations ou de comptes personnels.
+
+
+## Sources publiques retenues — étape 1
+
+- **DVF / data.gouv.fr** : transactions immobilières publiques, utilisées pour l’analyse de marché et les comparables. Les conditions de réutilisation interdisent la ré-identification des personnes.  
+- **DPE / ADEME** : données DPE des logements existants depuis juillet 2021, disponibles en open data et par API.  
+- Étape suivante : construire les connecteurs serveur pour rechercher les données par commune/adresse, normaliser les résultats, dédoublonner les biens et alimenter l’historique des signaux.
