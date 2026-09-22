@@ -229,3 +229,125 @@ $("publicDpeResults").onclick=e=>{
   openForm({address:p.address||"",postalCode:p.postalCode||"",city:p.city||"",type:"Maison",area:p.area||0,land:0,rooms:0,bedrooms:0,price:0,dpe:p.dpe||"",status:"Nouveau",detectionDate:today(),nextFollow:"",source:"DPE ADEME",externalId:p.dpeNumber||"",sourceUrl:"https://data.ademe.fr/datasets/dpe03existant",description:"Donnée technique publique DPE ADEME. À vérifier sur le terrain avant toute qualification commerciale.",notes:"DPE : "+(p.dpe||"—")+" · GES : "+(p.ges||"—")+" · Date : "+(p.date||"—")});
 };
 prospects.forEach(ensureHistory);render();
+/* V1.13.0 — prospection annonce publique + carte + rapprochement DVF/DPE */
+let privateProspectMap=null;
+let privateProspectLayers=null;
+let privateProspectMatch=null;
+
+function initPrivateProspectMap(){
+  if(!window.L||privateProspectMap)return;
+  privateProspectMap=L.map("privateProspectMap",{scrollWheelZoom:true});
+  L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,attribution:"&copy; OpenStreetMap contributors"}).addTo(privateProspectMap);
+  privateProspectLayers=L.layerGroup().addTo(privateProspectMap);
+  privateProspectMap.setView([49.77,4.72],11);
+}
+
+function privateMapPopup(title,body){
+  return "<strong>"+apiEsc(title||"Point")+"</strong><br>"+apiEsc(body||"");
+}
+
+function renderPrivateProspectMap(data){
+  initPrivateProspectMap();
+  if(!privateProspectMap||!privateProspectLayers)return;
+  privateProspectLayers.clearLayers();
+  const bounds=[];
+  const g=data?.geocode;
+  if(g?.latitude&&g?.longitude){
+    const marker=L.marker([g.latitude,g.longitude]).bindPopup(privateMapPopup("Annonce publique",g.label||data.property?.address||"Adresse"));
+    marker.addTo(privateProspectLayers);bounds.push([g.latitude,g.longitude]);
+  }
+  for(const tx of (data?.dvf?.transactions||[])){
+    if(!tx.latitude||!tx.longitude)continue;
+    const m=L.circleMarker([tx.latitude,tx.longitude],{radius:6,weight:2,fillOpacity:.65})
+      .bindPopup(privateMapPopup("DVF · "+(tx.date||"date inconnue"),[(tx.value||0).toLocaleString("fr-FR")+" €",tx.builtArea?tx.builtArea+" m² bâti":"",tx.distanceMeters!=null?Math.round(tx.distanceMeters)+" m":"",tx.address||""].filter(Boolean).join(" · ")));
+    m.addTo(privateProspectLayers);bounds.push([tx.latitude,tx.longitude]);
+  }
+  for(const dpe of (data?.dpe?.candidates||[])){
+    if(!dpe.latitude||!dpe.longitude)continue;
+    const m=L.circleMarker([dpe.latitude,dpe.longitude],{radius:5,weight:2,fillOpacity:.55})
+      .bindPopup(privateMapPopup("DPE "+(dpe.dpe||"—"),(dpe.address||"Adresse DPE")+(dpe.dpeAddressStatus==="confirmed"?" · même adresse":" · correspondance incertaine")));
+    m.addTo(privateProspectLayers);bounds.push([dpe.latitude,dpe.longitude]);
+  }
+  if(bounds.length)privateProspectMap.fitBounds(bounds,{padding:[25,25],maxZoom:17});
+  setTimeout(()=>privateProspectMap.invalidateSize(),80);
+}
+
+function privateMatchStatusLabel(data){
+  const d=data?.dpe?.status;
+  const v=data?.dvf?.status;
+  const dpeLabel=d==="confirmed"?"🟢 DPE confirmé à la même adresse":d==="uncertain"?"🟠 DPE trouvé · correspondance incertaine":"⚪ Aucun DPE correspondant";
+  const dvfLabel=v==="exact"?"🟢 DVF adresse exacte":v==="street"?"🟠 DVF même rue":v==="proximity"?"🟠 DVF proximité":"⚪ Pas de correspondance DVF fiable";
+  return dpeLabel+" · "+dvfLabel;
+}
+
+function renderPrivateProspectResult(data){
+  privateProspectMatch=data;
+  renderPrivateProspectMap(data);
+  const d=data.dpe||{},v=data.dvf||{},c=data.comparables||{};
+  const dpeHtml=(d.candidates||[]).slice(0,6).map(x=>'<div class="match-line"><strong>DPE '+apiEsc(x.dpe||"—")+'</strong><span>'+apiEsc(x.address||"Adresse inconnue")+'</span><em>'+apiEsc(x.dpeAddressStatus==="confirmed"?"Même adresse":"Correspondance incertaine")+'</em></div>').join("")||'<div class="meta">Aucun DPE rapproché.</div>';
+  const dvfHtml=(v.transactions||[]).slice(0,8).map(x=>'<div class="match-line"><strong>'+((x.value||0).toLocaleString("fr-FR"))+' €</strong><span>'+apiEsc(x.date||"Date inconnue")+' · '+apiEsc(x.type||"")+(x.builtArea?" · "+x.builtArea+" m²":"")+'</span><em>'+(x.distanceMeters!=null?Math.round(x.distanceMeters)+" m":"adresse")+'</em></div>').join("")||'<div class="meta">Aucune mutation rapprochée.</div>';
+  $("privateMatchResults").innerHTML='<div class="private-result-head"><strong>'+apiEsc(data.property?.address||"Adresse")+'</strong><span>'+apiEsc((data.property?.postalCode||"")+" "+(data.property?.city||""))+'</span></div><div class="private-status-badges"><span>'+apiEsc(privateMatchStatusLabel(data))+'</span></div><div class="private-kpis"><article><strong>'+((d.confirmedCount||0))+'</strong><span>DPE même adresse</span></article><article><strong>'+((v.matchedCount||0))+'</strong><span>DVF à l’adresse</span></article><article><strong>'+((c.count||0))+'</strong><span>Comparables</span></article><article><strong>'+((c.medianPriceM2||0)?Math.round(c.medianPriceM2).toLocaleString("fr-FR")+" €":"—")+'</strong><span>Médiane €/m²</span></article></div><div class="match-columns"><div><h3>DPE</h3>'+dpeHtml+'</div><div><h3>DVF</h3>'+dvfHtml+'</div></div><div class="private-score-note">Rapprochement DVF : '+apiEsc(v.reason||"—")+' · Source : '+apiEsc(v.source||"—")+'</div>';
+  $("privateAddBtn").disabled=false;
+}
+
+async function runPrivateProspectMatch(){
+  const address=$("privateAddress").value.trim();
+  if(!address){$("privateMatchStatus").textContent="Indique l'adresse de l'annonce.";return}
+  $("privateMatchBtn").disabled=true;
+  $("privateAddBtn").disabled=true;
+  $("privateMatchStatus").textContent="Géocodage BAN + recherche DVF jusqu'à 10 000 transactions + rapprochement DPE…";
+  try{
+    const params=new URLSearchParams({
+      address,
+      postalCode:$("privatePostalCode").value.trim(),
+      city:$("privateCity").value.trim(),
+      type:$("privateType").value,
+      area:$("privateArea").value||0,
+      rooms:$("privateRooms").value||0,
+      price:$("privatePrice").value||0
+    });
+    const data=await publicJson("/api/prospect-match?"+params.toString());
+    renderPrivateProspectResult(data);
+    $("privateMatchStatus").innerHTML="<strong>"+apiEsc(data.geocode?.label||address)+"</strong> · "+apiEsc(privateMatchStatusLabel(data))+" · "+apiEsc(data.disclaimer||"");
+  }catch(e){
+    privateProspectMatch=null;
+    $("privateMatchResults").innerHTML="";
+    $("privateMatchStatus").textContent="Erreur : "+e.message;
+  }finally{$("privateMatchBtn").disabled=false}
+}
+
+function addPrivateProspectToCrm(){
+  const d=privateProspectMatch;
+  if(!d)return;
+  const source=$("privateSource").value.trim()||"Annonce particulier publique";
+  const listingUrl=$("privateListingUrl").value.trim();
+  const p=d.property||{};
+  const dpe=d.dpe?.candidates?.find(x=>x.dpeAddressStatus==="confirmed")||d.dpe?.candidates?.[0];
+  openForm({
+    address:p.address||$("privateAddress").value.trim(),
+    postalCode:p.postalCode||$("privatePostalCode").value.trim(),
+    city:p.city||$("privateCity").value.trim(),
+    type:p.buildingType||"Maison",
+    area:p.area||0,
+    land:0,
+    rooms:p.rooms||0,
+    bedrooms:0,
+    price:p.price||0,
+    dpe:dpe?.dpe||"",
+    status:"Nouveau",
+    detectionDate:today(),
+    nextFollow:"",
+    source,
+    externalId:"",
+    sourceUrl:listingUrl,
+    description:"Annonce publique fournie par l'utilisateur · "+(d.geocode?.label||p.address||"")+".",
+    notes:"Croisement JML : "+privateMatchStatusLabel(d)+". DVF : "+(d.dvf?.matchedCount||0)+" mutation(s) rapprochée(s). DPE confirmé : "+(d.dpe?.confirmedCount||0)+". Médiane comparables : "+(d.comparables?.medianPriceM2?Math.round(d.comparables.medianPriceM2)+" €/m²":"—")+"."
+  });
+}
+
+if($("privateMatchBtn")){
+  initPrivateProspectMap();
+  $("privateMatchBtn").onclick=runPrivateProspectMatch;
+  $("privateAddBtn").onclick=addPrivateProspectToCrm;
+  window.addEventListener("resize",()=>{if(privateProspectMap)privateProspectMap.invalidateSize()});
+}
