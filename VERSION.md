@@ -1,4 +1,4 @@
-# JML Prospection — V1.11.1
+# JML Prospection — V1.11.2
 
 ## Version de référence
 - Version : **1.6.2**
@@ -76,3 +76,12 @@ Toute modification fonctionnelle doit :
 - Médiane locale, dispersion, distance médiane et nombre de comparables exposés dans le Radar.
 - Les données d'adresse restent des éléments de contexte ; les ventes voisines sont traitées comme des comparables et non comme l'historique certain du logement.
 - DVF géolocalisé fournit notamment type de local, surface bâtie, pièces, lots, prix, date et coordonnées géographiques, ce qui permet ce calcul spatial.
+
+
+## V1.11.2 — Rapprochement DPE ↔ adresse sécurisé
+- Le bonus DPE énergétique est désormais conditionné à une correspondance d'adresse DVF **exacte**.
+- **F/G confirmé à l'adresse : +18** ; **E confirmé : +10** ; **D confirmé : +4**.
+- Une correspondance rue, code postal ou proximité est classée **incertaine** et donne **0 bonus de classe DPE**.
+- Une absence de correspondance DVF fiable est classée **DPE non confirmé** et donne **0 bonus de classe DPE**.
+- L'interface affiche explicitement : « DPE confirmé · même adresse », « correspondance incertaine » ou « aucune correspondance DVF fiable ».
+- Les signaux d'ancienneté, consommation et GES liés au DPE ne sont également pris en compte que lorsque l'adresse DPE est confirmée.
