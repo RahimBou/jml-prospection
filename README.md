@@ -106,9 +106,6 @@ Ajout d'une couche de contrôle qualité entre les sources publiques et les mote
 - Le service de géocodage utilisé est désormais celui de la Géoplateforme, l'ancien endpoint API Adresse ayant été déprécié.
 
 
-## V1.15.0 — Connecteurs annonces
+## V1.16.0 — Connecteurs annonces
 - Ajout du test serveur **ChercherTrouver.immo** via `/api/integrations-health` et son endpoint `/api/v1/ping`, qui ne consomme pas le quota d'annonces.
-- Ajout de **LogiScan** côté serveur avec `LOGISCAN_API_KEY`, appel gratuit `/v1/account` pour vérifier la clé et route `/api/logiscan-analyze` pour analyser une URL d'annonce.
 - Les clés API restent côté Render et ne sont jamais exposées au navigateur.
-- Une clé LogiScan `lsk_test_…` est recommandée pour les premiers essais : les analyses du bac à sable ne sont pas facturées.
-- L'interface affiche séparément l'état des deux connecteurs et le résultat d'une analyse LogiScan.
