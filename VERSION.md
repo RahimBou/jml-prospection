@@ -18,3 +18,9 @@ Toute modification fonctionnelle doit :
 ## Versions
 - V1.5.x : prototype navigateur, historique des prix et radar.
 - V1.6.2 : backend Node, premières connexions aux sources publiques et recherche DPE/DVF+.
+
+## V1.10.0 — JML Data Agent
+- Ajout du contrôle qualité serveur des données ADEME/DVF.
+- Rejet des enregistrements manifestement incohérents avant analyse.
+- Détection des conflits de surface entre sources.
+- Rapport de qualité visible dans l'interface.
