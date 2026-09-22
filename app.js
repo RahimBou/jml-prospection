@@ -45,4 +45,44 @@ function csvCell(v){const s=String(v??"");return /[,"\n\r]/.test(s)?'"'+s.replac
 function exportCSV(){const fields=["address","postalCode","city","district","type","area","land","rooms","bedrooms","price","dpe","status","detectionDate","nextFollow","source","externalId","sourceUrl","description","notes"],head=["adresse","codePostal","commune","quartier","type","surface","terrain","pieces","chambres","prix","dpe","statut","detection","prochaineRelance","source","identifiantSource","sourceUrl","description","notes"],lines=[head.join(",")];prospects.forEach(p=>lines.push(fields.map(k=>csvCell(p[k])).join(",")));const blob=new Blob(["\ufeff"+lines.join("\r\n")],{type:"text/csv;charset=utf-8"}),url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download="jml-prospection-export.csv";a.click();URL.revokeObjectURL(url)}
 function previewImport(){const file=$("csvFile").files[0];if(!file)return;$("importPreview").textContent="Lecture du fichier…";const reader=new FileReader();reader.onload=()=>{try{pendingImport=parseCSV(reader.result);const existing=pendingImport.filter(x=>prospects.some(p=>dedupeKey(p)===dedupeKey(x))).length;$("importPreview").innerHTML="<strong>"+pendingImport.length+"</strong> ligne(s) valide(s) · <strong>"+existing+"</strong> déjà connue(s) · les doublons seront fusionnés.<br><span class='meta'>Colonnes reconnues : adresse, CP, commune, surface, terrain, pièces, prix, DPE, détection, statut, source…</span>";$("importConfirm").disabled=!pendingImport.length}catch(err){pendingImport=[];$("importPreview").textContent="CSV illisible ou vide.";$("importConfirm").disabled=true}};reader.readAsText(file,"UTF-8")}
 $("importBtn").onclick=()=>{$("csvFile").value="";$("importPreview").textContent="Choisis un fichier CSV." ;pendingImport=[];$("importConfirm").disabled=true;$("importDialog").showModal()};$("importClose").onclick=()=>$("importDialog").close();$("importCancel").onclick=()=>$("importDialog").close();$("csvFile").addEventListener("change",previewImport);$("importConfirm").onclick=()=>{let created=0,merged=0;pendingImport.forEach(x=>{const r=mergeProspect(x);r==="created"?created++:merged++});save();$("importDialog").close();alert("Import terminé : "+created+" nouveau(x), "+merged+" fusionné(s).");pendingImport=[]};$("exportBtn").onclick=exportCSV;
+let publicDpeResults=[],publicDvfResults=[];
+function apiEsc(v=""){return esc(v)}
+async function publicJson(url){const r=await fetch(url);const d=await r.json();if(!r.ok)throw new Error(d.error||"Erreur de source");return d}
+function renderPublicDpe(rows){
+  publicDpeResults=rows||[];
+  $("publicDpeResults").innerHTML=publicDpeResults.length?publicDpeResults.slice(0,20).map((p,i)=>'<article class="source-result"><div><strong>'+apiEsc(p.address||"Adresse non renseignée")+'</strong><span>'+apiEsc((p.postalCode?p.postalCode+" ":"")+(p.city||""))+'</span></div><div class="source-result-details">'+(p.area?p.area+" m² · ":"")+(p.dpe?"DPE "+apiEsc(p.dpe):"DPE —")+(p.ges?" · GES "+apiEsc(p.ges):"")+'</div><button class="ghost" data-dpe-index="'+i+'">Préparer une fiche</button></article>').join(""):'<div class="meta">Aucun DPE trouvé pour cette recherche.</div>';
+}
+function renderPublicDvf(rows){
+  publicDvfResults=rows||[];
+  $("publicDvfResults").innerHTML=publicDvfResults.length?publicDvfResults.slice(0,20).map(p=>'<article class="source-result"><div><strong>'+apiEsc(p.date||"Date inconnue")+'</strong><span>'+apiEsc(p.type||"Bien immobilier")+'</span></div><div class="source-result-details">'+(p.value?p.value.toLocaleString("fr-FR")+" € · ":"")+(p.builtArea?p.builtArea+" m² bâti · ":"")+(p.landArea?p.landArea+" m² terrain":"")+'</div><span class="meta">Source : DVF+ Cerema · '+apiEsc(p.cityCode||"")+'</span></article>').join(""):'<div class="meta">Aucune transaction trouvée.</div>';
+}
+async function searchPublicSources(){
+  const q=$("publicQuery").value.trim();
+  if(!q){$("publicStatus").textContent="Indique une commune ou une adresse.";return}
+  $("publicStatus").textContent="Recherche ADEME + DVF+ en cours…";
+  $("publicSearchBtn").disabled=true;
+  try{
+    const communes=await publicJson("/api/commune?q="+encodeURIComponent(q));
+    const c=communes[0];
+    if(!c)throw new Error("Commune introuvable");
+    const params="codeInsee="+encodeURIComponent(c.cityCode);
+    const [dpe,dvf]=await Promise.all([
+      publicJson("/api/dpe?"+params+"&limit=20"),
+      publicJson("/api/dvf?"+params+"&limit=20&yearMin="+(new Date().getFullYear()-5))
+    ]);
+    renderPublicDpe(dpe.results);renderPublicDvf(dvf.results);
+    $("publicStatus").innerHTML="<strong>"+apiEsc(c.city)+"</strong> · code INSEE "+apiEsc(c.cityCode)+" · "+dpe.rawCount+" DPE et "+dvf.rawCount+" transactions récupérés.";
+  }catch(e){
+    $("publicStatus").textContent="Erreur : "+e.message;
+    renderPublicDpe([]);renderPublicDvf([]);
+  }finally{$("publicSearchBtn").disabled=false}
+}
+$("publicSearchBtn").onclick=searchPublicSources;
+$("publicQuery").addEventListener("keydown",e=>{if(e.key==="Enter")searchPublicSources()});
+publicJson("/api/health").then(()=>{$("sourceApiStatus").textContent="Connectées"}).catch(()=>{$("sourceApiStatus").textContent="Serveur indisponible"});
+$("publicDpeResults").onclick=e=>{
+  const b=e.target.closest("[data-dpe-index]");if(!b)return;
+  const p=publicDpeResults[Number(b.dataset.dpeIndex)];if(!p)return;
+  openForm({address:p.address||"",postalCode:p.postalCode||"",city:p.city||"",type:"Maison",area:p.area||0,land:0,rooms:0,bedrooms:0,price:0,dpe:p.dpe||"",status:"Nouveau",detectionDate:today(),nextFollow:"",source:"DPE ADEME",externalId:p.dpeNumber||"",sourceUrl:"https://data.ademe.fr/datasets/dpe03existant",description:"Donnée technique publique DPE ADEME. À vérifier sur le terrain avant toute qualification commerciale.",notes:"DPE : "+(p.dpe||"—")+" · GES : "+(p.ges||"—")+" · Date : "+(p.date||"—")});
+};
 prospects.forEach(ensureHistory);render();
