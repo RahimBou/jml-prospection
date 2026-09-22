@@ -7,11 +7,9 @@
 
 
 /* V1.15.0 — intégrations */
-.integration-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-top:14px}
+.integration-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:14px;margin-top:14px}
 .integration-grid article{border:1px solid #e5e7eb;border-radius:12px;padding:14px;background:#fafafa}
 .integration-grid article strong{display:block;margin:8px 0}
-.logiscan-form{display:grid;grid-template-columns:1fr auto;gap:12px;align-items:end;margin-top:16px}
-.logiscan-form .full{grid-column:1}
 .integration-analysis-head{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:12px 0}
 #logiScanAnalysisResults h3{margin:18px 0 8px}
-@media(max-width:760px){.integration-grid,.logiscan-form{grid-template-columns:1fr}.logiscan-form .full{grid-column:auto}}
+@media(max-width:760px){.integration-grid{grid-template-columns:1fr}}
