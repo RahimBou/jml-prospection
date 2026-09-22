@@ -1,7 +1,7 @@
-# JML Prospection — V1.17.3
+# JML Prospection — V1.18.0
 
 ## Version de référence
-- Version : **1.17.3**
+- Version : **1.18.0**
 - Branche : **main**
 - Application : jml-prospection
 - Architecture : Node.js + interface web
@@ -105,3 +105,13 @@ Toute modification fonctionnelle doit :
 - Version affichée synchronisée avec le moteur frontend et Render.
 - Suppression des anciennes mentions de version V1.15.0/V1.17.0 dans l'interface.
 - Libellé du radar futur synchronisé en V1.17.3.
+
+
+## V1.18.0 — preuves séparées et score radar sécurisé
+- Séparation stricte entre **DPE confirmé à la même adresse**, **vente DVF confirmée à la même adresse** et **comparables DVF distincts à proximité**.
+- Une mutation DVF à la même adresse n'est considérée comme une vente du logement que si l'unité est suffisamment discriminée ; une adresse exacte mais ambiguë reste non confirmée.
+- Les mutations de la même adresse sont exclues du panier des comparables de proximité afin d'éviter de mélanger historique et marché local.
+- Le bonus **DPE F/G** est conservé uniquement lorsque le rapprochement d'adresse et d'unité est confirmé.
+- Nouveau score transparent sur 100 : qualité des données, ancienneté de la dernière vente confirmée, DPE confirmé, type/surface/pièces, terrain documenté, proximité des comparables et historique DVF confirmé.
+- L'interface affiche séparément les trois preuves et le détail des composantes du score.
+- L'ajout au CRM conserve la distinction entre vente à la même adresse et comparables de proximité.
