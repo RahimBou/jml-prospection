@@ -73,6 +73,41 @@ async function fetchDvfPaginated(baseUrl,{codeInsee,yearMin,yearMax,maxRows=1000
   }
   return rows.slice(0,maxRows);
 }
+
+async function fetchChercherTrouver(params={}){
+  const apiKey=String(process.env.CHERCHERTROUVER_API_KEY||"").trim();
+  if(!apiKey) throw new Error("CHERCHERTROUVER_API_KEY non configurée sur le serveur Render");
+  const u=new URL("https://cherchertrouver.immo/api/v1/annonces");
+  for(const [k,v] of Object.entries(params)){
+    if(v!==undefined&&v!==null&&String(v)!=="")u.searchParams.set(k,String(v));
+  }
+  u.searchParams.set("page_size",String(Math.min(100,Math.max(1,Number(params.page_size)||50))));
+  const controller=new AbortController();
+  const timer=setTimeout(()=>controller.abort(),15000);
+  try{
+    const r=await fetch(u,{headers:{
+      "Accept":"application/json",
+      "X-Api-Key":apiKey,
+      "User-Agent":"JML-Prospection/1.14.0"
+    },signal:controller.signal});
+    const text=await r.text();
+    let data; try{data=JSON.parse(text)}catch{data={raw:text}};
+    if(!r.ok){
+      const detail=data?.error||("ChercherTrouver HTTP "+r.status);
+      throw new Error(detail);
+    }
+    return {
+      source:"ChercherTrouver.immo",
+      total:Number(data?.total)||Number(data?.count)||0,
+      page:Number(data?.page)||1,
+      pageSize:Number(data?.page_size)||0,
+      hasMore:Boolean(data?.has_more),
+      nextCursor:data?.next_cursor||null,
+      items:Array.isArray(data?.items)?data.items:[]
+    };
+  }finally{clearTimeout(timer)}
+}
+
 async function binaryFetch(url){
   let lastError;
   for(let attempt=1;attempt<=2;attempt++){
@@ -718,6 +753,16 @@ async function api(pathname,url){
       score,
       disclaimer:"La carte rapproche une annonce publique fournie par l'utilisateur avec des données immobilières publiques. Elle n'identifie pas automatiquement le propriétaire."
     };
+  }
+  if(pathname==="/api/annonces"){
+    const params={};
+    for(const key of ["q","type","transaction","ville","cp","dept","region","prix_min","prix_max","prix_m2_min","prix_m2_max","created_since","updated_since","sort","source","sources","exclude_sources","cursor"]){
+      const value=url.searchParams.get(key);
+      if(value)params[key]=value;
+    }
+    params.page_size=url.searchParams.get("page_size")||"50";
+    const data=await fetchChercherTrouver(params);
+    return data;
   }
   if(pathname==="/api/commune"){
     const q=url.searchParams.get("q")?.trim();
