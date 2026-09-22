@@ -9,6 +9,8 @@ const DVF_URL = "https://apidf-preprod.cerema.fr/dvf_opendata/mutations/";
 const DVF_GEO_BASE = "https://files.data.gouv.fr/geo-dvf/latest/csv";
 const DVF_GEO_LATEST_YEAR = 2025;
 const dvfGeoCache = new Map();
+const DVF_LOCAL_FILE = path.join(ROOT,"data","dvf_ardennes.csv.gz");
+let dvfLocalCache = null;
 const ADDRESS_URL = "https://api-adresse.data.gouv.fr/search/";
 
 const MIME = {
@@ -100,6 +102,22 @@ function parseDvfGeoCsv(text){
   }
   return rows;
 }
+async function getLocalDvfArdennes(){
+  if(dvfLocalCache)return dvfLocalCache;
+  if(!fs.existsSync(DVF_LOCAL_FILE))return null;
+  const zlib=require("node:zlib");
+  const gz=fs.readFileSync(DVF_LOCAL_FILE);
+  const text=zlib.gunzipSync(gz).toString("utf8");
+  dvfLocalCache=parseDvfGeoCsv(text);
+  return dvfLocalCache;
+}
+async function dvfLocalOpenData({codeInsee,yearMin,yearMax,limit}){
+  const rows=await getLocalDvfArdennes();
+  if(!rows)return null;
+  const min=String(yearMin||"2021"),max=String(yearMax||String(DVF_GEO_LATEST_YEAR));
+  return rows.filter(x=>String(x.code_commune||"")===String(codeInsee)&&String(x.date_mutation||"").slice(0,4)>=min&&String(x.date_mutation||"").slice(0,4)<=max)
+    .sort((a,b)=>String(b.date_mutation||"").localeCompare(String(a.date_mutation||""))).slice(0,limit);
+}
 async function getDvfGeoCommune(codeInsee,year){
   const department=String(codeInsee).slice(0,2);
   const key="commune-"+codeInsee+"-"+year;
@@ -186,7 +204,7 @@ async function resolveCommune(query){
   return known[norm(query)]||null;
 }
 async function api(pathname,url){
-  if(pathname==="/api/health") return {ok:true,sources:{dpe:"ADEME",dvf:"DVF+ Cerema",geocoding:"API Adresse"},server:"jml-prospection",version:"1.6.6"};
+  if(pathname==="/api/health") return {ok:true,sources:{dpe:"ADEME",dvf:"DVF+ Cerema",geocoding:"API Adresse"},server:"jml-prospection",version:"1.7.0"};
   if(pathname==="/api/commune"){
     const q=url.searchParams.get("q")?.trim();
     if(!q) throw new Error("Paramètre q manquant");
@@ -252,7 +270,7 @@ async function api(pathname,url){
         rooms:Number(first(x,["nombre_pieces_principales"]))||0,
         source:"DVF open-data · data.gouv.fr"
       }));
-      return {source:"DVF open-data · data.gouv.fr",codeInsee,total:normalized.length,results:normalized,rawCount:normalized.length,fallback:true,primaryError:ceremaError.message};
+      return {source:"DVF Ardennes / open-data",codeInsee,total:normalized.length,results:normalized,rawCount:normalized.length,fallback:true,primaryError:ceremaError.message};
     }
   }
   throw new Error("Route API inconnue");
