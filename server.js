@@ -5,7 +5,7 @@ const path = require("node:path");
 const PORT = Number(process.env.PORT || 10000);
 const ROOT = __dirname;
 const DPE_URL = "https://data.ademe.fr/data-fair/api/v1/datasets/dpe03existant/lines";
-const DVF_URL = "https://apidf.cerema.fr/dvf_opendata/mutations/";
+const DVF_URL = "https://apidf-preprod.cerema.fr/dvf_opendata/mutations/";
 const ADDRESS_URL = "https://api-adresse.data.gouv.fr/search/";
 
 const MIME = {
@@ -28,7 +28,18 @@ async function jsonFetch(url){
   const controller=new AbortController();
   const timer=setTimeout(()=>controller.abort(),12000);
   try{
-    const r=await fetch(url,{headers:{Accept:"application/json","User-Agent":"JML-Prospection/1.0"},signal:controller.signal});
+    let r;
+    let lastError;
+    for(let attempt=1;attempt<=3;attempt++){
+      try{
+        r=await fetch(url,{headers:{Accept:"application/json","User-Agent":"JML-Prospection/1.0"},signal:controller.signal});
+        break;
+      }catch(e){
+        lastError=e;
+        if(attempt<3) await new Promise(resolve=>setTimeout(resolve,700*attempt));
+      }
+    }
+    if(!r) throw new Error("Source inaccessible après 3 tentatives : "+(lastError?.message||"connexion impossible"));
     const text=await r.text();
     let data;
     try{data=JSON.parse(text)}catch{data={raw:text}}
@@ -99,7 +110,7 @@ async function resolveCommune(query){
   return known[norm(query)]||null;
 }
 async function api(pathname,url){
-  if(pathname==="/api/health") return {ok:true,sources:{dpe:"ADEME",dvf:"DVF+ Cerema",geocoding:"API Adresse"},server:"jml-prospection",version:"1.6.3"};
+  if(pathname==="/api/health") return {ok:true,sources:{dpe:"ADEME",dvf:"DVF+ Cerema",geocoding:"API Adresse"},server:"jml-prospection",version:"1.6.5"};
   if(pathname==="/api/commune"){
     const q=url.searchParams.get("q")?.trim();
     if(!q) throw new Error("Paramètre q manquant");
