@@ -10,6 +10,7 @@ const STATS_METHODS=[
   ["price","Comportement prix"],
   ["persistence","Persistance / apparitions"],
   ["sources","Multi-sources"],
+  ["futureRadar","Radar futur V1.9"],
   ["ensemble","Ensemble des méthodes"]
 ];
 
@@ -42,12 +43,14 @@ function statsFeatures(p){
     (a.length>=2?15:0)
   );
   const sourceScore=statsClamp(sources>=3?100:sources===2?70:sources===1?35:0);
+  const future=Number.isFinite(Number(p.futureRadarScore))?statsClamp(Number(p.futureRadarScore)):null;
   return {
     radar:statsClamp(sig.score*10),
     movement:statsClamp(mov.score),
     price:priceScore,
     persistence:persistenceScore,
-    sources:sourceScore
+    sources:sourceScore,
+    futureRadar:future
   };
 }
 function statsEnsemble(f){
