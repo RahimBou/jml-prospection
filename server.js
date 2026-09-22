@@ -1127,4 +1127,4 @@ async function handle(req,res){
     res.end(data);
   });
 }
-http.createServer(handle).listen(PORT,()=>console.log("JML Prospection server listening on port "+PORT));
+http.createServer(handle).listen(PORT,"0.0.0.0",()=>console.log("JML Prospection server listening on 0.0.0.0:"+PORT));
