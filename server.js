@@ -45,7 +45,7 @@ function normalizeDpe(x){
     postalCode:first(x,["code_postal_ban","Code_postal_(BAN)","Code_postal"]),
     city:first(x,["nom_commune_ban","Nom_commune_(BAN)","Nom_commune"]),
     cityCode:first(x,["code_insee_ban","Code_INSEE_(BAN)","Code_INSEE"]),
-    area:Number(first(x,["Surface_habitable_logement","Surface_habitable","surface_habitable_logement"]))||0,
+    area:Number(first(x,["Surface_habitable_logement","surface_habitable_logement","surface_habitable_immeuble","Surface_habitable_immeuble","Surface_habitable"]))||0,
     dpe:first(x,["etiquette_dpe","Etiquette_DPE","Etiquette_DPE_(à_date)","Etiquette_DPE_logement"]),
     ges:first(x,["etiquette_ges","Etiquette_GES","Etiquette_GES_logement"]),
     date:first(x,["date_visite_diagnostiqueur","Date_établissement_DPE","Date_établissement","date_etablissement_dpe"]),
@@ -122,7 +122,7 @@ async function api(pathname,url){
     const codeInsee=url.searchParams.get("codeInsee")?.trim();
     if(!q&&!codeInsee) throw new Error("Indique une commune, une adresse ou un code INSEE");
     const u=new URL(DPE_URL);u.searchParams.set("size",String(cleanLimit(url.searchParams.get("limit"),30)));
-    if(codeInsee){u.searchParams.set("qs","code_insee_ban:"+codeInsee)}
+    if(codeInsee){u.searchParams.set("code_insee_ban_eq",codeInsee)}
     else u.searchParams.set("q",q);
     const data=await jsonFetch(u);
     const rows=Array.isArray(data?.results)?data.results:Array.isArray(data?.data)?data.data:[];
