@@ -91,7 +91,7 @@ function futureRadarType(v=""){
   return "Autre";
 }
 function futureRadarRender(){
-  const box=$("futureRadarResults"), add=$("futureRadarAddAll");
+  const box=$("futureRadarResults"),add=$("futureRadarAddAll");
   if(!box)return;
   if(!futureRadarCandidates.length){
     box.innerHTML='<div class="meta">Aucun candidat exploitable trouvé pour cette analyse.</div>';
@@ -100,18 +100,19 @@ function futureRadarRender(){
   }
   box.innerHTML=futureRadarCandidates.slice(0,100).map((p,i)=>{
     const ms=p.methodScores||{};
-    const match=p.matchQuality==="exact"?"Numéro + rue + commune/CP":p.matchQuality==="street"?"Rue + commune/CP":p.matchQuality==="postal"?"Code postal seul":p.matchQuality==="proximity"?"Proximité ≤ 80 m":"Aucune correspondance fiable";
-    const unit=p.unitConfidence==="probable"?"Logement probablement rapproché":p.unitConfidence==="ambiguous"?"Même adresse · plusieurs logements possibles":p.unitConfidence==="unknown"?"Même adresse · logement non distingué":"";
-    const count=p.selectedMutationCount!==undefined?'<span>Mutations candidates : '+p.selectedMutationCount+(p.matchedMutationCount>p.selectedMutationCount?' / '+p.matchedMutationCount+' à l’adresse':'')+'</span>':"";
-    const unitMeta=(unit||count)?'<span>'+apiEsc(unit)+'</span>'+count:"";
-    return '<article class="future-candidate"><div class="future-candidate-main"><label class="future-check"><input type="checkbox" data-future-check="'+i+'" checked><span></span></label><div><strong>'+apiEsc(p.address||"Adresse non renseignée")+'</strong><div class="meta">'+apiEsc((p.postalCode?p.postalCode+" ":"")+(p.city||""))+' · '+apiEsc(futureRadarType(p.buildingType))+(p.area?" · "+p.area+" m²":"")+'</div><div class="future-reasons"><span>'+match+'</span>'+unitMeta+(p.reasons||[]).map(x=>'<span>'+apiEsc(x)+'</span>').join("")+'</div></div></div><div class="future-score"><strong>'+p.score+'/100</strong><small>potentiel de surveillance</small><em>Énergie '+(ms.energy||0)+' · ancienneté '+(ms.holding||0)+' · marché '+(ms.market||0)+' · complétude '+(ms.data||0)+'</em></div></article>';
+    const comps=p.comparableCount||0;
+    const median=p.comparableMedianPriceM2?Math.round(p.comparableMedianPriceM2).toLocaleString("fr-FR")+" €/m²":"—";
+    const radius=p.comparableRadius?p.comparableRadius+" m":"—";
+    const market=comps?("Comparables locaux : "+comps+" · médiane "+median+" · rayon "+radius):"Aucun comparable local fiable";
+    const best=p.latestSale&&p.latestSale.value?("Dernier comparable : "+Number(p.latestSale.value).toLocaleString("fr-FR")+" €"):"";
+    return '<article class="future-candidate"><div class="future-candidate-main"><label class="future-check"><input type="checkbox" data-future-check="'+i+'" checked><span></span></label><div><strong>'+apiEsc(p.address||"Adresse non renseignée")+'</strong><div class="meta">'+apiEsc((p.postalCode?p.postalCode+" ":"")+(p.city||""))+' · '+apiEsc(futureRadarType(p.buildingType))+(p.area?" · "+p.area+" m²":"")+'</div><div class="future-reasons"><span>'+apiEsc(market)+'</span>'+(best?'<span>'+apiEsc(best)+'</span>':"")+(p.reasons||[]).map(x=>'<span>'+apiEsc(x)+'</span>').join("")+'</div></div></div><div class="future-score"><strong>'+p.score+'/100</strong><small>potentiel de surveillance</small><em>Énergie '+(ms.energy||0)+' · ancienneté '+(ms.holding||0)+' · comparables '+(ms.market||0)+' · similitude '+(ms.similarity||0)+' · complétude '+(ms.data||0)+'</em></div></article>';
   }).join("");
   add.disabled=false;
 }
 async function runFutureRadar(){
   const q=$("publicQuery").value.trim();
   if(!q){$("futureRadarStatus").textContent="Indique d'abord une commune dans le champ « Commune ou adresse ».";return}
-  $("futureRadarStatus").textContent="Analyse multi-signaux ADEME + DVF en cours…";
+  $("futureRadarStatus").textContent="Analyse ADEME + comparables géographiques DVF en cours…";
   $("futureRadarBtn").disabled=true;
   try{
     const data=await publicJson("/api/radar?q="+encodeURIComponent(q)+"&limit=100&years=5");
@@ -132,7 +133,7 @@ function addFutureRadarCandidates(){
       address:p.address||"",postalCode:p.postalCode||"",city:p.city||"",district:"",
       type:futureRadarType(p.buildingType),area:num(p.area),land:num(p.latestSale?.landArea),
       rooms:num(p.latestSale?.rooms),bedrooms:0,price:0,dpe:p.dpe||"",futureRadarScore:num(p.score),status:"Nouveau",
-      detectionDate:today(),nextFollow:"",source:"Radar futur · ADEME + DVF",
+      detectionDate:today(),nextFollow:"",source:"Radar futur · ADEME + comparables DVF",
       externalId:p.id||"",sourceUrl:"https://data.ademe.fr/datasets/dpe03existant",
       description:"Potentiel de surveillance future : "+p.score+"/100. "+(p.reasons||[]).join(" · "),
       notes:"Méthodes : énergie "+(p.methodScores?.energy||0)+", ancienneté "+(p.methodScores?.holding||0)+", marché "+(p.methodScores?.market||0)+", complétude "+(p.methodScores?.data||0)+". "+(p.disclaimer||"")
