@@ -1,4 +1,4 @@
-const APP_VERSION="1.6.2";
+const APP_VERSION="1.6.4";
 const KEY="jml_prospection_v1";let prospects=load(),pendingImport=[];const $=id=>document.getElementById(id);
 function load(){try{const x=JSON.parse(localStorage.getItem(KEY)||"[]");return Array.isArray(x)?x:[]}catch(e){return[]}}
 function save(){localStorage.setItem(KEY,JSON.stringify(prospects));render()}
@@ -48,7 +48,7 @@ function previewImport(){const file=$("csvFile").files[0];if(!file)return;$("imp
 $("importBtn").onclick=()=>{$("csvFile").value="";$("importPreview").textContent="Choisis un fichier CSV." ;pendingImport=[];$("importConfirm").disabled=true;$("importDialog").showModal()};$("importClose").onclick=()=>$("importDialog").close();$("importCancel").onclick=()=>$("importDialog").close();$("csvFile").addEventListener("change",previewImport);$("importConfirm").onclick=()=>{let created=0,merged=0;pendingImport.forEach(x=>{const r=mergeProspect(x);r==="created"?created++:merged++});save();$("importDialog").close();alert("Import terminé : "+created+" nouveau(x), "+merged+" fusionné(s).");pendingImport=[]};$("exportBtn").onclick=exportCSV;
 let publicDpeResults=[],publicDvfResults=[];
 function apiEsc(v=""){return esc(v)}
-async function publicJson(url){const r=await fetch(url);const d=await r.json();if(!r.ok)throw new Error(d.error||"Erreur de source");return d}
+async function publicJson(url){let r;try{r=await fetch(url,{cache:"no-store"});}catch(e){throw new Error("Connexion au serveur JML impossible : "+(e.message||"fetch failed"))}let d;try{d=await r.json()}catch(e){throw new Error("Réponse serveur invalide (HTTP "+r.status+")")}if(!r.ok)throw new Error(d.error||("Erreur serveur HTTP "+r.status));return d}
 function renderPublicDpe(rows){
   publicDpeResults=rows||[];
   $("publicDpeResults").innerHTML=publicDpeResults.length?publicDpeResults.slice(0,20).map((p,i)=>'<article class="source-result"><div><strong>'+apiEsc(p.address||"Adresse non renseignée")+'</strong><span>'+apiEsc((p.postalCode?p.postalCode+" ":"")+(p.city||""))+'</span></div><div class="source-result-details">'+(p.area?p.area+" m² · ":"")+(p.dpe?"DPE "+apiEsc(p.dpe):"DPE —")+(p.ges?" · GES "+apiEsc(p.ges):"")+'</div><button class="ghost" data-dpe-index="'+i+'">Préparer une fiche</button></article>').join(""):'<div class="meta">Aucun DPE trouvé pour cette recherche.</div>';
