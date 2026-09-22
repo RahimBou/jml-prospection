@@ -1,7 +1,7 @@
 const APP_VERSION="1.9.0";
 const KEY="jml_prospection_v1";let prospects=load(),pendingImport=[];const $=id=>document.getElementById(id);
 function load(){try{const x=JSON.parse(localStorage.getItem(KEY)||"[]");return Array.isArray(x)?x:[]}catch(e){return[]}}
-function save(){localStorage.setItem(KEY,JSON.stringify(prospects));render()}
+function save(){localStorage.setItem(KEY,JSON.stringify(prospects));render();if(typeof statsSync==="function")statsSync()}
 function esc(v=""){return String(v).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
 function now(){return new Date().toISOString()}
 function today(){return new Date().toISOString().slice(0,10)}
