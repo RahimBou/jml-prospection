@@ -74,6 +74,47 @@ async function fetchDvfPaginated(baseUrl,{codeInsee,yearMin,yearMax,maxRows=1000
   return rows.slice(0,maxRows);
 }
 
+async function fetchBdnbAddress(address,city=""){
+  const q=String(address||"").trim();
+  if(!q)return [];
+  const base="https://api.bdnb.io/v1/bdnb/donnees/batiment_groupe_complet/adresse";
+  const queries=[
+    q,
+    [q,city].filter(Boolean).join(" ")
+  ];
+  for(const label of queries){
+    try{
+      const u=new URL(base);
+      u.searchParams.set("select","batiment_groupe_id,libelle_adr_principale_ban,cle_interop_adr,nb_log,identifiant_dpe");
+      u.searchParams.set("libelle_adr_principale_ban","eq."+label);
+      u.searchParams.set("limit","5");
+      const data=await jsonFetch(u);
+      const rows=Array.isArray(data)?data:Array.isArray(data?.data)?data.data:[];
+      if(rows.length)return rows;
+    }catch{}
+  }
+  return [];
+}
+async function fetchDpeCandidates(address,city=""){
+  const terms=[String(address||"").trim(),[String(address||"").trim(),String(city||"").trim()].filter(Boolean).join(" ")].filter(Boolean);
+  const seen=new Set(),out=[];
+  for(const term of terms){
+    try{
+      const u=new URL(DPE_URL);
+      u.searchParams.set("size","20");
+      u.searchParams.set("q",term);
+      const data=await jsonFetch(u);
+      const rows=Array.isArray(data?.results)?data.results:Array.isArray(data?.data)?data.data:[];
+      for(const row of rows){
+        const d=normalizeDpe(row);
+        const key=d.dpeNumber||[d.address,d.postalCode,d.area,d.dpe].join("|");
+        if(!seen.has(key)){seen.add(key);out.push(d)}
+      }
+    }catch{}
+  }
+  return out;
+}
+
 async function fetchChercherTrouver(params={}){
   const apiKey=String(process.env.CHERCHERTROUVER_API_KEY||"").trim();
   if(!apiKey) throw new Error("CHERCHERTROUVER_API_KEY non configurée sur le serveur Render");
@@ -916,14 +957,11 @@ async function api(pathname,url){
       return {address:p.label||"",postalCode:p.postcode||"",city:p.city||"",cityCode:p.citycode||"",street:p.street||"",number:p.housenumber||"",latitude:Number(c[1])||0,longitude:Number(c[0])||0,banId:p.id||"",distanceMeters:distanceMeters(pointOf({latitude:lat,longitude:lon}),pointOf({latitude:Number(c[1])||0,longitude:Number(c[0])||0}))};
     }).filter(x=>x.address&&x.latitude&&x.longitude);
     const enriched=await Promise.all(candidates.slice(0,8).map(async c=>{
-      let dpes=[];
-      try{
-        const u=new URL(DPE_URL);u.searchParams.set("size","5");u.searchParams.set("q",c.address);
-        const data=await jsonFetch(u);
-        const rows=Array.isArray(data?.results)?data.results:Array.isArray(data?.data)?data.data:[];
-        dpes=rows.map(normalizeDpe);
-      }catch{}
-      const bestDpe=dpes.map(d=>({d,dist:distanceMeters(pointOf(c),pointOf(d))})).sort((a,b)=>a.dist-b.dist)[0]?.d||null;
+      const bdnb=await fetchBdnbAddress(c.address,c.city);
+      const dpes=await fetchDpeCandidates(c.address,c.city);
+      const bestDpe=dpes.map(d=>({d,dist:distanceMeters(pointOf(c),pointOf(d))}))
+        .sort((a,b)=>a.dist-b.dist)[0]?.d||null;
+      if(bdnb.length) reasons.push("BDNB bâtiment retrouvé +20");
       // Calibration terrain V1.19.7 :
       // la proximité géographique est le signal principal pour retrouver une adresse.
       // Une discordance de surface DPE doit rester un avertissement, pas annuler une
@@ -936,7 +974,7 @@ async function api(pathname,url){
       else if(c.distanceMeters<=200){geoScore=22;reasons.push("Coordonnées compatibles +22")}
       else if(c.distanceMeters<=400){geoScore=12;reasons.push("Coordonnées éloignées +12")}
       else if(c.distanceMeters<=600){geoScore=4;reasons.push("Coordonnées éloignées +4")}
-      score+=geoScore;
+      score+=geoScore;\n      if(bdnb.length) score+=20;
 
       let surfaceCompatible=true;
       let surfaceRatio=null;
@@ -978,7 +1016,7 @@ async function api(pathname,url){
         confidence,
         priority,
         reasons,
-        dpe:bestDpe?{
+        bdnb:bdnb.slice(0,5).map(x=>({buildingId:x.batiment_groupe_id||"",address:x.libelle_adr_principale_ban||"",banKey:x.cle_interop_adr||"",dpeId:x.identifiant_dpe||"",units:Number(x.nb_log)||0})),\n        dpe:bestDpe?{
           address:bestDpe.address,
           area:bestDpe.area,
           rooms:bestDpe.rooms,
