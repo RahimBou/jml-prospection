@@ -1,3 +1,12 @@
+## V1.20.4 — recalibrage de la confiance des adresses
+
+- 🟢 Concordance forte : réservée aux scores réellement solides (score ≥ 70, géographie suffisante et surface compatible).
+- 🟡 Concordance intéressante : score 50–69.
+- 🟠 À vérifier : score 35–49.
+- ⚪ Concordance faible : score < 35.
+- 🟠 Priorité géographique · DPE discordant reste prioritaire lorsque la proximité est forte malgré une discordance de surface.
+- Aucun changement dans la récupération des annonces ni dans les sources BAN/DPE/BDNB/DVF.
+
 ## V1.20.3 — traçabilité des sources d'annonces
 
 - La Veille annonces affiche désormais explicitement **Catalogue : ChercherTrouver.immo**.
