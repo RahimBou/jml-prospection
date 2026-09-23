@@ -1055,6 +1055,7 @@ async function api(pathname,url){
       };
 
       const sameAddressSale=saleHistory.status==="confirmed";
+      const saleAgeYearsRounded=saleAgeYears!==null ? Math.round(saleAgeYears*10)/10 : null;
       const nearestComparableDistance=(comparable.items||[]).map(x=>Number(x.distanceMeters)).filter(Number.isFinite).sort((a,b)=>a-b)[0]??null;
       const historyDates=(match.txs||[]).map(tx=>tx.date).filter(Boolean).sort();
       return {
@@ -1095,7 +1096,7 @@ async function api(pathname,url){
           commercialSignal:{score:commercialSignalScore,level:commercialSignalLevel,signals:commercialSignals.signals},
           dataQuality:{level:quality.level,label:quality.label,score:quality.score},
           dpe:{confirmed:dpeConfirmed,status:dpeAddressStatus,grade:p.dpe||null,points:dpeScore},
-          sameAddressSale:{confirmed:sameAddressSale,status:saleHistory.status,count:saleHistory.count,lastDate:saleHistory.latest?.date||null,ageYears:saleAgeYears!==null?Math.round(saleAgeYears*10)/10,points:saleAgeScore},
+          sameAddressSale:{confirmed:sameAddressSale,status:saleHistory.status,count:saleHistory.count,lastDate:saleHistory.latest?.date||null,ageYears:saleAgeYearsRounded,points:saleAgeScore},
           typeSurface:{points:typeSurface.score,ratio:bestComparable?.surfaceRatio??null,type:p.buildingType||null},
           terrain:{area:terrainArea,points:terrainScore},
           proximity:{count:comparable.count,medianDistance:comparable.medianDistance,nearestDistance:nearestComparableDistance,points:proximityScore},
