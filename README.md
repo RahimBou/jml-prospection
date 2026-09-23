@@ -1,4 +1,10 @@
-# JML Prospection — V1.20.2
+# JML Prospection — V1.20.3
+
+## V1.20.3 — traçabilité des sources
+- Affichage séparé du catalogue ChercherTrouver et de la source originale de l'annonce.
+- Le moteur d'adresse et les sources publiques existantes restent inchangés.
+
+
 
 ## V1.20.2 — moteur d'adresse renforcé
 - BDNB ajoutée comme source publique complémentaire pour les bâtiments.
