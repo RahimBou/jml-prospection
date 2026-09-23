@@ -754,7 +754,7 @@ function radarTerrainScore(saleHistory){
   return 0;
 }
 async function api(pathname,url){
-  if(pathname==="/api/health") return {ok:true,sources:{dpe:"ADEME",dvf:"DVF+ Cerema",geocoding:"Géoplateforme",chercherTrouver:"ChercherTrouver.immo"},server:"jml-prospection",version:"1.19.5"};
+  if(pathname==="/api/health") return {ok:true,sources:{dpe:"ADEME",dvf:"DVF+ Cerema",geocoding:"Géoplateforme",chercherTrouver:"ChercherTrouver.immo"},server:"jml-prospection",version:"1.19.6"};
   if(pathname==="/api/integrations-health"){
     const ct=await fetchChercherTrouverPing();
     return {ok:ct.ok===true,checkedAt:new Date().toISOString(),chercherTrouver:ct};
@@ -928,9 +928,21 @@ async function api(pathname,url){
       if(c.distanceMeters<=75){score+=35;reasons.push("Coordonnées très proches +35")}else if(c.distanceMeters<=150){score+=28;reasons.push("Coordonnées proches +28")}else if(c.distanceMeters<=300){score+=18;reasons.push("Coordonnées compatibles +18")}else if(c.distanceMeters<=600){score+=8;reasons.push("Coordonnées éloignées +8")}
       if(bestDpe){
         const da=Number(bestDpe.area)||0;
-        if(area>0&&da>0){const ratio=Math.abs(da-area)/area;if(ratio<=.05){score+=30;reasons.push("Surface DPE très proche +30")}else if(ratio<=.10){score+=24;reasons.push("Surface DPE proche +24")}else if(ratio<=.20){score+=14;reasons.push("Surface DPE compatible +14")}}
-        if(dpe&&bestDpe.dpe&&dpe===String(bestDpe.dpe).toUpperCase()){score+=15;reasons.push("DPE identique +15")}
-        if(rooms>0&&bestDpe.rooms>0){if(rooms===bestDpe.rooms){score+=15;reasons.push("Pièces identiques +15")}else if(Math.abs(rooms-bestDpe.rooms)===1){score+=8;reasons.push("Pièces proches +8")}}
+        let surfaceCompatible=true;
+        if(area>0&&da>0){
+          const ratio=Math.abs(da-area)/area;
+          if(ratio<=.05){score+=30;reasons.push("Surface DPE très proche +30")}
+          else if(ratio<=.10){score+=24;reasons.push("Surface DPE proche +24")}
+          else if(ratio<=.20){score+=14;reasons.push("Surface DPE compatible +14")}
+          else if(ratio<=.30){score-=5;reasons.push("Surface DPE assez différente -5");surfaceCompatible=false}
+          else {score-=20;reasons.push("Surface DPE très différente -20");surfaceCompatible=false}
+        }
+        if(dpe&&bestDpe.dpe&&dpe===String(bestDpe.dpe).toUpperCase()&&surfaceCompatible){score+=15;reasons.push("DPE identique +15")}
+        if(rooms>0&&bestDpe.rooms>0){
+          if(rooms===bestDpe.rooms&&surfaceCompatible){score+=15;reasons.push("Pièces identiques +15")}
+          else if(Math.abs(rooms-bestDpe.rooms)===1&&surfaceCompatible){score+=8;reasons.push("Pièces proches +8")}
+          else if(Math.abs(rooms-bestDpe.rooms)>1){score-=10;reasons.push("Nombre de pièces différent -10")}
+        }
       }
       return {...c,score:Math.min(100,score),reasons,dpe:bestDpe?{address:bestDpe.address,area:bestDpe.area,rooms:bestDpe.rooms,dpe:bestDpe.dpe,buildingType:bestDpe.buildingType,distanceMeters:distanceMeters(c,bestDpe)}:null};
     }));
