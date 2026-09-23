@@ -1,3 +1,12 @@
+## V1.21.0 — veille multi-sources annonces
+
+- Ajout d'une source secondaire optionnelle Stream.Estate via clé serveur.
+- Agrégation et dédoublonnage avec ChercherTrouver.
+- Recherche des annonces récentes sur plusieurs pages de la source secondaire.
+- Conservation du filtre particulier / professionnel et de l'exclusion des exclusivités.
+- Aucun appel Stream.Estate si la clé n'est pas configurée.
+- Les fonctions existantes ChercherTrouver, adresse, DPE, DVF et CRM restent inchangées.
+
 ## V1.20.1 — tournées sectorielles
 
 - Recherche départementale ciblée sur les annonces de vente récentes.
