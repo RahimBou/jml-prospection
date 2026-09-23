@@ -21,3 +21,6 @@
 .commercial-signal-box small{width:100%;font-size:11px;color:#667085}
 .commercial-signal-box.has-signal{border-color:#c9a227;background:#fffaf0}
 .commercial-signal-box.no-signal{border-color:#d9dee7;background:#f7f8fa}
+
+/* V1.19.2 — veille ChercherTrouver */
+.ct-search-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:12px 0}.ct-search-grid label{display:flex;flex-direction:column;gap:5px;font-size:12px}.ct-search-grid input,.ct-search-grid select{padding:9px;border:1px solid #d9dee7;border-radius:8px;background:#fff}.ct-actions{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}.ct-results{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:12px}.ct-card{border:1px solid #d9dee7;border-radius:10px;padding:12px;background:#fff}.ct-card-head{display:flex;gap:10px;align-items:flex-start}.ct-card-head input{margin-top:4px}.ct-card h3{margin:0 0 4px;font-size:14px}.ct-card .meta{margin:3px 0}.ct-card .ct-price{font-size:16px;font-weight:700}.ct-card .ct-badges{display:flex;gap:5px;flex-wrap:wrap;margin:8px 0}.ct-card .ct-badges span{font-size:11px;padding:4px 6px;border-radius:6px;background:#f3f4f6}.ct-card a{font-size:12px}.ct-card .ct-actions{margin-top:8px}@media(max-width:760px){.ct-search-grid,.ct-results{grid-template-columns:1fr}}
