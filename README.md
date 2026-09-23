@@ -1,4 +1,10 @@
-# JML Prospection — V1.20.3
+# JML Prospection — V1.20.4
+
+## V1.20.4 — recalibrage de la confiance
+- Les niveaux de confiance des adresses candidates sont désormais plus stricts.
+- La récupération des annonces et le moteur de rapprochement restent inchangés.
+
+
 
 ## V1.20.3 — traçabilité des sources
 - Affichage séparé du catalogue ChercherTrouver et de la source originale de l'annonce.
