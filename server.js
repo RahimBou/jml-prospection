@@ -108,122 +108,6 @@ async function fetchChercherTrouver(params={}){
   }finally{clearTimeout(timer)}
 }
 
-async function fetchStreamEstate(params={}){
-  const apiKey=String(process.env.STREAM_ESTATE_API_KEY||"").trim();
-  if(!apiKey) return {source:"Stream.Estate",configured:false,items:[],total:0,hasMore:false,nextCursor:null};
-  const u=new URL("https://api.stream.estate/documents/properties");
-  const dept=String(params.dept||"").trim();
-  if(dept)u.searchParams.append("includedDepartments[]","departments/"+dept);
-  u.searchParams.set("transactionType","0");
-  u.searchParams.set("withCoherentPrice","true");
-  u.searchParams.set("itemsPerPage","30");
-  if(params.fromDate)u.searchParams.set("fromDate",String(params.fromDate));
-  if(params.page)u.searchParams.set("page",String(params.page));
-  if(params.priceMin)u.searchParams.set("budgetMin",String(params.priceMin));
-  if(params.priceMax)u.searchParams.set("budgetMax",String(params.priceMax));
-  if(params.surfaceMin)u.searchParams.set("surfaceMin",String(params.surfaceMin));
-  const type=String(params.type||"").toLowerCase();
-  if(type.includes("maison"))u.searchParams.append("propertyTypes[]","1");
-  else if(type.includes("appartement"))u.searchParams.append("propertyTypes[]","0");
-  const controller=new AbortController();
-  const timer=setTimeout(()=>controller.abort(),15000);
-  try{
-    const r=await fetch(u,{headers:{"Accept":"application/json","X-API-KEY":apiKey,"User-Agent":"JML-Prospection/1.21.0"},signal:controller.signal});
-    const text=await r.text();
-    let data;try{data=JSON.parse(text)}catch{data={raw:text}};
-    if(!r.ok)throw new Error(data?.detail||data?.error||("Stream.Estate HTTP "+r.status));
-    const members=Array.isArray(data?.["hydra:member"])?data["hydra:member"]:[];
-    const normalizeSeller=(property)=>{
-      const pubs=[];
-      for(const ad of Array.isArray(property?.adverts)?property.adverts:[]){
-        const p=ad?.publisher||{};
-        const t=String(p.publisherType||p.type||"").toUpperCase();
-        if(t.includes("INDIVIDUAL")||t.includes("PRIVATE")||t.includes("PARTICULIER"))pubs.push("Particulier");
-        else if(t.includes("AGENCY")||t.includes("PROFESSIONAL")||t.includes("REAL_ESTATE")||t==="PRO")pubs.push("Pro");
-      }
-      if(pubs.includes("Particulier"))return "Particulier";
-      if(pubs.includes("Pro"))return "Pro";
-      return "";
-    };
-    const items=members.map(p=>{
-      const ad=Array.isArray(p?.adverts)?(p.adverts.find(x=>x?.url)||p.adverts[0]||{}):{};
-      const loc=p?.location||{};
-      const tr=p?.transaction||{};
-      const area=p?.surface??p?.area?.displayed??p?.area??0;
-      const rooms=p?.rooms??p?.unit?.rooms??0;
-      const price=p?.price??p?.pricing?.displayed??0;
-      const coords=Array.isArray(loc?.coordinates)?loc.coordinates:[];
-      const seller=normalizeSeller(p);
-      const sourceSlug=ad?.source?.slug||ad?.source||"stream";
-      const exclusive=Boolean(p?.exclusive||ad?.exclusive||tr?.saleType==="EXCLUSIVE"||tr?.saleType==="EXCLUSIVITY");
-      return {
-        source:"Stream.Estate · "+sourceSlug,
-        streamSource:sourceSlug,
-        reference:String(ad?.id||p?.id||""),
-        externalId:String(ad?.id||p?.id||""),
-        dedup_key:p?.uuid||p?.id||null,
-        title:p?.title||ad?.title||"",
-        type:p?.propertyType||p?.type||"",
-        transaction_type:"vente",
-        price:Number(price)||0,
-        surface:Number(area)||0,
-        rooms:Number(rooms)||0,
-        bedrooms:Number(p?.bedrooms??p?.unit?.bedrooms??0)||0,
-        price_per_m2:Number(p?.pricePerSquareMeter??p?.pricing?.pricePerSquareMeter??0)||0,
-        city:loc?.city?.name||loc?.city||p?.city||"",
-        postal_code:loc?.postalCode||loc?.postal_code||"",
-        department:dept,
-        latitude:Number(coords?.[1]??p?.latitude)||0,
-        longitude:Number(coords?.[0]??p?.longitude)||0,
-        dpe:p?.energy?.consumption?.[0]||p?.energy?.grade||p?.energyGrade||"",
-        seller_type:seller,
-        exclusive,
-        external_url:ad?.url||p?.url||"",
-        published_at:ad?.publishedAt||ad?.createdAt||p?.publishedAt||p?.createdAt||"",
-        updated_at:ad?.updatedAt||ad?.lastSeenAt||p?.updatedAt||"",
-        description:p?.description||ad?.description||"",
-        image:p?.image||ad?.image||""
-      };
-    });
-    const total=Number(data?.["hydra:totalItems"]||data?.totalItems||0)||items.length;
-    const view=data?.view||{};
-    return {source:"Stream.Estate",configured:true,items,total,hasMore:Boolean(view?.["hydra:next"]||data?.hasNextPage),nextCursor:view?.["hydra:next"]||null,page:Number(params.page||1)};
-  }finally{clearTimeout(timer)}
-}
-async function fetchMultiSourceListings(params={},opts={}){
-  const target=Math.max(10,Math.min(120,Number(opts.target||50)));
-  const maxPages=Math.max(1,Math.min(4,Number(opts.maxPages||2)));
-  const ctParams={...params,page_size:String(Math.min(100,Number(params.page_size)||100))};
-  const ct=await fetchChercherTrouver(ctParams);
-  const collected=[...(ct.items||[])];
-  let streamItems=[];
-  const streamConfigured=Boolean(String(process.env.STREAM_ESTATE_API_KEY||"").trim());
-  if(streamConfigured){
-    const fromDate=new Date(Date.now()-30*86400000).toISOString().slice(0,10);
-    for(let page=1;page<=maxPages&&streamItems.length<target;page++){
-      try{
-        const s=await fetchStreamEstate({...params,fromDate,page});
-        streamItems.push(...(s.items||[]));
-        if(!s.hasMore)break;
-      }catch(e){break}
-    }
-  }
-  const all=[...collected,...streamItems];
-  const seen=new Map();
-  for(const item of all){
-    const key=String(item?.dedup_key||"").trim()
-      || String(item?.external_url||"").trim().toLowerCase()
-      || [norm(item?.city),Number(item?.price)||0,Number(item?.surface)||0,Number(item?.latitude||0).toFixed(4),Number(item?.longitude||0).toFixed(4)].join("|");
-    if(!seen.has(key))seen.set(key,item);
-    else{
-      const current=seen.get(key);
-      const sources=new Set([...(Array.isArray(current.sources)?current.sources:[]),current.source,item.source].filter(Boolean));
-      seen.set(key,{...current,sources:[...sources]});
-    }
-  }
-  const items=[...seen.values()];
-  return {source:"JML multi-sources",sources:["ChercherTrouver.immo",...(streamConfigured?["Stream.Estate"]:[])],items,total:items.length,primaryTotal:Number(ct.total)||collected.length,streamConfigured,hasMore:Boolean(ct.hasMore),nextCursor:ct.nextCursor||null};
-}
 async function fetchChercherTrouverPing(){
   const apiKey=String(process.env.CHERCHERTROUVER_API_KEY||"").trim();
   if(!apiKey) throw new Error("CHERCHERTROUVER_API_KEY non configurée sur le serveur Render");
@@ -870,7 +754,7 @@ function radarTerrainScore(saleHistory){
   return 0;
 }
 async function api(pathname,url){
-  if(pathname==="/api/health") return {ok:true,sources:{dpe:"ADEME",dvf:"DVF+ Cerema",geocoding:"Géoplateforme",chercherTrouver:"ChercherTrouver.immo",streamEstate:Boolean(String(process.env.STREAM_ESTATE_API_KEY||"").trim())},server:"jml-prospection",version:"1.21.0"};
+  if(pathname==="/api/health") return {ok:true,sources:{dpe:"ADEME",dvf:"DVF+ Cerema",geocoding:"Géoplateforme",chercherTrouver:"ChercherTrouver.immo"},server:"jml-prospection",version:"1.20.1"};
   if(pathname==="/api/integrations-health"){
     const ct=await fetchChercherTrouverPing();
     return {ok:ct.ok===true,checkedAt:new Date().toISOString(),chercherTrouver:ct};
@@ -1112,7 +996,7 @@ async function api(pathname,url){
     const type=String(url.searchParams.get("type")||"").trim();
     const minCount=Math.max(5,Math.min(15,Number(url.searchParams.get("min")||10)));
     const maxRadiusKm=Math.max(5,Math.min(30,Number(url.searchParams.get("maxRadius")||20)));
-    const data=await fetchMultiSourceListings({dept,transaction:"vente",sort:"recent",page_size:"100",...(type?{type}:{})},{target:80,maxPages:3});
+    const data=await fetchChercherTrouver({dept,transaction:"vente",sort:"recent",page_size:"50",...(type?{type}:{})});
     const raw=Array.isArray(data.items)?data.items:[];
     const isPrivate=(p)=>{
       const seller=String(p.seller_type||p.sellerType||p.advertiser_type||"").toLowerCase().normalize("NFD").replace(/[\\u0300-\\u036f]/g,"");
@@ -1170,7 +1054,7 @@ async function api(pathname,url){
       if(value)params[key]=value;
     }
     params.page_size=url.searchParams.get("page_size")||"50";
-    const data=await fetchMultiSourceListings(params,{target:50,maxPages:3});
+    const data=await fetchChercherTrouver(params);
     return data;
   }
   if(pathname==="/api/commune"){
