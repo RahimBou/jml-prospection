@@ -534,5 +534,6 @@ async function ctFindAddress(index){
 }
 document.addEventListener("click",e=>{const b=e.target.closest("[data-ct-address]");if(b)ctFindAddress(Number(b.dataset.ctAddress))});
 
+CT_FILTER_KEYS.forEach(id=>{const el=$(id);if(el)el.addEventListener("input",persistUiState)});
 if($("ctSearchBtn"))$("ctSearchBtn").onclick=ctSearch;
 if($("ctAddBtn"))$("ctAddBtn").onclick=ctAddSelected;
