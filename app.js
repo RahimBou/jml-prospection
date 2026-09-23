@@ -397,16 +397,35 @@ function ctRender(items){
     return '<article class="ct-card"><div class="ct-card-head"><input type="checkbox" data-ct-check="'+i+'" checked><div><h3>'+apiEsc(p.title||ctAnnonceType(p.type)+" à "+(p.city||""))+'</h3><div class="meta">'+apiEsc(loc)+seller+'</div><div class="ct-price">'+price+'</div><div class="meta">'+surface+" · "+m2+" · "+(p.rooms?p.rooms+" pièce(s) · ":"")+apiEsc(dpe)+'</div><div class="ct-badges"><span>'+apiEsc(p.source||"ChercherTrouver")+'</span>'+(p.exclusive?'<span>Exclusivité</span>':"")+(p.price_history?.previous?'<span>Baisse suivie</span>':"")+'</div>'+(p.external_url?'<a href="'+apiEsc(p.external_url)+'" target="_blank" rel="noopener">Voir l’annonce publique ↗</a>':"")+'</div></div></article>'
   }).join("");
 }
+function ctDistanceKm(lat1,lon1,lat2,lon2){
+  const R=6371,rad=Math.PI/180;
+  const dLat=(lat2-lat1)*rad,dLon=(lon2-lon1)*rad;
+  const a=Math.sin(dLat/2)**2+Math.cos(lat1*rad)*Math.cos(lat2*rad)*Math.sin(dLon/2)**2;
+  return 2*R*Math.asin(Math.sqrt(a));
+}
 async function ctSearch(){
   const btn=$("ctSearchBtn");btn.disabled=true;$("ctStatus").textContent="Recherche ChercherTrouver en cours…";
   try{
     const qs=new URLSearchParams();
-    const dept=$( "ctDept").value.trim(),ville=$( "ctVille").value.trim(),type=$( "ctType").value,prix=$( "ctPrixMax").value,surface=$( "ctSurfaceMin").value,dpe=$( "ctDpe").value;
+    const dept=$( "ctDept").value.trim(),ville=$( "ctVille").value.trim(),type=$( "ctType").value,prix=$( "ctPrixMax").value,surface=$( "ctSurfaceMin").value,dpe=$( "ctDpe").value,radius=Number($( "ctRadius")?.value)||0;
     qs.set("transaction","vente");qs.set("sort","recent");qs.set("page_size","100");
-    if(dept)qs.set("dept",dept);if(ville)qs.set("ville",ville);if(type)qs.set("type",type);if(prix)qs.set("prix_max",prix);if(surface)qs.set("surface_min",surface);if(dpe)qs.set("dpe",dpe);
+    if(dept)qs.set("dept",dept);
+    if(radius<=0&&ville)qs.set("ville",ville);
+    if(type)qs.set("type",type);if(prix)qs.set("prix_max",prix);if(surface)qs.set("surface_min",surface);if(dpe)qs.set("dpe",dpe);
     const data=await publicJson("/api/annonces?"+qs.toString());
+    let raw=Array.isArray(data.items)?data.items:[];
+    let center=null;
+    if(ville&&radius>0){
+      const geo=await publicJson("/api/geocode?q="+encodeURIComponent(ville));
+      center=geo?.results?.[0]||null;
+      if(!center?.latitude||!center?.longitude)throw new Error("Impossible de géocoder la commune pour appliquer le rayon.");
+      raw=raw.map(p=>{
+        const lat=Number(p.latitude??p.lat),lon=Number(p.longitude??p.lon);
+        if(!Number.isFinite(lat)||!Number.isFinite(lon)||!lat||!lon)return {...p,_radiusKm:null};
+        return {...p,_radiusKm:ctDistanceKm(center.latitude,center.longitude,lat,lon)};
+      }).filter(p=>p._radiusKm!==null&&p._radiusKm<=radius);
+    }
     const privateOnly=$( "ctPrivateOnly")?.checked!==false;
-    const raw=Array.isArray(data.items)?data.items:[];
     const filtered=privateOnly?raw.filter(p=>{
       const seller=norm(p.seller_type||p.sellerType||p.advertiser_type||"");
       const isAgency=["pro","professionnel","agence","agency","mandataire","promoteur","notaire"].some(x=>seller===x||seller.includes(x));
@@ -414,7 +433,8 @@ async function ctSearch(){
       return !isAgency&&!exclusive;
     }):raw;
     ctRender(filtered);
-    $("ctStatus").textContent=filtered.length+" annonce(s) particulière(s) hors exclusivité affichée(s) · "+raw.length+" annonce(s) reçue(s) avant filtrage.";
+    const zone=ville?(radius>0?" dans un rayon de "+radius+" km autour de "+ville:" à "+ville):" dans les Ardennes";
+    $("ctStatus").textContent=filtered.length+" annonce(s) particulière(s) hors exclusivité"+zone+" · "+(data.items?.length||0)+" reçue(s) avant filtrage.";
   }catch(e){$("ctStatus").textContent="Erreur ChercherTrouver : "+e.message;ctRender([])}
   finally{btn.disabled=false}
 }
