@@ -996,7 +996,7 @@ async function api(pathname,url){
     const type=String(url.searchParams.get("type")||"").trim();
     const minCount=Math.max(5,Math.min(15,Number(url.searchParams.get("min")||10)));
     const maxRadiusKm=Math.max(5,Math.min(30,Number(url.searchParams.get("maxRadius")||20)));
-    const data=await fetchChercherTrouver({dept,transaction:"vente",sort:"recent",page_size:"50",...(type?{type}:{})});
+    const freshDays=Math.max(1,Math.min(30,Number(url.searchParams.get("freshDays")||7))); const created_since=new Date(Date.now()-freshDays*86400000).toISOString(); const data=await fetchChercherTrouver({dept,transaction:"vente",sort:"recent",created_since,page_size:"100",...(type?{type}:{})});
     const raw=Array.isArray(data.items)?data.items:[];
     const isPrivate=(p)=>{
       const seller=String(p.seller_type||p.sellerType||p.advertiser_type||"").toLowerCase().normalize("NFD").replace(/[\\u0300-\\u036f]/g,"");
@@ -1004,7 +1004,7 @@ async function api(pathname,url){
       const exclusive=p.exclusive===true||p.exclusive==="true"||p.exclusivity===true||p.exclusivity==="true";
       return !pro&&!exclusive;
     };
-    const privateItems=raw.filter(isPrivate).map(p=>({...p,
+    const includePro=String(url.searchParams.get("includePro")||"true")!=="false"; const eligibleItems=(includePro?raw:raw.filter(isPrivate)).map(p=>({...p,
       latitude:Number(p.latitude??p.lat),longitude:Number(p.longitude??p.lon)
     })).filter(p=>Number.isFinite(p.latitude)&&Number.isFinite(p.longitude));
     const hav=(a,b,c,d)=>{
@@ -1014,8 +1014,8 @@ async function api(pathname,url){
     };
     const updatedMs=p=>{const d=Date.parse(p.updated_at||p.updatedAt||p.published_at||p.publishedAt||"");return Number.isFinite(d)?d:0};
     let best=null;
-    for(const center of privateItems){
-      const within=privateItems.map(p=>({...p,_distanceKm:hav(center.latitude,center.longitude,p.latitude,p.longitude)}))
+    for(const center of eligibleItems){
+      const within=eligibleItems.map(p=>({...p,_distanceKm:hav(center.latitude,center.longitude,p.latitude,p.longitude)}))
         .filter(p=>p._distanceKm<=maxRadiusKm)
         .sort((a,b)=>a._distanceKm-b._distanceKm||updatedMs(b)-updatedMs(a));
       const chosen=within.slice(0,minCount);
@@ -1026,14 +1026,14 @@ async function api(pathname,url){
       const score=chosen.length*100 - avgDist*8 - maxDist*3 + freshness*4;
       if(!best||score>best.score)best={center,items:chosen,score,maxDist,avgDist};
     }
-    const resultItems=(best?.items||privateItems.sort((a,b)=>updatedMs(b)-updatedMs(a)).slice(0,minCount))
+    const resultItems=(best?.items||eligibleItems.sort((a,b)=>updatedMs(b)-updatedMs(a)).slice(0,minCount))
       .map(p=>({...p,distanceKm:best?Number(p._distanceKm.toFixed(1)):null}));
     return {
       source:"ChercherTrouver.immo",
       target:minCount,
       found:resultItems.length,
       enough:resultItems.length>=minCount,
-      search:{department:dept,type:type||"Tous",received:raw.length,private:privateItems.length,maxRadiusKm},
+      search:{department:dept,type:type||"Tous",received:raw.length,eligible:eligibleItems.length,private:raw.filter(isPrivate).length,professional:raw.filter(p=>!isPrivate(p)).length,freshDays,maxRadiusKm},
       sector:best?{
         center:{city:best.center.city||"",postalCode:best.center.postal_code||"",latitude:best.center.latitude,longitude:best.center.longitude},
         maxDistanceKm:Number(best.maxDist.toFixed(1)),
@@ -1043,7 +1043,7 @@ async function api(pathname,url){
       hasMore:Boolean(data.hasMore),
       nextCursor:data.nextCursor||null,
       warning:resultItems.length<minCount
-        ?"Moins de "+minCount+" annonces particulières exploitables ont été reçues dans cette fenêtre API. Aucun bien professionnel n'a été ajouté artificiellement pour atteindre le quota."
+        ?"Moins de "+minCount+" annonces exploitables ont été reçues dans cette fenêtre API. Aucun bien n'a été artificiellement ajouté pour atteindre le quota."
         :null
     };
   }
