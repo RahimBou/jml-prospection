@@ -899,6 +899,44 @@ async function api(pathname,url){
       disclaimer:"La carte rapproche une annonce publique fournie par l'utilisateur avec des données immobilières publiques. Elle n'identifie pas automatiquement le propriétaire."
     };
   }
+  if(pathname==="/api/address-candidates"){
+    const lat=Number(url.searchParams.get("lat")),lon=Number(url.searchParams.get("lon"));
+    const area=Number(url.searchParams.get("area"))||0,rooms=Number(url.searchParams.get("rooms"))||0;
+    const dpe=String(url.searchParams.get("dpe")||"").trim().toUpperCase();
+    const cityCode=String(url.searchParams.get("cityCode")||"").trim();
+    if(!Number.isFinite(lat)||!Number.isFinite(lon))throw new Error("Coordonnées de l'annonce manquantes");
+    const reverseUrl=new URL("https://data.geopf.fr/geocodage/reverse");
+    reverseUrl.searchParams.set("lat",String(lat));reverseUrl.searchParams.set("lon",String(lon));
+    reverseUrl.searchParams.set("index","address");reverseUrl.searchParams.set("limit","8");reverseUrl.searchParams.set("type","housenumber");
+    if(cityCode)reverseUrl.searchParams.set("citycode",cityCode);
+    const reverse=await jsonFetch(reverseUrl);
+    const features=Array.isArray(reverse?.features)?reverse.features:[];
+    const candidates=features.map(f=>{
+      const p=f?.properties||{},c=f?.geometry?.coordinates||[];
+      return {address:p.label||"",postalCode:p.postcode||"",city:p.city||"",cityCode:p.citycode||"",street:p.street||"",number:p.housenumber||"",latitude:Number(c[1])||0,longitude:Number(c[0])||0,banId:p.id||"",distanceMeters:distanceMeters({latitude:lat,longitude:lon},{latitude:Number(c[1])||0,longitude:Number(c[0])||0})};
+    }).filter(x=>x.address&&x.latitude&&x.longitude);
+    const enriched=await Promise.all(candidates.slice(0,8).map(async c=>{
+      let dpes=[];
+      try{
+        const u=new URL(DPE_URL);u.searchParams.set("size","5");u.searchParams.set("q",c.address);
+        const data=await jsonFetch(u);
+        const rows=Array.isArray(data?.results)?data.results:Array.isArray(data?.data)?data.data:[];
+        dpes=rows.map(normalizeDpe);
+      }catch{}
+      const bestDpe=dpes.map(d=>({d,dist:distanceMeters(c,d)})).sort((a,b)=>a.dist-b.dist)[0]?.d||null;
+      let score=0,reasons=[];
+      if(c.distanceMeters<=75){score+=35;reasons.push("Coordonnées très proches +35")}else if(c.distanceMeters<=150){score+=28;reasons.push("Coordonnées proches +28")}else if(c.distanceMeters<=300){score+=18;reasons.push("Coordonnées compatibles +18")}else if(c.distanceMeters<=600){score+=8;reasons.push("Coordonnées éloignées +8")}
+      if(bestDpe){
+        const da=Number(bestDpe.area)||0;
+        if(area>0&&da>0){const ratio=Math.abs(da-area)/area;if(ratio<=.05){score+=30;reasons.push("Surface DPE très proche +30")}else if(ratio<=.10){score+=24;reasons.push("Surface DPE proche +24")}else if(ratio<=.20){score+=14;reasons.push("Surface DPE compatible +14")}}
+        if(dpe&&bestDpe.dpe&&dpe===String(bestDpe.dpe).toUpperCase()){score+=15;reasons.push("DPE identique +15")}
+        if(rooms>0&&bestDpe.rooms>0){if(rooms===bestDpe.rooms){score+=15;reasons.push("Pièces identiques +15")}else if(Math.abs(rooms-bestDpe.rooms)===1){score+=8;reasons.push("Pièces proches +8")}}
+      }
+      return {...c,score:Math.min(100,score),reasons,dpe:bestDpe?{address:bestDpe.address,area:bestDpe.area,rooms:bestDpe.rooms,dpe:bestDpe.dpe,buildingType:bestDpe.buildingType,distanceMeters:distanceMeters(c,bestDpe)}:null};
+    }));
+    enriched.sort((a,b)=>b.score-a.score||a.distanceMeters-b.distanceMeters);
+    return {source:"Géoplateforme BAN + ADEME DPE",candidates:enriched.slice(0,5),disclaimer:"Adresses candidates issues de données publiques. Le score est une concordance technique et ne constitue pas une confirmation d'adresse ni une identification de propriétaire."};
+  }
   if(pathname==="/api/annonces"){
     const params={};
     for(const key of ["q","type","transaction","ville","cp","dept","region","prix_min","prix_max","prix_m2_min","prix_m2_max","created_since","updated_since","sort","source","sources","exclude_sources","cursor"]){
