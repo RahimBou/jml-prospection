@@ -399,6 +399,26 @@ function ctRender(items){
     return '<article class="ct-card"><div class="ct-card-head"><input type="checkbox" data-ct-check="'+i+'" checked><div><h3>'+apiEsc(p.title||ctAnnonceType(p.type)+" à "+(p.city||""))+'</h3><div class="meta">'+apiEsc(loc)+seller+'</div><div class="ct-price">'+price+'</div><div class="meta">'+surface+" · "+m2+" · "+(p.rooms?p.rooms+" pièce(s) · ":"")+apiEsc(dpe)+'</div><div class="ct-badges"><span>'+apiEsc(p.source||"ChercherTrouver")+'</span>'+(portals.length>1?'<span>'+portals.length+" portails"+'</span>':"")+(p.exclusive?'<span>Exclusivité</span>':"")+(p.price_history?.previous?'<span>Baisse suivie</span>':"")+'</div>'+portalHtml+(p.external_url?'<a href="'+apiEsc(p.external_url)+'" target="_blank" rel="noopener">Voir l’annonce publique ↗</a>':"")+'<div class="ct-card-actions"><button class="ghost ct-address-btn" data-ct-address="'+i+'">📍 Chercher l’adresse gratuitement</button></div><div id="ct-address-result-'+i+'" class="ct-address-result"></div></div></div></article>'
   }).join("");
 }
+function multiSourceUrl(site,ville,cp,type){
+  const q=encodeURIComponent([type,ville,cp].filter(Boolean).join(" "));
+  const slug=norm(ville||"").replace(/ /g,"-");
+  const cpv=String(cp||"").replace(/\\D/g,"");
+  if(site==="ParuVendu") return "https://www.paruvendu.fr/immobilier/vente/"+(type==="maison"?"maison/":type==="appartement"?"appartement/":"")+slug+(cpv?"-"+cpv:"")+"/";
+  if(site==="SeLoger") return "https://www.google.com/search?q="+encodeURIComponent("site:seloger.com/recherche/achat "+q);
+  if(site==="Bien'ici") return "https://www.google.com/search?q="+encodeURIComponent("site:bienici.com/recherche/achat "+q);
+  if(site==="Leboncoin") return "https://www.google.com/search?q="+encodeURIComponent("site:leboncoin.fr/cl/ventes_immobilieres "+q);
+  return "https://www.google.com/search?q="+q;
+}
+function multiSourceSearch(){
+  const ville=$( "msVille")?.value.trim()||"",cp=$( "msCp")?.value.trim()||"",type=$( "msType")?.value||"maison",box=$( "msResults");
+  if(!box)return;
+  if(!ville&&!cp){box.innerHTML='<div class="meta">Indique au moins une commune ou un code postal.</div>';return}
+  const sites=["ParuVendu","SeLoger","Bien'ici","Leboncoin"];
+  box.innerHTML='<div class="ct-tour-grid">'+sites.map(site=>{
+    const url=multiSourceUrl(site,ville,cp,type);
+    return '<div class="ct-tour-item"><strong>'+apiEsc(site)+'</strong><span>Recherche publique · '+apiEsc([type,ville,cp].filter(Boolean).join(" · "))+'</span><a class="ghost" href="'+apiEsc(url)+'" target="_blank" rel="noopener">Ouvrir la recherche ↗</a></div>';
+  }).join("")+'</div>';
+}
 function ctDistanceKm(lat1,lon1,lat2,lon2){
   const R=6371,rad=Math.PI/180;
   const dLat=(lat2-lat1)*rad,dLon=(lon2-lon1)*rad;
@@ -519,3 +539,5 @@ document.addEventListener("click",e=>{const b=e.target.closest("[data-ct-address
 if($("ctSearchBtn"))$("ctSearchBtn").onclick=ctSearch;
 if($("ctTourBtn"))$("ctTourBtn").onclick=ctSectorTour;
 if($("ctAddBtn"))$("ctAddBtn").onclick=ctAddSelected;
+
+if($("msSearchBtn"))$("msSearchBtn").onclick=multiSourceSearch;
