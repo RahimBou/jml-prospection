@@ -1,3 +1,10 @@
+## V1.20.3 — traçabilité des sources d'annonces
+
+- La Veille annonces affiche désormais explicitement **Catalogue : ChercherTrouver.immo**.
+- La source originale de l'annonce reste affichée séparément (Leboncoin, SeLoger, ParuVendu, etc.).
+- Les éventuels portails supplémentaires du même bien restent conservés.
+- Aucun changement au moteur d'adresse, DPE, BDNB ou DVF.
+
 ## V1.20.2 — moteur d'adresse renforcé BDNB + DPE
 
 - Ajout de la BDNB comme source publique complémentaire pour retrouver le bâtiment correspondant à une annonce.
