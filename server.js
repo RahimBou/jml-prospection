@@ -1011,14 +1011,18 @@ async function api(pathname,url){
       }
 
       const finalScore=Math.max(0,Math.min(100,score));
+      // Calibration V1.20.4 :
+      // "forte" exige désormais une concordance réellement solide.
+      // Une bonne proximité seule ne suffit plus à afficher un résultat vert.
       const confidence=
-        geoScore>=35 && surfaceCompatible ? "forte" :
-        geoScore>=30 ? "moyenne" :
-        geoScore>=22 ? "moyenne" : "faible";
+        geoScore>=30 && surfaceCompatible && finalScore>=70 ? "forte" :
+        finalScore>=50 ? "interessante" :
+        finalScore>=35 ? "a_verifier" : "faible";
       const priority=
         geoScore>=35 && !surfaceCompatible ? "priorite_geographique" :
         confidence==="forte" ? "concordance_forte" :
-        confidence==="moyenne" ? "a_verifier" : "faible";
+        confidence==="interessante" ? "concordance_interessante" :
+        confidence==="a_verifier" ? "a_verifier" : "faible";
 
       return {
         ...c,
