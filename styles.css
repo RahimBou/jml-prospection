@@ -13,3 +13,11 @@
 .integration-analysis-head{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:12px 0}
 #logiScanAnalysisResults h3{margin:18px 0 8px}
 @media(max-width:760px){.integration-grid{grid-template-columns:1fr}}
+
+
+.commercial-signal-box{margin-top:8px;padding:8px 10px;border-radius:8px;border:1px solid #d9dee7;background:#f7f8fa;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.commercial-signal-box strong{font-size:12px}
+.commercial-signal-box span{font-size:12px;font-weight:600}
+.commercial-signal-box small{width:100%;font-size:11px;color:#667085}
+.commercial-signal-box.has-signal{border-color:#c9a227;background:#fffaf0}
+.commercial-signal-box.no-signal{border-color:#d9dee7;background:#f7f8fa}
