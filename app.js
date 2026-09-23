@@ -6,7 +6,7 @@ function esc(v=""){return String(v).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt
 function now(){return new Date().toISOString()}
 function today(){return new Date().toISOString().slice(0,10)}
 function norm(v=""){return String(v).normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/œ/g,"oe").replace(/æ/g,"ae").replace(/[^a-z0-9]+/g," ").trim().replace(/\s+/g," ")}
-function dedupeKey(p){const cp=String(p.postalCode||"").replace(/\D/g,"");return [norm(p.address),cp,norm(p.city),norm(p.type)].filter(Boolean).join("|")}
+function dedupeKey(p){const ext=norm(p.externalId||"");if(ext)return "ext|"+norm(p.source||"")+"|"+ext;const cp=String(p.postalCode||"").replace(/\D/g,"");return [norm(p.address),cp,norm(p.city),norm(p.type)].filter(Boolean).join("|")}
 function num(v){return Number(v)||0}
 function openForm(item=null){$("prospectForm").reset();$("editId").value=item?.id||"";$("dialogTitle").textContent=item?"Modifier le prospect":"Nouveau prospect";$("history").innerHTML=item&&item.history?.length?item.history.slice().reverse().map(h=>'<div class="history-item"><strong>'+esc(h.type)+'</strong><span>'+new Date(h.date).toLocaleString("fr-FR")+'</span><p>'+esc(h.text)+'</p></div>').join(""):"<div class='meta'>Aucun historique.</div>";if(item){for(const k of ["address","postalCode","district","area","land","rooms","bedrooms","price","dpe","detectionDate","nextFollow","source","externalId","sourceUrl","description","notes"])if($(k))$(k).value=item[k]??"";$("formCity").value=item.city||"";$("formType").value=item.type||"Maison";$("formStatus").value=item.status||"Nouveau"}else $("detectionDate").value=today();$("dialog").showModal()}
 function closeForm(){$("dialog").close()}
