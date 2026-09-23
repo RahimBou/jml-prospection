@@ -913,7 +913,7 @@ async function api(pathname,url){
     const features=Array.isArray(reverse?.features)?reverse.features:[];
     const candidates=features.map(f=>{
       const p=f?.properties||{},c=f?.geometry?.coordinates||[];
-      return {address:p.label||"",postalCode:p.postcode||"",city:p.city||"",cityCode:p.citycode||"",street:p.street||"",number:p.housenumber||"",latitude:Number(c[1])||0,longitude:Number(c[0])||0,banId:p.id||"",distanceMeters:distanceMeters({latitude:lat,longitude:lon},{latitude:Number(c[1])||0,longitude:Number(c[0])||0})};
+      return {address:p.label||"",postalCode:p.postcode||"",city:p.city||"",cityCode:p.citycode||"",street:p.street||"",number:p.housenumber||"",latitude:Number(c[1])||0,longitude:Number(c[0])||0,banId:p.id||"",distanceMeters:distanceMeters(pointOf({latitude:lat,longitude:lon}),pointOf({latitude:Number(c[1])||0,longitude:Number(c[0])||0}))};
     }).filter(x=>x.address&&x.latitude&&x.longitude);
     const enriched=await Promise.all(candidates.slice(0,8).map(async c=>{
       let dpes=[];
@@ -923,7 +923,7 @@ async function api(pathname,url){
         const rows=Array.isArray(data?.results)?data.results:Array.isArray(data?.data)?data.data:[];
         dpes=rows.map(normalizeDpe);
       }catch{}
-      const bestDpe=dpes.map(d=>({d,dist:distanceMeters(c,d)})).sort((a,b)=>a.dist-b.dist)[0]?.d||null;
+      const bestDpe=dpes.map(d=>({d,dist:distanceMeters(pointOf(c),pointOf(d))})).sort((a,b)=>a.dist-b.dist)[0]?.d||null;
       let score=0,reasons=[];
       if(c.distanceMeters<=75){score+=35;reasons.push("Coordonnées très proches +35")}else if(c.distanceMeters<=150){score+=28;reasons.push("Coordonnées proches +28")}else if(c.distanceMeters<=300){score+=18;reasons.push("Coordonnées compatibles +18")}else if(c.distanceMeters<=600){score+=8;reasons.push("Coordonnées éloignées +8")}
       if(bestDpe){
