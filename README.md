@@ -1,4 +1,14 @@
-# JML Prospection — V1.18.0
+## V1.20.0 — préparation test terrain
+- Cache serveur à TTL pour réduire les appels répétés vers ADEME, DVF/Cerema et Géoplateforme.
+- Statistiques du cache exposées dans /api/health pour diagnostiquer les performances sans exposer de clé.
+- Filtres CRM persistants sur l'appareil entre les sessions.
+- Sauvegarde/restauration JSON complète du CRM local.
+- Rapprochement d'adresse renforcé : distance DPE, compatibilité de type, seuil de confiance et pénalisation stricte des écarts de surface.
+- Une adresse candidate reste une concordance technique : aucune ré-identification de propriétaire.
+
+V1.20.0 constitue la version de préparation au test terrain avant le 1er octobre 2026.
+
+# JML Prospection — V1.20.0
 
 ## V1.6.2 — serveur et sources publiques
 - Passage de Render Static Site à un service Node.
