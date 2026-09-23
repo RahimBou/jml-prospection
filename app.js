@@ -1,4 +1,4 @@
-const APP_VERSION="1.21.0";
+const APP_VERSION="1.20.1";
 const KEY="jml_prospection_v1";let prospects=load(),pendingImport=[];const $=id=>document.getElementById(id);
 function load(){try{const x=JSON.parse(localStorage.getItem(KEY)||"[]");return Array.isArray(x)?x:[]}catch(e){return[]}}
 function save(){localStorage.setItem(KEY,JSON.stringify(prospects));render();if(typeof statsSync==="function")statsSync()}
@@ -463,7 +463,7 @@ async function ctSearch(){
     }):raw;
     ctRender(filtered);
     const zone=ville?(radius>0?" dans un rayon de "+radius+" km autour de "+ville:" à "+ville):" dans les Ardennes";
-    $("ctStatus").textContent=filtered.length+" annonce(s) particulière(s) hors exclusivité"+zone+" · "+(data.items?.length||0)+" reçue(s) avant filtrage · sources : "+(data.sources||["ChercherTrouver.immo"]).join(" + ");
+    $("ctStatus").textContent=filtered.length+" annonce(s) particulière(s) hors exclusivité"+zone+" · "+(data.items?.length||0)+" reçue(s) avant filtrage;
   }catch(e){$("ctStatus").textContent="Erreur ChercherTrouver : "+e.message;ctRender([])}
   finally{btn.disabled=false}
 }
