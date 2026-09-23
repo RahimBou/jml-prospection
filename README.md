@@ -1,4 +1,10 @@
-# JML Prospection — V1.20.4
+# JML Prospection — V1.20.5
+
+## V1.20.5 — diagnostic connecteur
+- Health-check ChercherTrouver synchronisé.
+- Détection explicite d'un serveur Render non redéployé.
+
+
 
 ## V1.20.4 — recalibrage de la confiance
 - Les niveaux de confiance des adresses candidates sont désormais plus stricts.
