@@ -1,4 +1,4 @@
-const APP_VERSION="1.20.1";
+const APP_VERSION="1.20.2";
 const KEY="jml_prospection_v1";let prospects=load(),pendingImport=[];const $=id=>document.getElementById(id);
 function load(){try{const x=JSON.parse(localStorage.getItem(KEY)||"[]");return Array.isArray(x)?x:[]}catch(e){return[]}}
 function save(){localStorage.setItem(KEY,JSON.stringify(prospects));render();if(typeof statsSync==="function")statsSync()}
