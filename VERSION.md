@@ -1,3 +1,11 @@
+## V1.19.0 — Séparation contexte marché / signal commercial
+
+- Le score radar est désormais séparé en **contexte de marché** et **signal commercial public**.
+- DPE, DVF et comparables ne créent plus à eux seuls un prospect vendeur.
+- Le signal commercial ne peut recevoir des points que depuis des indicateurs publics explicitement documentés (annonce active, baisse de prix publique, réapparition, procédure/vente publique, etc.).
+- Les biens issus du radar sont ajoutés au CRM avec le statut **Pas encore en vente** lorsqu'aucun signal commercial public n'est détecté.
+- Aucune utilisation de consommations, changements d'adresse privés, comptes personnels ou données de réidentification.
+
 # JML Prospection — V1.18.0
 
 ## Version de référence
