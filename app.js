@@ -394,7 +394,9 @@ function ctRender(items){
     const loc=[p.postal_code,p.city].filter(Boolean).join(" ");
     const dpe=p.dpe?"DPE "+p.dpe:"DPE —";
     const seller=p.seller_type?" · "+p.seller_type:"";
-    return '<article class="ct-card"><div class="ct-card-head"><input type="checkbox" data-ct-check="'+i+'" checked><div><h3>'+apiEsc(p.title||ctAnnonceType(p.type)+" à "+(p.city||""))+'</h3><div class="meta">'+apiEsc(loc)+seller+'</div><div class="ct-price">'+price+'</div><div class="meta">'+surface+" · "+m2+" · "+(p.rooms?p.rooms+" pièce(s) · ":"")+apiEsc(dpe)+'</div><div class="ct-badges"><span>'+apiEsc(p.source||"ChercherTrouver")+'</span>'+(p.exclusive?'<span>Exclusivité</span>':"")+(p.price_history?.previous?'<span>Baisse suivie</span>':"")+'</div>'+(p.external_url?'<a href="'+apiEsc(p.external_url)+'" target="_blank" rel="noopener">Voir l’annonce publique ↗</a>':"")+'<div class="ct-card-actions"><button class="ghost ct-address-btn" data-ct-address="'+i+'">📍 Chercher l’adresse gratuitement</button></div><div id="ct-address-result-'+i+'" class="ct-address-result"></div></div></div></article>'
+    const portals=Array.isArray(p.sources)?p.sources.filter(x=>x&&x.source).map(x=>x.source).filter((v,j,a)=>a.indexOf(v)===j):[];
+    const portalHtml=portals.length?'<div class="meta">Autres portails du même bien : <strong>'+apiEsc(portals.join(" · "))+'</strong></div>':"";
+    return '<article class="ct-card"><div class="ct-card-head"><input type="checkbox" data-ct-check="'+i+'" checked><div><h3>'+apiEsc(p.title||ctAnnonceType(p.type)+" à "+(p.city||""))+'</h3><div class="meta">'+apiEsc(loc)+seller+'</div><div class="ct-price">'+price+'</div><div class="meta">'+surface+" · "+m2+" · "+(p.rooms?p.rooms+" pièce(s) · ":"")+apiEsc(dpe)+'</div><div class="ct-badges"><span>'+apiEsc(p.source||"ChercherTrouver")+'</span>'+(portals.length>1?'<span>'+portals.length+" portails"+'</span>':"")+(p.exclusive?'<span>Exclusivité</span>':"")+(p.price_history?.previous?'<span>Baisse suivie</span>':"")+'</div>'+portalHtml+(p.external_url?'<a href="'+apiEsc(p.external_url)+'" target="_blank" rel="noopener">Voir l’annonce publique ↗</a>':"")+'<div class="ct-card-actions"><button class="ghost ct-address-btn" data-ct-address="'+i+'">📍 Chercher l’adresse gratuitement</button></div><div id="ct-address-result-'+i+'" class="ct-address-result"></div></div></div></article>'
   }).join("");
 }
 function ctDistanceKm(lat1,lon1,lat2,lon2){
@@ -437,7 +439,7 @@ async function ctSearch(){
   try{
     const qs=new URLSearchParams();
     const dept=$( "ctDept").value.trim(),ville=$( "ctVille").value.trim(),type=$( "ctType").value,prix=$( "ctPrixMax").value,surface=$( "ctSurfaceMin").value,dpe=$( "ctDpe").value,radius=Number($( "ctRadius")?.value)||0;
-    qs.set("transaction","vente");qs.set("sort","recent");qs.set("page_size","100");
+    qs.set("transaction","vente");qs.set("sort","recent");qs.set("page_size","100");qs.set("dedup","0");
     if(dept)qs.set("dept",dept);
     if(radius<=0&&ville)qs.set("ville",ville);
     if(type)qs.set("type",type);if(prix)qs.set("prix_max",prix);if(surface)qs.set("surface_min",surface);if(dpe)qs.set("dpe",dpe);
