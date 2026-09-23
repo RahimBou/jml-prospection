@@ -1,3 +1,11 @@
+## V1.19.7 — calibration terrain du rapprochement d'adresse
+
+- La proximité géographique reste le signal principal pour retrouver une adresse candidate.
+- Une forte discordance de surface DPE devient une alerte modérée (-8) au lieu d'écarter fortement la candidate (-20).
+- Ajout d'un statut de priorité géographique lorsque les coordonnées sont très proches mais que le DPE est discordant.
+- Ajout des indicateurs geoScore, surfaceRatio, surfaceCompatible, confidence et priority.
+- Le DPE discordant ne confirme toujours pas automatiquement une adresse.
+
 ## V1.19.6 — concordance adresse renforcée
 
 - Pénalisation des écarts importants de surface entre annonce et DPE.

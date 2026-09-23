@@ -1,4 +1,4 @@
-const APP_VERSION="1.19.6";
+const APP_VERSION="1.19.7";
 const KEY="jml_prospection_v1";let prospects=load(),pendingImport=[];const $=id=>document.getElementById(id);
 function load(){try{const x=JSON.parse(localStorage.getItem(KEY)||"[]");return Array.isArray(x)?x:[]}catch(e){return[]}}
 function save(){localStorage.setItem(KEY,JSON.stringify(prospects));render();if(typeof statsSync==="function")statsSync()}
@@ -480,7 +480,7 @@ async function ctFindAddress(index){
     const qs=new URLSearchParams({lat:String(p.latitude),lon:String(p.longitude),area:String(p.surface||0),rooms:String(p.rooms||0),dpe:String(p.dpe||""),cityCode:String(p.city_code||p.cityCode||"")});
     const data=await publicJson("/api/address-candidates?"+qs.toString());
     const rows=data.candidates||[];
-    box.innerHTML=rows.length?'<div class="ct-address-title">Adresses candidates · concordance technique</div>'+rows.map((c)=>'<div class="ct-address-candidate"><strong>'+apiEsc(c.address)+'</strong><span>'+apiEsc([c.postalCode,c.city].filter(Boolean).join(" "))+' · '+Math.round(c.distanceMeters||0)+' m · <b>'+Math.round(c.score||0)+'/100</b></span><small>'+apiEsc((c.reasons||[]).join(" · "))+'</small>'+(c.dpe?'<small>DPE candidat : '+apiEsc(c.dpe.dpe||"—")+' · '+(c.dpe.area||"—")+' m² · '+(c.dpe.rooms||"—")+' pièce(s)</small>':"")+'</div>').join("")+'<div class="meta">Adresse non confirmée : le résultat sert à orienter le rapprochement public, pas à identifier un propriétaire.</div>':'<div class="meta">Aucune adresse candidate suffisamment documentée.</div>';
+    box.innerHTML=rows.length?'<div class="ct-address-title">Adresses candidates · concordance technique</div>'+rows.map((c)=>'<div class="ct-address-candidate"><strong>'+apiEsc(c.address)+'</strong><span>'+apiEsc([c.postalCode,c.city].filter(Boolean).join(" "))+' · '+Math.round(c.distanceMeters||0)+' m · <b>'+Math.round(c.score||0)+'/100</b></span><small>'+apiEsc(c.priority==="priorite_geographique"?"🟠 Priorité géographique · DPE discordant":(c.confidence==="forte"?"🟢 Concordance forte":c.confidence==="moyenne"?"🟡 À vérifier":"⚪ Concordance faible"))+'</small><small>'+apiEsc((c.reasons||[]).join(" · "))+'</small>'+(c.dpe?'<small>DPE candidat : '+apiEsc(c.dpe.dpe||"—")+' · '+(c.dpe.area||"—")+' m² · '+(c.dpe.rooms||"—")+' pièce(s)</small>':"")+'</div>').join("")+'<div class="meta">Adresse non confirmée : le résultat sert à orienter le rapprochement public, pas à identifier un propriétaire.</div>':'<div class="meta">Aucune adresse candidate suffisamment documentée.</div>';
   }catch(e){box.innerHTML='<div class="meta">Erreur recherche adresse : '+apiEsc(e.message)+'</div>'}
 }
 document.addEventListener("click",e=>{const b=e.target.closest("[data-ct-address]");if(b)ctFindAddress(Number(b.dataset.ctAddress))});
