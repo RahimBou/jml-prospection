@@ -1,4 +1,4 @@
-const APP_VERSION="1.20.4";
+const APP_VERSION="1.20.5";
 const KEY="jml_prospection_v1";let prospects=load(),pendingImport=[];const $=id=>document.getElementById(id);
 function load(){try{const x=JSON.parse(localStorage.getItem(KEY)||"[]");return Array.isArray(x)?x:[]}catch(e){return[]}}
 function save(){localStorage.setItem(KEY,JSON.stringify(prospects));render();if(typeof statsSync==="function")statsSync()}
@@ -372,7 +372,12 @@ async function testIntegrations(){
   $("integrationsTestBtn").disabled=true;
   $("integrationsStatus").textContent="Test ChercherTrouver en cours…";
   try{ renderIntegrationHealth(await publicJson("/api/integrations-health")); }
-  catch(e){ $("integrationsStatus").textContent="Erreur de test : "+e.message; $("chercherTrouverStatus").textContent="—"; }
+  catch(e){
+    $("integrationsStatus").textContent=e.message.includes("HTTP 404")
+      ?"Serveur JML non synchronisé avec cette version : redéploiement Render nécessaire."
+      :"Erreur de test : "+e.message;
+    $("chercherTrouverStatus").textContent="—";
+  }
   finally{$("integrationsTestBtn").disabled=false}
 }
 if($("integrationsTestBtn")) $("integrationsTestBtn").onclick=testIntegrations;
