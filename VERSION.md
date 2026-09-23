@@ -1,3 +1,10 @@
+## V1.19.5 — recherche gratuite d'adresse candidate
+
+- Bouton sur chaque annonce particulière pour rechercher des adresses candidates à partir des coordonnées publiques.
+- Géocodage inverse Géoplateforme/BAN.
+- Rapprochement avec DPE ADEME sur surface, DPE et pièces.
+- Score de concordance technique, sans présenter l'adresse comme certaine.
+
 ## V1.19.4 — commune + rayon géographique
 
 - Recherche autour d'une commune avec rayon de 5 à 50 km.
