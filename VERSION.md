@@ -1,3 +1,12 @@
+## V1.20.2 — moteur d'adresse renforcé BDNB + DPE
+
+- Ajout de la BDNB comme source publique complémentaire pour retrouver le bâtiment correspondant à une annonce.
+- Recherche DPE élargie par adresse + commune et jusqu'à 20 résultats candidats.
+- Secours BAN élargi lorsque la recherche par numéro d'adresse ne retourne aucun candidat.
+- Affichage de la concordance BDNB dans les résultats d'adresses candidates.
+- Le scoring existant reste conservé : la proximité géographique reste prioritaire et aucune adresse n'est présentée comme certaine.
+- Version affichée et cache frontend synchronisés en V1.20.2.
+
 ## V1.19.7 — calibration terrain du rapprochement d'adresse
 
 - La proximité géographique reste le signal principal pour retrouver une adresse candidate.
