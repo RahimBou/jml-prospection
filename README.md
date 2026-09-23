@@ -1,4 +1,12 @@
-# JML Prospection — V1.18.0
+# JML Prospection — V1.20.2
+
+## V1.20.2 — moteur d'adresse renforcé
+- BDNB ajoutée comme source publique complémentaire pour les bâtiments.
+- Recherche DPE élargie par adresse et commune.
+- Secours BAN élargi pour les coordonnées difficiles.
+- Les adresses restent des candidates techniques à vérifier.
+
+
 
 ## V1.6.2 — serveur et sources publiques
 - Passage de Render Static Site à un service Node.
