@@ -402,11 +402,19 @@ async function ctSearch(){
   try{
     const qs=new URLSearchParams();
     const dept=$( "ctDept").value.trim(),ville=$( "ctVille").value.trim(),type=$( "ctType").value,prix=$( "ctPrixMax").value,surface=$( "ctSurfaceMin").value,dpe=$( "ctDpe").value;
-    qs.set("transaction","vente");qs.set("sort","recent");qs.set("page_size","50");
+    qs.set("transaction","vente");qs.set("sort","recent");qs.set("page_size","100");
     if(dept)qs.set("dept",dept);if(ville)qs.set("ville",ville);if(type)qs.set("type",type);if(prix)qs.set("prix_max",prix);if(surface)qs.set("surface_min",surface);if(dpe)qs.set("dpe",dpe);
     const data=await publicJson("/api/annonces?"+qs.toString());
-    ctRender(data.items||[]);
-    $("ctStatus").textContent=(data.items?.length||0)+" annonce(s) reçue(s) · "+(data.total||0)+" résultat(s) selon les filtres. Quota non consommé par les doublons.";
+    const privateOnly=$( "ctPrivateOnly")?.checked!==false;
+    const raw=Array.isArray(data.items)?data.items:[];
+    const filtered=privateOnly?raw.filter(p=>{
+      const seller=norm(p.seller_type||p.sellerType||p.advertiser_type||"");
+      const isAgency=["pro","professionnel","agence","agency","mandataire","promoteur","notaire"].some(x=>seller===x||seller.includes(x));
+      const exclusive=p.exclusive===true||p.exclusive==="true"||p.exclusivity===true||p.exclusivity==="true";
+      return !isAgency&&!exclusive;
+    }):raw;
+    ctRender(filtered);
+    $("ctStatus").textContent=filtered.length+" annonce(s) particulière(s) hors exclusivité affichée(s) · "+raw.length+" annonce(s) reçue(s) avant filtrage.";
   }catch(e){$("ctStatus").textContent="Erreur ChercherTrouver : "+e.message;ctRender([])}
   finally{btn.disabled=false}
 }
