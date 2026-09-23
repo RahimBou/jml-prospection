@@ -1,3 +1,10 @@
+## V1.19.2 — veille annonces ChercherTrouver
+
+- Recherche manuelle des annonces de vente via le connecteur serveur ChercherTrouver.
+- Filtres Ardennes, commune, type, prix, surface et DPE.
+- Sélection et ajout au CRM avec lien public, référence externe et signal d'annonce active.
+- Déduplication par source + référence externe.
+
 ## V1.19.0 — Séparation contexte marché / signal commercial
 
 - Le score radar est désormais séparé en **contexte de marché** et **signal commercial public**.
