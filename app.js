@@ -1,4 +1,4 @@
-const APP_VERSION="1.19.2";
+const APP_VERSION="1.19.4";
 const KEY="jml_prospection_v1";let prospects=load(),pendingImport=[];const $=id=>document.getElementById(id);
 function load(){try{const x=JSON.parse(localStorage.getItem(KEY)||"[]");return Array.isArray(x)?x:[]}catch(e){return[]}}
 function save(){localStorage.setItem(KEY,JSON.stringify(prospects));render();if(typeof statsSync==="function")statsSync()}
@@ -378,7 +378,7 @@ async function testIntegrations(){
 if($("integrationsTestBtn")) $("integrationsTestBtn").onclick=testIntegrations;
 
 
-/* V1.19.2 — Veille annonces ChercherTrouver */
+/* V1.19.4 — Veille annonces ChercherTrouver + rayon géographique */
 let ctAnnonces=[];
 function ctEuro(v){const n=Number(v);return n>0?n.toLocaleString("fr-FR")+" €":"—"}
 function ctAnnonceType(v){return String(v||"Autre").trim()||"Autre"}
