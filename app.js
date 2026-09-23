@@ -1,4 +1,4 @@
-const APP_VERSION="1.19.4";
+const APP_VERSION="1.19.5";
 const KEY="jml_prospection_v1";let prospects=load(),pendingImport=[];const $=id=>document.getElementById(id);
 function load(){try{const x=JSON.parse(localStorage.getItem(KEY)||"[]");return Array.isArray(x)?x:[]}catch(e){return[]}}
 function save(){localStorage.setItem(KEY,JSON.stringify(prospects));render();if(typeof statsSync==="function")statsSync()}
@@ -378,7 +378,7 @@ async function testIntegrations(){
 if($("integrationsTestBtn")) $("integrationsTestBtn").onclick=testIntegrations;
 
 
-/* V1.19.4 — Veille annonces ChercherTrouver + rayon géographique */
+/* V1.19.5 — Veille annonces + recherche gratuite d'adresses candidates */
 let ctAnnonces=[];
 function ctEuro(v){const n=Number(v);return n>0?n.toLocaleString("fr-FR")+" €":"—"}
 function ctAnnonceType(v){return String(v||"Autre").trim()||"Autre"}
@@ -394,7 +394,7 @@ function ctRender(items){
     const loc=[p.postal_code,p.city].filter(Boolean).join(" ");
     const dpe=p.dpe?"DPE "+p.dpe:"DPE —";
     const seller=p.seller_type?" · "+p.seller_type:"";
-    return '<article class="ct-card"><div class="ct-card-head"><input type="checkbox" data-ct-check="'+i+'" checked><div><h3>'+apiEsc(p.title||ctAnnonceType(p.type)+" à "+(p.city||""))+'</h3><div class="meta">'+apiEsc(loc)+seller+'</div><div class="ct-price">'+price+'</div><div class="meta">'+surface+" · "+m2+" · "+(p.rooms?p.rooms+" pièce(s) · ":"")+apiEsc(dpe)+'</div><div class="ct-badges"><span>'+apiEsc(p.source||"ChercherTrouver")+'</span>'+(p.exclusive?'<span>Exclusivité</span>':"")+(p.price_history?.previous?'<span>Baisse suivie</span>':"")+'</div>'+(p.external_url?'<a href="'+apiEsc(p.external_url)+'" target="_blank" rel="noopener">Voir l’annonce publique ↗</a>':"")+'</div></div></article>'
+    return '<article class="ct-card"><div class="ct-card-head"><input type="checkbox" data-ct-check="'+i+'" checked><div><h3>'+apiEsc(p.title||ctAnnonceType(p.type)+" à "+(p.city||""))+'</h3><div class="meta">'+apiEsc(loc)+seller+'</div><div class="ct-price">'+price+'</div><div class="meta">'+surface+" · "+m2+" · "+(p.rooms?p.rooms+" pièce(s) · ":"")+apiEsc(dpe)+'</div><div class="ct-badges"><span>'+apiEsc(p.source||"ChercherTrouver")+'</span>'+(p.exclusive?'<span>Exclusivité</span>':"")+(p.price_history?.previous?'<span>Baisse suivie</span>':"")+'</div>'+(p.external_url?'<a href="'+apiEsc(p.external_url)+'" target="_blank" rel="noopener">Voir l’annonce publique ↗</a>':"")+'<div class="ct-card-actions"><button class="ghost ct-address-btn" data-ct-address="'+i+'">📍 Chercher l’adresse gratuitement</button></div><div id="ct-address-result-'+i+'" class="ct-address-result"></div></div></div></article>'
   }).join("");
 }
 function ctDistanceKm(lat1,lon1,lat2,lon2){
@@ -470,5 +470,20 @@ function ctAddSelected(){
   }
   if(selected.length){save();alert("ChercherTrouver : "+created+" annonce(s) ajoutée(s), "+merged+" déjà présente(s) fusionnée(s).")}
 }
+
+async function ctFindAddress(index){
+  const p=ctAnnonces[index],box=$("ct-address-result-"+index);
+  if(!p||!box)return;
+  if(!Number.isFinite(Number(p.latitude))||!Number.isFinite(Number(p.longitude))){box.innerHTML='<div class="meta">Cette annonce ne fournit pas de coordonnées exploitables pour la recherche gratuite.</div>';return}
+  box.innerHTML='<div class="meta">Recherche BAN + DPE en cours…</div>';
+  try{
+    const qs=new URLSearchParams({lat:String(p.latitude),lon:String(p.longitude),area:String(p.surface||0),rooms:String(p.rooms||0),dpe:String(p.dpe||""),cityCode:String(p.city_code||p.cityCode||"")});
+    const data=await publicJson("/api/address-candidates?"+qs.toString());
+    const rows=data.candidates||[];
+    box.innerHTML=rows.length?'<div class="ct-address-title">Adresses candidates · concordance technique</div>'+rows.map((c)=>'<div class="ct-address-candidate"><strong>'+apiEsc(c.address)+'</strong><span>'+apiEsc([c.postalCode,c.city].filter(Boolean).join(" "))+' · '+Math.round(c.distanceMeters||0)+' m · <b>'+Math.round(c.score||0)+'/100</b></span><small>'+apiEsc((c.reasons||[]).join(" · "))+'</small>'+(c.dpe?'<small>DPE candidat : '+apiEsc(c.dpe.dpe||"—")+' · '+(c.dpe.area||"—")+' m² · '+(c.dpe.rooms||"—")+' pièce(s)</small>':"")+'</div>').join("")+'<div class="meta">Adresse non confirmée : le résultat sert à orienter le rapprochement public, pas à identifier un propriétaire.</div>':'<div class="meta">Aucune adresse candidate suffisamment documentée.</div>';
+  }catch(e){box.innerHTML='<div class="meta">Erreur recherche adresse : '+apiEsc(e.message)+'</div>'}
+}
+document.addEventListener("click",e=>{const b=e.target.closest("[data-ct-address]");if(b)ctFindAddress(Number(b.dataset.ctAddress))});
+
 if($("ctSearchBtn"))$("ctSearchBtn").onclick=ctSearch;
 if($("ctAddBtn"))$("ctAddBtn").onclick=ctAddSelected;
