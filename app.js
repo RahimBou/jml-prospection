@@ -1,5 +1,51 @@
-const APP_VERSION="1.19.6";
+const APP_VERSION="1.20.0";
 const KEY="jml_prospection_v1";let prospects=load(),pendingImport=[];const $=id=>document.getElementById(id);
+const FILTER_KEYS=["q","city","districtFilter","type","status","dpeFilter","signalFilter","movementFilter","priceMin","priceMax","areaMin","areaMax","landMin","landMax","roomsMin","roomsMax","detectedFrom","detectedTo","sort"];
+const CT_FILTER_KEYS=["ctDept","ctVille","ctRadius","ctType","ctPrixMax","ctSurfaceMin","ctDpe","ctPrivateOnly"];
+const UI_STATE_KEY="jml_prospection_ui_v1";
+function readUiState(){try{return JSON.parse(localStorage.getItem(UI_STATE_KEY)||"{}")||{}}catch{return{}}}
+function persistUiState(){
+  const state={filters:{},ct:{}};
+  FILTER_KEYS.forEach(id=>{const el=$(id);if(el)state.filters[id]=el.value});
+  CT_FILTER_KEYS.forEach(id=>{const el=$(id);if(el)state.ct[id]=el.type==="checkbox"?el.checked:el.value});
+  localStorage.setItem(UI_STATE_KEY,JSON.stringify(state));
+}
+function restoreUiState(){
+  const state=readUiState();
+  for(const [id,value] of Object.entries(state.filters||{})){const el=$(id);if(el)el.value=value??""}
+  for(const [id,value] of Object.entries(state.ct||{})){const el=$(id);if(el){if(el.type==="checkbox")el.checked=value!==false;else el.value=value??""}}
+}
+function downloadBlob(filename,content,type){
+  const blob=new Blob([content],{type}),url=URL.createObjectURL(blob),a=document.createElement("a");
+  a.href=url;a.download=filename;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),500);
+}
+function exportBackup(){
+  const payload={format:"JML-Prospection-backup",version:APP_VERSION,exportedAt:now(),prospects,uiState:readUiState()};
+  downloadBlob("jml-prospection-backup-"+today()+".json",JSON.stringify(payload,null,2),"application/json;charset=utf-8");
+}
+function restoreBackup(){
+  const input=document.createElement("input");input.type="file";input.accept=".json,application/json";
+  input.onchange=()=>{
+    const file=input.files?.[0];if(!file)return;
+    const reader=new FileReader();
+    reader.onload=()=>{
+      try{
+        const payload=JSON.parse(reader.result);
+        if(payload?.format!=="JML-Prospection-backup"||!Array.isArray(payload.prospects))throw new Error("Format de sauvegarde JML non reconnu.");
+        if(!confirm("Restaurer cette sauvegarde remplacera le CRM local actuel. Une copie JSON de l'état actuel est recommandée avant de continuer. Continuer ?"))return;
+        prospects=payload.prospects.filter(Boolean);
+        prospects.forEach(ensureHistory);
+        if(payload.uiState)localStorage.setItem(UI_STATE_KEY,JSON.stringify(payload.uiState));
+        save();
+        restoreUiState();
+        render();
+        alert("Sauvegarde restaurée : "+prospects.length+" prospect(s).");
+      }catch(e){alert("Sauvegarde invalide : "+e.message)}
+    };
+    reader.readAsText(file,"UTF-8");
+  };
+  input.click();
+}
 function load(){try{const x=JSON.parse(localStorage.getItem(KEY)||"[]");return Array.isArray(x)?x:[]}catch(e){return[]}}
 function save(){localStorage.setItem(KEY,JSON.stringify(prospects));render();if(typeof statsSync==="function")statsSync()}
 function esc(v=""){return String(v).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
@@ -72,8 +118,8 @@ function badgeClass(s){return s==="Mandat obtenu"?"green":s==="À relancer"?"hot
 function mergeProspect(incoming){const key=dedupeKey(incoming),idx=prospects.findIndex(p=>dedupeKey(p)===key),date=now();if(idx<0){const created={id:crypto.randomUUID(),...incoming,detectionDate:incoming.detectionDate||today(),history:[{date,type:"Import CSV",text:"Bien importé dans la base."}],priceHistory:incoming.price?[{date,price:incoming.price,source:incoming.source||"",reason:"Création"}]:[],appearanceHistory:[{date,source:incoming.source||"",sourceUrl:incoming.sourceUrl||"",externalId:incoming.externalId||""}],firstDetectedAt:incoming.detectionDate||today(),lastSeenAt:date,createdAt:date,updatedAt:date};prospects.push(created);return"created"}const old=ensureHistory({...prospects[idx]}),history=[...(old.history||[])];history.push({date,type:"Mise à jour source",text:incoming.source?"Données reçues depuis "+incoming.source+".":"Données importées et fusionnées."});const merged={...old};const oldPrice=num(old.price),newPrice=num(incoming.price);for(const[k,v]of Object.entries(incoming)){if(v!==""&&v!==null&&v!==undefined&&(typeof v!=="number"||v!==0))merged[k]=v}if(newPrice&&newPrice!==oldPrice){merged.priceHistory=[...(old.priceHistory||[]),{date,price:newPrice,previousPrice:oldPrice,source:incoming.source||"",reason:"Changement de prix"}];history.push({date,type:"Changement de prix",text:(oldPrice?oldPrice.toLocaleString("fr-FR")+" € → ":"")+" "+newPrice.toLocaleString("fr-FR")+" €"});}const appearance={date,source:incoming.source||"",sourceUrl:incoming.sourceUrl||"",externalId:incoming.externalId||""};const last=(old.appearanceHistory||[])[(old.appearanceHistory||[]).length-1];if(!last||[appearance.source,appearance.sourceUrl,appearance.externalId].some((v,i)=>v!==[last.source,last.sourceUrl,last.externalId][i]))merged.appearanceHistory=[...(old.appearanceHistory||[]),appearance];merged.history=history;merged.lastSeenAt=date;merged.updatedAt=date;prospects[idx]=merged;return"merged"}
 $("addBtn").onclick=()=>openForm();$("closeBtn").onclick=closeForm;$("cancelBtn").onclick=closeForm;
 $("prospectForm").onsubmit=e=>{e.preventDefault();const d=formData(),id=$("editId").value,action=$("actionNote").value.trim(),date=now();if(!d.address||!d.city)return;if(id){const i=prospects.findIndex(p=>p.id===id);if(i<0)return;const old=prospects[i],history=[...(old.history||[])];if(old.status!==d.status)history.push({date,type:"Changement de statut",text:old.status+" → "+d.status});if(action)history.push({date,type:"Action / note",text:action});const updated=ensureHistory({...old,...d});if(num(old.price)!==num(d.price)&&num(d.price)){updated.priceHistory=[...(old.priceHistory||[]),{date,price:num(d.price),previousPrice:num(old.price),source:d.source||"",reason:"Changement de prix"}];history.push({date,type:"Changement de prix",text:(old.price?num(old.price).toLocaleString("fr-FR")+" € → ":"")+" "+num(d.price).toLocaleString("fr-FR")+" €"});}updated.appearanceHistory=old.appearanceHistory?.length?old.appearanceHistory:[{date,source:d.source||"",sourceUrl:d.sourceUrl||"",externalId:d.externalId||""}];updated.history=history;updated.updatedAt=date;updated.lastSeenAt=date;prospects[i]=updated}else{const duplicate=prospects.find(p=>dedupeKey(p)===dedupeKey(d));if(duplicate){alert("Ce bien existe déjà dans la base. Ouvre sa fiche pour le modifier.");openForm(duplicate);return}prospects.push({id:crypto.randomUUID(),...d,history:[{date,type:"Création",text:action||"Prospect créé"}],priceHistory:d.price?[{date,price:d.price,source:d.source||"",reason:"Création"}]:[],appearanceHistory:[{date,source:d.source||"",sourceUrl:d.sourceUrl||"",externalId:d.externalId||""}],firstDetectedAt:d.detectionDate||today(),lastSeenAt:date,createdAt:date,updatedAt:date})}save();closeForm()};
-$("resetBtn").onclick=()=>{["q","city","districtFilter","type","status","dpeFilter","signalFilter","movementFilter","priceMin","priceMax","areaMin","areaMax","landMin","landMax","roomsMin","roomsMax","detectedFrom","detectedTo"].forEach(id=>$(id).value="");render()};
-["q","city","districtFilter","type","status","dpeFilter","signalFilter","movementFilter","priceMin","priceMax","areaMin","areaMax","landMin","landMax","roomsMin","roomsMax","detectedFrom","detectedTo","sort"].forEach(id=>$(id).addEventListener("input",render));$("signalChips").onclick=e=>{const b=e.target.closest("[data-signal]");if(b){$("signalFilter").value=b.dataset.signal;render()}};
+$("resetBtn").onclick=()=>{FILTER_KEYS.forEach(id=>{const el=$(id);if(el)el.value=""});persistUiState();render()};
+FILTER_KEYS.forEach(id=>{const el=$(id);if(el)el.addEventListener("input",()=>{persistUiState();render()})});$("signalChips").onclick=e=>{const b=e.target.closest("[data-signal]");if(b){$("signalFilter").value=b.dataset.signal;render()}};
 $("list").onclick=e=>{const edit=e.target.closest("[data-edit]"),del=e.target.closest("[data-delete]");if(edit){const p=prospects.find(x=>x.id===edit.dataset.edit);if(p)openForm(p)}if(del&&confirm("Supprimer ce prospect ?")){prospects=prospects.filter(x=>x.id!==del.dataset.delete);save()}};
 
 function parseCSV(text){const rows=[];let row=[],cell="",quote=false;for(let i=0;i<text.length;i++){const c=text[i],n=text[i+1];if(c==='"'&&quote&&n==='"'){cell+='"';i++;continue}if(c==='"'){quote=!quote;continue}if(c===","&&!quote){row.push(cell);cell="";continue}if((c==="\n"||c==="\r")&&!quote){if(c==="\r"&&n==="\n")i++;row.push(cell);if(row.some(x=>x.trim()!==""))rows.push(row);row=[];cell="";continue}cell+=c}row.push(cell);if(row.some(x=>x.trim()!==""))rows.push(row);if(!rows.length)return[];const headers=rows.shift().map(h=>norm(h).replace(/ /g,""));const aliases={adresse:"address",rue:"address",codepostal:"postalCode",cp:"postalCode",commune:"city",ville:"city",quartier:"district",type:"type",surface:"area",surfacehabitable:"area",terrain:"land",terrainm2:"land",pieces:"rooms",chambres:"bedrooms",prix:"price",dpe:"dpe",statut:"status",detection:"detectionDate",datedetection:"detectionDate",prochainerelance:"nextFollow",source:"source",identifiantsource:"externalId",sourceurl:"sourceUrl",lien:"sourceUrl",description:"description",signal:"description",notes:"notes"};return rows.map(r=>{const o={};headers.forEach((h,i)=>{const k=aliases[h]||h;if(k)o[k]=(r[i]||"").trim()});o.area=numCSV(o.area);o.land=numCSV(o.land);o.rooms=numCSV(o.rooms);o.bedrooms=numCSV(o.bedrooms);o.price=numCSV(o.price);return o}).filter(o=>o.address&&o.city)}
@@ -82,6 +128,8 @@ function csvCell(v){const s=String(v??"");return /[,"\n\r]/.test(s)?'"'+s.replac
 function exportCSV(){const fields=["address","postalCode","city","district","type","area","land","rooms","bedrooms","price","dpe","status","detectionDate","nextFollow","source","externalId","sourceUrl","description","notes"],head=["adresse","codePostal","commune","quartier","type","surface","terrain","pieces","chambres","prix","dpe","statut","detection","prochaineRelance","source","identifiantSource","sourceUrl","description","notes"],lines=[head.join(",")];prospects.forEach(p=>lines.push(fields.map(k=>csvCell(p[k])).join(",")));const blob=new Blob(["\ufeff"+lines.join("\r\n")],{type:"text/csv;charset=utf-8"}),url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download="jml-prospection-export.csv";a.click();URL.revokeObjectURL(url)}
 function previewImport(){const file=$("csvFile").files[0];if(!file)return;$("importPreview").textContent="Lecture du fichier…";const reader=new FileReader();reader.onload=()=>{try{pendingImport=parseCSV(reader.result);const existing=pendingImport.filter(x=>prospects.some(p=>dedupeKey(p)===dedupeKey(x))).length;$("importPreview").innerHTML="<strong>"+pendingImport.length+"</strong> ligne(s) valide(s) · <strong>"+existing+"</strong> déjà connue(s) · les doublons seront fusionnés.<br><span class='meta'>Colonnes reconnues : adresse, CP, commune, surface, terrain, pièces, prix, DPE, détection, statut, source…</span>";$("importConfirm").disabled=!pendingImport.length}catch(err){pendingImport=[];$("importPreview").textContent="CSV illisible ou vide.";$("importConfirm").disabled=true}};reader.readAsText(file,"UTF-8")}
 $("importBtn").onclick=()=>{$("csvFile").value="";$("importPreview").textContent="Choisis un fichier CSV." ;pendingImport=[];$("importConfirm").disabled=true;$("importDialog").showModal()};$("importClose").onclick=()=>$("importDialog").close();$("importCancel").onclick=()=>$("importDialog").close();$("csvFile").addEventListener("change",previewImport);$("importConfirm").onclick=()=>{let created=0,merged=0;pendingImport.forEach(x=>{const r=mergeProspect(x);r==="created"?created++:merged++});save();$("importDialog").close();alert("Import terminé : "+created+" nouveau(x), "+merged+" fusionné(s).");pendingImport=[]};$("exportBtn").onclick=exportCSV;
+if($("backupBtn"))$("backupBtn").onclick=exportBackup;
+if($("restoreBtn"))$("restoreBtn").onclick=restoreBackup;
 
 let futureRadarCandidates=[];
 function futureRadarType(v=""){
@@ -232,7 +280,7 @@ $("publicDpeResults").onclick=e=>{
   const p=publicDpeResults[Number(b.dataset.dpeIndex)];if(!p)return;
   openForm({address:p.address||"",postalCode:p.postalCode||"",city:p.city||"",type:"Maison",area:p.area||0,land:0,rooms:0,bedrooms:0,price:0,dpe:p.dpe||"",status:"Nouveau",detectionDate:today(),nextFollow:"",source:"DPE ADEME",externalId:p.dpeNumber||"",sourceUrl:"https://data.ademe.fr/datasets/dpe03existant",description:"Donnée technique publique DPE ADEME. À vérifier sur le terrain avant toute qualification commerciale.",notes:"DPE : "+(p.dpe||"—")+" · GES : "+(p.ges||"—")+" · Date : "+(p.date||"—")});
 };
-prospects.forEach(ensureHistory);render();
+prospects.forEach(ensureHistory);restoreUiState();render();
 /* V1.13.0 — prospection annonce publique + carte + rapprochement DVF/DPE */
 let privateProspectMap=null;
 let privateProspectLayers=null;
@@ -408,6 +456,7 @@ async function ctSearch(){
   try{
     const qs=new URLSearchParams();
     const dept=$( "ctDept").value.trim(),ville=$( "ctVille").value.trim(),type=$( "ctType").value,prix=$( "ctPrixMax").value,surface=$( "ctSurfaceMin").value,dpe=$( "ctDpe").value,radius=Number($( "ctRadius")?.value)||0;
+    persistUiState();
     qs.set("transaction","vente");qs.set("sort","recent");qs.set("page_size","100");
     if(dept)qs.set("dept",dept);
     if(radius<=0&&ville)qs.set("ville",ville);
@@ -477,7 +526,7 @@ async function ctFindAddress(index){
   if(!Number.isFinite(Number(p.latitude))||!Number.isFinite(Number(p.longitude))){box.innerHTML='<div class="meta">Cette annonce ne fournit pas de coordonnées exploitables pour la recherche gratuite.</div>';return}
   box.innerHTML='<div class="meta">Recherche BAN + DPE en cours…</div>';
   try{
-    const qs=new URLSearchParams({lat:String(p.latitude),lon:String(p.longitude),area:String(p.surface||0),rooms:String(p.rooms||0),dpe:String(p.dpe||""),cityCode:String(p.city_code||p.cityCode||"")});
+    const qs=new URLSearchParams({lat:String(p.latitude),lon:String(p.longitude),area:String(p.surface||0),rooms:String(p.rooms||0),dpe:String(p.dpe||""),type:String(p.type||""),cityCode:String(p.city_code||p.cityCode||"")});
     const data=await publicJson("/api/address-candidates?"+qs.toString());
     const rows=data.candidates||[];
     box.innerHTML=rows.length?'<div class="ct-address-title">Adresses candidates · concordance technique</div>'+rows.map((c)=>'<div class="ct-address-candidate"><strong>'+apiEsc(c.address)+'</strong><span>'+apiEsc([c.postalCode,c.city].filter(Boolean).join(" "))+' · '+Math.round(c.distanceMeters||0)+' m · <b>'+Math.round(c.score||0)+'/100</b></span><small>'+apiEsc((c.reasons||[]).join(" · "))+'</small>'+(c.dpe?'<small>DPE candidat : '+apiEsc(c.dpe.dpe||"—")+' · '+(c.dpe.area||"—")+' m² · '+(c.dpe.rooms||"—")+' pièce(s)</small>':"")+'</div>').join("")+'<div class="meta">Adresse non confirmée : le résultat sert à orienter le rapprochement public, pas à identifier un propriétaire.</div>':'<div class="meta">Aucune adresse candidate suffisamment documentée.</div>';
