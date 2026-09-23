@@ -386,7 +386,7 @@ function ctRender(items){
   ctAnnonces=Array.isArray(items)?items:[];
   const box=$("ctResults"),add=$("ctAddBtn");
   if(!box)return;
-  add.disabled=!ctAnnonces.length;
+  add.disabled=!ctAnnonces.length;if($("ctLocateBtn"))$("ctLocateBtn").disabled=!ctAnnonces.length;
   if(!ctAnnonces.length){box.innerHTML='<div class="meta">Aucune annonce trouvée avec ces critères.</div>';return}
   box.innerHTML=ctAnnonces.map((p,i)=>{
     const price=ctEuro(p.price),surface=p.surface?Number(p.surface).toLocaleString("fr-FR")+" m²":"Surface —";
@@ -493,6 +493,19 @@ async function ctSearch(){
   }catch(e){$("ctStatus").textContent="Erreur ChercherTrouver : "+e.message;ctRender([])}
   finally{btn.disabled=false}
 }
+async function ctLocateAll(){
+  const btn=$("ctLocateBtn");
+  if(!btn||!ctAnnonces.length)return;
+  btn.disabled=true;
+  const limit=Math.min(10,ctAnnonces.length);
+  $("ctStatus").textContent="Recherche des adresses publiques en cours : 0/"+limit+"…";
+  for(let i=0;i<limit;i++){
+    await ctFindAddress(i);
+    $("ctStatus").textContent="Recherche des adresses publiques en cours : "+(i+1)+"/"+limit+"…";
+  }
+  $("ctStatus").textContent=limit+" bien(s) analysé(s) pour retrouver une adresse candidate via BAN + DPE. Vérifie chaque concordance avant prospection.";
+  btn.disabled=false;
+}
 function ctAddSelected(){
   const selected=[...document.querySelectorAll("[data-ct-check]:checked")].map(x=>ctAnnonces[Number(x.dataset.ctCheck)]).filter(Boolean);
   let created=0,merged=0;
@@ -545,3 +558,5 @@ if($("ctTourBtn"))$("ctTourBtn").onclick=ctSectorTour;
 if($("ctAddBtn"))$("ctAddBtn").onclick=ctAddSelected;
 
 if($("msSearchBtn"))$("msSearchBtn").onclick=multiSourceSearch;
+
+if($("ctLocateBtn"))$("ctLocateBtn").onclick=ctLocateAll;
