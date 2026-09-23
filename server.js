@@ -1069,7 +1069,7 @@ async function api(pathname,url){
         latestSale:saleHistory.latest,
         sameAddressSale:{
           status:saleHistory.status,count:saleHistory.count,latest:saleHistory.latest,first:saleHistory.first,
-          totalValue:saleHistory.totalValue,ageYears:saleAgeYears!==null?Math.round(saleAgeYears*10)/10:null,
+          totalValue:saleHistory.totalValue,ageYears:saleAgeYearsRounded,
           historyDates,reason:saleHistory.reason
         },
         history:{
