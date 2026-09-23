@@ -1,4 +1,4 @@
-const APP_VERSION="1.19.0";
+const APP_VERSION="1.19.2";
 const KEY="jml_prospection_v1";let prospects=load(),pendingImport=[];const $=id=>document.getElementById(id);
 function load(){try{const x=JSON.parse(localStorage.getItem(KEY)||"[]");return Array.isArray(x)?x:[]}catch(e){return[]}}
 function save(){localStorage.setItem(KEY,JSON.stringify(prospects));render();if(typeof statsSync==="function")statsSync()}
@@ -376,3 +376,71 @@ async function testIntegrations(){
   finally{$("integrationsTestBtn").disabled=false}
 }
 if($("integrationsTestBtn")) $("integrationsTestBtn").onclick=testIntegrations;
+
+
+/* V1.19.2 — Veille annonces ChercherTrouver */
+let ctAnnonces=[];
+function ctEuro(v){const n=Number(v);return n>0?n.toLocaleString("fr-FR")+" €":"—"}
+function ctAnnonceType(v){return String(v||"Autre").trim()||"Autre"}
+function ctRender(items){
+  ctAnnonces=Array.isArray(items)?items:[];
+  const box=$("ctResults"),add=$("ctAddBtn");
+  if(!box)return;
+  add.disabled=!ctAnnonces.length;
+  if(!ctAnnonces.length){box.innerHTML='<div class="meta">Aucune annonce trouvée avec ces critères.</div>';return}
+  box.innerHTML=ctAnnonces.map((p,i)=>{
+    const price=ctEuro(p.price),surface=p.surface?Number(p.surface).toLocaleString("fr-FR")+" m²":"Surface —";
+    const m2=p.price_per_m2?Math.round(Number(p.price_per_m2)).toLocaleString("fr-FR")+" €/m²":"€/m² —";
+    const loc=[p.postal_code,p.city].filter(Boolean).join(" ");
+    const dpe=p.dpe?"DPE "+p.dpe:"DPE —";
+    const seller=p.seller_type?" · "+p.seller_type:"";
+    return '<article class="ct-card"><div class="ct-card-head"><input type="checkbox" data-ct-check="'+i+'" checked><div><h3>'+apiEsc(p.title||ctAnnonceType(p.type)+" à "+(p.city||""))+'</h3><div class="meta">'+apiEsc(loc)+seller+'</div><div class="ct-price">'+price+'</div><div class="meta">'+surface+" · "+m2+" · "+(p.rooms?p.rooms+" pièce(s) · ":"")+apiEsc(dpe)+'</div><div class="ct-badges"><span>'+apiEsc(p.source||"ChercherTrouver")+'</span>'+(p.exclusive?'<span>Exclusivité</span>':"")+(p.price_history?.previous?'<span>Baisse suivie</span>':"")+'</div>'+(p.external_url?'<a href="'+apiEsc(p.external_url)+'" target="_blank" rel="noopener">Voir l’annonce publique ↗</a>':"")+'</div></div></article>'
+  }).join("");
+}
+async function ctSearch(){
+  const btn=$("ctSearchBtn");btn.disabled=true;$("ctStatus").textContent="Recherche ChercherTrouver en cours…";
+  try{
+    const qs=new URLSearchParams();
+    const dept=$( "ctDept").value.trim(),ville=$( "ctVille").value.trim(),type=$( "ctType").value,prix=$( "ctPrixMax").value,surface=$( "ctSurfaceMin").value,dpe=$( "ctDpe").value;
+    qs.set("transaction","vente");qs.set("sort","recent");qs.set("page_size","50");
+    if(dept)qs.set("dept",dept);if(ville)qs.set("ville",ville);if(type)qs.set("type",type);if(prix)qs.set("prix_max",prix);if(surface)qs.set("surface_min",surface);if(dpe)qs.set("dpe",dpe);
+    const data=await publicJson("/api/annonces?"+qs.toString());
+    ctRender(data.items||[]);
+    $("ctStatus").textContent=(data.items?.length||0)+" annonce(s) reçue(s) · "+(data.total||0)+" résultat(s) selon les filtres. Quota non consommé par les doublons.";
+  }catch(e){$("ctStatus").textContent="Erreur ChercherTrouver : "+e.message;ctRender([])}
+  finally{btn.disabled=false}
+}
+function ctAddSelected(){
+  const selected=[...document.querySelectorAll("[data-ct-check]:checked")].map(x=>ctAnnonces[Number(x.dataset.ctCheck)]).filter(Boolean);
+  let created=0,merged=0;
+  for(const p of selected){
+    const incoming={
+      address:"",
+      postalCode:p.postal_code||"",
+      city:p.city||"",
+      district:"",
+      type:ctAnnonceType(p.type),
+      area:num(p.surface),
+      land:num(p.land_surface),
+      rooms:num(p.rooms),
+      bedrooms:num(p.bedrooms),
+      price:num(p.price),
+      dpe:p.dpe||"",
+      detectionDate:today(),
+      nextFollow:"",
+      source:"ChercherTrouver · "+(p.source||"catalogue"),
+      externalId:p.reference||"",
+      sourceUrl:p.external_url||"",
+      description:p.description||p.title||"",
+      notes:"Annonce publique récupérée via ChercherTrouver. Signal commercial public : annonce active. Ne pas utiliser cette fiche pour identifier un propriétaire.",
+      status:"Nouveau",
+      publicListingActive:true,
+      publicPriceDrop:Boolean(p.price_history?.previous && Number(p.price_history.previous)>Number(p.price||0)),
+      publicListingReappeared:false
+    };
+    const result=mergeProspect(incoming);result==="created"?created++:merged++;
+  }
+  if(selected.length){save();alert("ChercherTrouver : "+created+" annonce(s) ajoutée(s), "+merged+" déjà présente(s) fusionnée(s).")}
+}
+if($("ctSearchBtn"))$("ctSearchBtn").onclick=ctSearch;
+if($("ctAddBtn"))$("ctAddBtn").onclick=ctAddSelected;
