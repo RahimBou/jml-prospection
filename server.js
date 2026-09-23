@@ -754,7 +754,7 @@ function radarTerrainScore(saleHistory){
   return 0;
 }
 async function api(pathname,url){
-  if(pathname==="/api/health") return {ok:true,sources:{dpe:"ADEME",dvf:"DVF+ Cerema",geocoding:"Géoplateforme",chercherTrouver:"ChercherTrouver.immo"},server:"jml-prospection",version:"1.19.7"};
+  if(pathname==="/api/health") return {ok:true,sources:{dpe:"ADEME",dvf:"DVF+ Cerema",geocoding:"Géoplateforme",chercherTrouver:"ChercherTrouver.immo"},server:"jml-prospection",version:"1.20.0"};
   if(pathname==="/api/integrations-health"){
     const ct=await fetchChercherTrouverPing();
     return {ok:ct.ok===true,checkedAt:new Date().toISOString(),chercherTrouver:ct};
@@ -990,6 +990,62 @@ async function api(pathname,url){
     }));
     enriched.sort((a,b)=>b.score-a.score||a.distanceMeters-b.distanceMeters);
     return {source:"Géoplateforme BAN + ADEME DPE",candidates:enriched.slice(0,5),disclaimer:"Adresses candidates issues de données publiques. Le score est une concordance technique et ne constitue pas une confirmation d'adresse ni une identification de propriétaire."};
+  }
+  if(pathname==="/api/sector-tour"){
+    const dept=String(url.searchParams.get("dept")||"08").trim();
+    const type=String(url.searchParams.get("type")||"").trim();
+    const minCount=Math.max(5,Math.min(15,Number(url.searchParams.get("min")||10)));
+    const maxRadiusKm=Math.max(5,Math.min(30,Number(url.searchParams.get("maxRadius")||20)));
+    const data=await fetchChercherTrouver({dept,transaction:"vente",sort:"recent",page_size:"50",...(type?{type}:{})});
+    const raw=Array.isArray(data.items)?data.items:[];
+    const isPrivate=(p)=>{
+      const seller=String(p.seller_type||p.sellerType||p.advertiser_type||"").toLowerCase().normalize("NFD").replace(/[\\u0300-\\u036f]/g,"");
+      const pro=["pro","professionnel","agence","agency","mandataire","promoteur","notaire"].some(x=>seller===x||seller.includes(x));
+      const exclusive=p.exclusive===true||p.exclusive==="true"||p.exclusivity===true||p.exclusivity==="true";
+      return !pro&&!exclusive;
+    };
+    const privateItems=raw.filter(isPrivate).map(p=>({...p,
+      latitude:Number(p.latitude??p.lat),longitude:Number(p.longitude??p.lon)
+    })).filter(p=>Number.isFinite(p.latitude)&&Number.isFinite(p.longitude));
+    const hav=(a,b,c,d)=>{
+      const R=6371,rad=x=>x*Math.PI/180;
+      const x=rad(c-a),y=rad(d-b),aa=Math.sin(x/2)**2+Math.cos(rad(a))*Math.cos(rad(c))*Math.sin(y/2)**2;
+      return 2*R*Math.asin(Math.min(1,Math.sqrt(aa)));
+    };
+    const updatedMs=p=>{const d=Date.parse(p.updated_at||p.updatedAt||p.published_at||p.publishedAt||"");return Number.isFinite(d)?d:0};
+    let best=null;
+    for(const center of privateItems){
+      const within=privateItems.map(p=>({...p,_distanceKm:hav(center.latitude,center.longitude,p.latitude,p.longitude)}))
+        .filter(p=>p._distanceKm<=maxRadiusKm)
+        .sort((a,b)=>a._distanceKm-b._distanceKm||updatedMs(b)-updatedMs(a));
+      const chosen=within.slice(0,minCount);
+      if(chosen.length<minCount) continue;
+      const maxDist=chosen.reduce((m,p)=>Math.max(m,p._distanceKm),0);
+      const avgDist=chosen.reduce((s,p)=>s+p._distanceKm,0)/chosen.length;
+      const freshness=chosen.reduce((s,p)=>s+(Date.now()-updatedMs(p)<=7*86400000?1:0),0);
+      const score=chosen.length*100 - avgDist*8 - maxDist*3 + freshness*4;
+      if(!best||score>best.score)best={center,items:chosen,score,maxDist,avgDist};
+    }
+    const resultItems=(best?.items||privateItems.sort((a,b)=>updatedMs(b)-updatedMs(a)).slice(0,minCount))
+      .map(p=>({...p,distanceKm:best?Number(p._distanceKm.toFixed(1)):null}));
+    return {
+      source:"ChercherTrouver.immo",
+      target:minCount,
+      found:resultItems.length,
+      enough:resultItems.length>=minCount,
+      search:{department:dept,type:type||"Tous",received:raw.length,private:privateItems.length,maxRadiusKm},
+      sector:best?{
+        center:{city:best.center.city||"",postalCode:best.center.postal_code||"",latitude:best.center.latitude,longitude:best.center.longitude},
+        maxDistanceKm:Number(best.maxDist.toFixed(1)),
+        averageDistanceKm:Number(best.avgDist.toFixed(1))
+      }:null,
+      items:resultItems,
+      hasMore:Boolean(data.hasMore),
+      nextCursor:data.nextCursor||null,
+      warning:resultItems.length<minCount
+        ?"Moins de "+minCount+" annonces particulières exploitables ont été reçues dans cette fenêtre API. Aucun bien professionnel n'a été ajouté artificiellement pour atteindre le quota."
+        :null
+    };
   }
   if(pathname==="/api/annonces"){
     const params={};
