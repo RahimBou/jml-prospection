@@ -27,3 +27,7 @@
 
 .ct-private-only{justify-content:center}.ct-private-only span:last-child{display:flex;align-items:center;gap:7px}.ct-private-only input{width:auto}
 .ct-card-actions{display:flex;gap:8px;margin-top:8px}.ct-address-result{margin-top:8px}.ct-address-title{font-size:12px;font-weight:700;margin-bottom:5px}.ct-address-candidate{display:flex;flex-direction:column;gap:2px;padding:7px;margin:5px 0;border:1px solid #e2e5ea;border-radius:7px;background:#fafafa}.ct-address-candidate strong{font-size:12px}.ct-address-candidate span,.ct-address-candidate small{font-size:11px}.ct-address-btn{font-size:12px}
+
+/* V1.20.0 — sauvegarde et continuité de session */
+.top-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+@media(max-width:760px){.top-actions{width:100%;}.top-actions button{flex:1 1 auto;min-width:120px}}
