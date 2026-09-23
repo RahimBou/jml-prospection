@@ -948,10 +948,23 @@ async function api(pathname,url){
     if(!Number.isFinite(lat)||!Number.isFinite(lon))throw new Error("Coordonnées de l'annonce manquantes");
     const reverseUrl=new URL("https://data.geopf.fr/geocodage/reverse");
     reverseUrl.searchParams.set("lat",String(lat));reverseUrl.searchParams.set("lon",String(lon));
-    reverseUrl.searchParams.set("index","address");reverseUrl.searchParams.set("limit","8");reverseUrl.searchParams.set("type","housenumber");
+    reverseUrl.searchParams.set("index","address");reverseUrl.searchParams.set("limit","15");reverseUrl.searchParams.set("type","housenumber");
     if(cityCode)reverseUrl.searchParams.set("citycode",cityCode);
     const reverse=await jsonFetch(reverseUrl);
-    const features=Array.isArray(reverse?.features)?reverse.features:[];
+    let features=Array.isArray(reverse?.features)?reverse.features:[];
+    // Secours BAN/Geoplateforme : certaines coordonnées d'annonces tombent entre
+    // deux adresses ou sur une position qui n'est pas indexée comme housenumber.
+    // On élargit alors la recherche aux localisants d'adresse proches.
+    if(!features.length){
+      try{
+        const broad=new URL("https://data.geopf.fr/geocodage/reverse");
+        broad.searchParams.set("lat",String(lat));broad.searchParams.set("lon",String(lon));
+        broad.searchParams.set("index","address");broad.searchParams.set("limit","15");
+        if(cityCode)broad.searchParams.set("citycode",cityCode);
+        const b=await jsonFetch(broad);
+        features=Array.isArray(b?.features)?b.features:[];
+      }catch{}
+    }
     const candidates=features.map(f=>{
       const p=f?.properties||{},c=f?.geometry?.coordinates||[];
       return {address:p.label||"",postalCode:p.postcode||"",city:p.city||"",cityCode:p.citycode||"",street:p.street||"",number:p.housenumber||"",latitude:Number(c[1])||0,longitude:Number(c[0])||0,banId:p.id||"",distanceMeters:distanceMeters(pointOf({latitude:lat,longitude:lon}),pointOf({latitude:Number(c[1])||0,longitude:Number(c[0])||0}))};
