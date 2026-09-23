@@ -1,4 +1,10 @@
-# JML Prospection — V1.20.5
+## V1.20.6 — vue rue des adresses candidates
+- Chaque adresse candidate dispose maintenant d'un bouton **👁️ Vue rue**.
+- **🗺️ Map View** ouvre Google Maps sur la position candidate.
+- **📋 Copier** facilite la préparation d'une tournée terrain.
+- Aucun changement au moteur de récupération des annonces ni au rapprochement DVF/DPE.
+
+# JML Prospection — V1.20.6
 
 ## V1.20.5 — diagnostic connecteur
 - Health-check ChercherTrouver synchronisé.
