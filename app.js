@@ -465,6 +465,8 @@ async function ctSearch(){
     if(dept)qs.set("dept",dept);
     if(radius<=0&&ville)qs.set("ville",ville);
     if(type)qs.set("type",type);if(prix)qs.set("prix_max",prix);if(surface)qs.set("surface_min",surface);if(dpe)qs.set("dpe",dpe);
+    const freshDays=Number($( "ctFresh")?.value)||0;
+    if(freshDays>0)qs.set("created_since",new Date(Date.now()-freshDays*86400000).toISOString());
     const data=await publicJson("/api/annonces?"+qs.toString());
     let raw=Array.isArray(data.items)?data.items:[];
     let center=null;
@@ -478,7 +480,7 @@ async function ctSearch(){
         return {...p,_radiusKm:ctDistanceKm(center.latitude,center.longitude,lat,lon)};
       }).filter(p=>p._radiusKm!==null&&p._radiusKm<=radius);
     }
-    const privateOnly=$( "ctPrivateOnly")?.checked!==false;
+    const privateOnly=$( "ctPrivateOnly")?.checked===true;
     const filtered=privateOnly?raw.filter(p=>{
       const seller=norm(p.seller_type||p.sellerType||p.advertiser_type||"");
       const isAgency=["pro","professionnel","agence","agency","mandataire","promoteur","notaire"].some(x=>seller===x||seller.includes(x));
@@ -487,7 +489,7 @@ async function ctSearch(){
     }):raw;
     ctRender(filtered);
     const zone=ville?(radius>0?" dans un rayon de "+radius+" km autour de "+ville:" à "+ville):" dans les Ardennes";
-    $("ctStatus").textContent=filtered.length+" annonce(s) particulière(s) hors exclusivité"+zone+" · "+(data.items?.length||0)+" reçue(s) avant filtrage";
+    const sourceCounts={};raw.forEach(p=>{const s=String(p.source||"Source inconnue");sourceCounts[s]=(sourceCounts[s]||0)+1});const sourceSummary=Object.entries(sourceCounts).sort((a,b)=>b[1]-a[1]).map(([s,n])=>s+" : "+n).join(" · ");$("ctStatus").textContent=filtered.length+" annonce(s) exploitables"+zone+" · "+(data.items?.length||0)+" reçue(s) · Sources : "+(sourceSummary||"aucune");
   }catch(e){$("ctStatus").textContent="Erreur ChercherTrouver : "+e.message;ctRender([])}
   finally{btn.disabled=false}
 }
