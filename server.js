@@ -958,10 +958,10 @@ async function api(pathname,url){
       const bestDpe=bestPack?.d||null;
       const dpeDistance=bestPack?.dist??null;
       let score=0,reasons=[];
+      let surfaceCompatible=true;
       if(c.distanceMeters<=50){score+=35;reasons.push("Coordonnées très proches +35")}else if(c.distanceMeters<=100){score+=30;reasons.push("Coordonnées proches +30")}else if(c.distanceMeters<=200){score+=22;reasons.push("Coordonnées compatibles +22")}else if(c.distanceMeters<=400){score+=12;reasons.push("Coordonnées éloignées +12")}else if(c.distanceMeters<=600){score+=4;reasons.push("Coordonnées éloignées +4")}
       if(bestDpe){
         const da=Number(bestDpe.area)||0;
-        let surfaceCompatible=true;
         if(area>0&&da>0){
           const ratio=Math.abs(da-area)/area;
           if(ratio<=.05){score+=30;reasons.push("Surface DPE très proche +30")}
