@@ -754,7 +754,7 @@ function radarTerrainScore(saleHistory){
   return 0;
 }
 async function api(pathname,url){
-  if(pathname==="/api/health") return {ok:true,sources:{dpe:"ADEME",dvf:"DVF+ Cerema",geocoding:"Géoplateforme",chercherTrouver:"ChercherTrouver.immo"},server:"jml-prospection",version:"1.19.6"};
+  if(pathname==="/api/health") return {ok:true,sources:{dpe:"ADEME",dvf:"DVF+ Cerema",geocoding:"Géoplateforme",chercherTrouver:"ChercherTrouver.immo"},server:"jml-prospection",version:"1.19.7"};
   if(pathname==="/api/integrations-health"){
     const ct=await fetchChercherTrouverPing();
     return {ok:ct.ok===true,checkedAt:new Date().toISOString(),chercherTrouver:ct};
