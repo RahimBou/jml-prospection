@@ -1,3 +1,10 @@
+## V1.20.5 — diagnostic connecteur ChercherTrouver
+
+- Synchronisation du health-check serveur en V1.20.5.
+- Le test ChercherTrouver reste basé sur /api/integrations-health et le ping /api/v1/ping, sans consommation de quota.
+- Message explicite si Render exécute encore une ancienne version du serveur.
+- Aucun changement dans la Veille annonces ni le moteur d'adresse.
+
 ## V1.20.4 — recalibrage de la confiance des adresses
 
 - 🟢 Concordance forte : réservée aux scores réellement solides (score ≥ 70, géographie suffisante et surface compatible).
