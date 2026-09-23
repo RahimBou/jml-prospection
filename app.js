@@ -410,14 +410,16 @@ function multiSourceUrl(site,ville,cp,type){
   return "https://www.google.com/search?q="+q;
 }
 function multiSourceSearch(){
-  const ville=$( "msVille")?.value.trim()||"",cp=$( "msCp")?.value.trim()||"",type=$( "msType")?.value||"maison",box=$( "msResults");
+  const ville=$( "ctVille")?.value.trim()||"",cp=$( "ctCp")?.value.trim()||"",typeRaw=$( "ctType")?.value||"";
+  const type=typeRaw==="Maison"?"maison":typeRaw==="Appartement"?"appartement":typeRaw==="Terrain"?"terrain":typeRaw==="Immeuble"?"immeuble":"maison";
+  const box=$( "msResults");
   if(!box)return;
-  if(!ville&&!cp){box.innerHTML='<div class="meta">Indique au moins une commune ou un code postal.</div>';return}
+  if(!ville&&!cp){box.innerHTML='<div class="meta">Indique une commune ou un code postal dans les critères de la veille.</div>';return}
   const sites=["ParuVendu","SeLoger","Bien'ici","Leboncoin"];
   box.innerHTML='<div class="ct-tour-grid">'+sites.map(site=>{
     const url=multiSourceUrl(site,ville,cp,type);
     return '<div class="ct-tour-item"><strong>'+apiEsc(site)+'</strong><span>Recherche publique · '+apiEsc([type,ville,cp].filter(Boolean).join(" · "))+'</span><a class="ghost" href="'+apiEsc(url)+'" target="_blank" rel="noopener">Ouvrir la recherche ↗</a></div>';
-  }).join("")+'</div>';
+  }).join("")+'</div><div class="meta">Ces recherches utilisent directement les critères de la Veille annonces. Les annonces intéressantes peuvent ensuite être analysées dans JML à partir de leur URL publique.</div>';
 }
 function ctDistanceKm(lat1,lon1,lat2,lon2){
   const R=6371,rad=Math.PI/180;
