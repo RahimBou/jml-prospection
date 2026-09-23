@@ -693,6 +693,26 @@ function radarHistoryScore(count){
   if(count===1)return 4;
   return 0;
 }
+
+function radarCommercialSignal(p){
+  // Seuls des signaux explicitement documentés par une source publique donnent des points.
+  // DPE, DVF, consommations ou informations privées ne créent jamais une intention de vente.
+  const signals=[];
+  const add=(key,label,points)=>signals.push({key,label,points});
+  if(p.publicListingActive===true)add("activeListing","Annonce publique active",40);
+  if(p.publicPriceDrop===true)add("priceDrop","Baisse de prix publique",30);
+  if(p.publicListingReappeared===true)add("reappeared","Annonce publique réapparue",25);
+  if(p.publicOldListing===true)add("oldListing","Annonce publique ancienne encore visible",15);
+  if(p.publicProcedure===true)add("procedure","Procédure / vente immobilière publique",35);
+  if(p.publicAuction===true)add("auction","Vente aux enchères / adjudication publique",40);
+  if(p.publicLandSale===true)add("publicLandSale","Terrain publiquement proposé à la vente",25);
+  const score=Math.min(100,signals.reduce((n,s)=>n+s.points,0));
+  let level="Aucun signal commercial public";
+  if(score>=65)level="Signal commercial public fort";
+  else if(score>=35)level="Signal commercial public";
+  else if(score>0)level="Signal commercial public faible";
+  return {score,level,signals};
+}
 function radarDataScore(quality){
   return Math.min(15,Math.max(0,Number(quality?.score)||0)*3);
 }
@@ -1017,7 +1037,12 @@ async function api(pathname,url){
       const dataScore=radarDataScore(quality);
       reasons.push((quality.label||"Qualité des données")+" · "+quality.score+"/5 · +"+dataScore);
 
-      const score=Math.min(100,dpeScore+saleAgeScore+typeSurface.score+terrainScore+proximityScore+historyScore+dataScore);
+      // Séparation stricte : contexte de marché ≠ signal commercial.
+      const marketContextScore=Math.min(100,dpeScore+saleAgeScore+typeSurface.score+terrainScore+proximityScore+historyScore+dataScore);
+      const commercialSignals=radarCommercialSignal(p);
+      const commercialSignalScore=commercialSignals.score;
+      const commercialSignalLevel=commercialSignals.level;
+      const score=marketContextScore;
       const methodScores={
         dpe:Math.round(dpeScore/20*100),
         saleAge:Math.round(saleAgeScore/15*100),
@@ -1025,7 +1050,8 @@ async function api(pathname,url){
         terrain:Math.round(terrainScore/5*100),
         proximity:Math.round(proximityScore/15*100),
         history:Math.round(historyScore/15*100),
-        data:Math.round(dataScore/15*100)
+        data:Math.round(dataScore/15*100),
+        commercialSignal:commercialSignalScore
       };
 
       const sameAddressSale=saleHistory.status==="confirmed";
@@ -1064,8 +1090,9 @@ async function api(pathname,url){
         comparableDispersion:comparable.dispersion,comparableMedianDistance:comparable.medianDistance,
         comparableRecentCount:comparable.recentCount,comparables:comparable.items,
         bestComparable,
-        score,methodScores,
+        score,marketContextScore,commercialSignalScore,commercialSignalLevel,commercialSignals:commercialSignals.signals,
         evidence:{
+          commercialSignal:{score:commercialSignalScore,level:commercialSignalLevel,signals:commercialSignals.signals},
           dataQuality:{level:quality.level,label:quality.label,score:quality.score},
           dpe:{confirmed:dpeConfirmed,status:dpeAddressStatus,grade:p.dpe||null,points:dpeScore},
           sameAddressSale:{confirmed:sameAddressSale,status:saleHistory.status,count:saleHistory.count,lastDate:saleHistory.latest?.date||null,ageYears:saleAgeYears!==null?Math.round(saleAgeYears*10)/10,points:saleAgeScore},
@@ -1076,7 +1103,7 @@ async function api(pathname,url){
         },
         reasons,
         dataQuality:quality,
-        disclaimer:"Indice de surveillance transparent basé sur des données publiques. Une vente DVF à la même adresse n'est confirmée que lorsque l'unité est suffisamment discriminée ; les comparables sont séparés des mutations de la même adresse. Ce score n'est pas une probabilité de vente et n'identifie pas un propriétaire."
+        disclaimer:"Indice de contexte de marché transparent basé sur des données publiques. Il ne constitue pas un signal de vente. Un signal commercial n'est crédité que lorsqu'une source publique explicite le documente ; DPE, DVF et comparables seuls n'identifient pas une intention de vendre et n'identifient pas un propriétaire."
       };
     }).filter(x=>x.address).sort((a,b)=>b.score-a.score).slice(0,limit);
     return {source:"ADEME + DVF comparables locaux",codeInsee,dpeCount:dpeRows.length,dvfCount:dvfRows.length,dvfSource:dvf.source,dvfFallback:!!dvf.fallback,results:candidates};
