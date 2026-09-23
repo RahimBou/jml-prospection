@@ -1,3 +1,9 @@
+## V1.19.6 — concordance adresse renforcée
+
+- Pénalisation des écarts importants de surface entre annonce et DPE.
+- Le DPE identique ne renforce plus artificiellement un candidat lorsque la surface est très différente.
+- Les pièces incohérentes réduisent également le score.
+
 ## V1.19.5 — recherche gratuite d'adresse candidate
 
 - Bouton sur chaque annonce particulière pour rechercher des adresses candidates à partir des coordonnées publiques.
