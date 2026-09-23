@@ -30,17 +30,47 @@ function send(res,status,data,type="application/json"){
   res.end(type.startsWith("application/json") ? JSON.stringify(data) : data);
 }
 function cleanLimit(value,max=50){const n=Number(value);return Number.isFinite(n)?Math.max(1,Math.min(max,Math.floor(n))):20}
-async function jsonFetch(url){
+function cacheTtlFor(url){
+  const host=String(url?.hostname||"");
+  if(host.includes("data.geopf.fr"))return 7*24*60*60*1000;
+  if(host.includes("data.ademe.fr"))return 6*60*60*1000;
+  if(host.includes("cerema.fr")||host.includes("data.gouv.fr"))return 6*60*60*1000;
+  return 5*60*1000;
+}
+function cacheGet(key){
+  const hit=jsonCache.get(key);
+  if(!hit)return null;
+  if(Date.now()-hit.time>hit.ttl){jsonCache.delete(key);return null;}
+  jsonCache.delete(key);jsonCache.set(key,hit);
+  return hit.data;
+}
+function cacheSet(key,data,ttl){
+  jsonCache.set(key,{time:Date.now(),ttl,data});
+  while(jsonCache.size>JSON_CACHE_MAX){
+    const oldest=jsonCache.keys().next().value;
+    jsonCache.delete(oldest);
+    jsonCacheStats.evictions++;
+  }
+}
+async function jsonFetch(url,{cache=true,ttl}={}){
+  const key=String(url);
+  const effectiveTtl=Number.isFinite(Number(ttl))?Number(ttl):cacheTtlFor(url);
+  if(cache){
+    const cached=cacheGet(key);
+    if(cached!==null){jsonCacheStats.hits++;return cached;}
+    jsonCacheStats.misses++;
+  }
   let lastError;
   for(let attempt=1;attempt<=3;attempt++){
     const controller=new AbortController();
     const timer=setTimeout(()=>controller.abort(),12000);
     try{
-      const r=await fetch(url,{headers:{Accept:"application/json","User-Agent":"JML-Prospection/1.0"},signal:controller.signal});
+      const r=await fetch(url,{headers:{Accept:"application/json","User-Agent":"JML-Prospection/1.20.0"},signal:controller.signal});
       const text=await r.text();
       let data;
       try{data=JSON.parse(text)}catch{data={raw:text}}
       if(!r.ok) throw new Error("Source HTTP "+r.status);
+      if(cache)cacheSet(key,data,effectiveTtl);
       return data;
     }catch(e){
       lastError=e;
@@ -754,7 +784,7 @@ function radarTerrainScore(saleHistory){
   return 0;
 }
 async function api(pathname,url){
-  if(pathname==="/api/health") return {ok:true,sources:{dpe:"ADEME",dvf:"DVF+ Cerema",geocoding:"Géoplateforme",chercherTrouver:"ChercherTrouver.immo"},server:"jml-prospection",version:"1.19.6"};
+  if(pathname==="/api/health") return {ok:true,sources:{dpe:"ADEME",dvf:"DVF+ Cerema",geocoding:"Géoplateforme",chercherTrouver:"ChercherTrouver.immo"},server:"jml-prospection",version:"1.20.0",cache:{entries:jsonCache.size,hits:jsonCacheStats.hits,misses:jsonCacheStats.misses,evictions:jsonCacheStats.evictions,maxEntries:JSON_CACHE_MAX}};
   if(pathname==="/api/integrations-health"){
     const ct=await fetchChercherTrouverPing();
     return {ok:ct.ok===true,checkedAt:new Date().toISOString(),chercherTrouver:ct};
@@ -903,6 +933,7 @@ async function api(pathname,url){
     const lat=Number(url.searchParams.get("lat")),lon=Number(url.searchParams.get("lon"));
     const area=Number(url.searchParams.get("area"))||0,rooms=Number(url.searchParams.get("rooms"))||0;
     const dpe=String(url.searchParams.get("dpe")||"").trim().toUpperCase();
+    const propertyType=String(url.searchParams.get("type")||"").trim();
     const cityCode=String(url.searchParams.get("cityCode")||"").trim();
     if(!Number.isFinite(lat)||!Number.isFinite(lon))throw new Error("Coordonnées de l'annonce manquantes");
     const reverseUrl=new URL("https://data.geopf.fr/geocodage/reverse");
@@ -923,9 +954,11 @@ async function api(pathname,url){
         const rows=Array.isArray(data?.results)?data.results:Array.isArray(data?.data)?data.data:[];
         dpes=rows.map(normalizeDpe);
       }catch{}
-      const bestDpe=dpes.map(d=>({d,dist:distanceMeters(pointOf(c),pointOf(d))})).sort((a,b)=>a.dist-b.dist)[0]?.d||null;
+      const bestPack=dpes.map(d=>({d,dist:distanceMeters(pointOf(c),pointOf(d))})).filter(x=>x.dist===null||x.dist<=500).sort((a,b)=>(a.dist??999999)-(b.dist??999999))[0]||null;
+      const bestDpe=bestPack?.d||null;
+      const dpeDistance=bestPack?.dist??null;
       let score=0,reasons=[];
-      if(c.distanceMeters<=75){score+=35;reasons.push("Coordonnées très proches +35")}else if(c.distanceMeters<=150){score+=28;reasons.push("Coordonnées proches +28")}else if(c.distanceMeters<=300){score+=18;reasons.push("Coordonnées compatibles +18")}else if(c.distanceMeters<=600){score+=8;reasons.push("Coordonnées éloignées +8")}
+      if(c.distanceMeters<=50){score+=35;reasons.push("Coordonnées très proches +35")}else if(c.distanceMeters<=100){score+=30;reasons.push("Coordonnées proches +30")}else if(c.distanceMeters<=200){score+=22;reasons.push("Coordonnées compatibles +22")}else if(c.distanceMeters<=400){score+=12;reasons.push("Coordonnées éloignées +12")}else if(c.distanceMeters<=600){score+=4;reasons.push("Coordonnées éloignées +4")}
       if(bestDpe){
         const da=Number(bestDpe.area)||0;
         let surfaceCompatible=true;
@@ -937,6 +970,18 @@ async function api(pathname,url){
           else if(ratio<=.30){score-=5;reasons.push("Surface DPE assez différente -5");surfaceCompatible=false}
           else {score-=20;reasons.push("Surface DPE très différente -20");surfaceCompatible=false}
         }
+        if(dpeDistance!==null){
+          if(dpeDistance<=30){score+=10;reasons.push("DPE géographiquement proche +10")}
+          else if(dpeDistance<=80){score+=6;reasons.push("DPE proche +6")}
+          else if(dpeDistance<=200){score+=2;reasons.push("DPE à proximité +2")}
+          else {score-=5;reasons.push("DPE éloigné -5")}
+        }
+        if(propertyType&&bestDpe.buildingType){
+          const pt=propertyType.toLowerCase(),bt=String(bestDpe.buildingType).toLowerCase();
+          const same=(/maison|house/.test(pt)&&/maison|house/.test(bt))||(/appartement|appart|apartment/.test(pt)&&/appartement|appart|apartment/.test(bt));
+          if(same){score+=10;reasons.push("Type de bien cohérent +10")}
+          else if(/maison|house|appartement|appart|apartment/.test(pt+bt)){score-=8;reasons.push("Type de bien différent -8")}
+        }
         if(dpe&&bestDpe.dpe&&dpe===String(bestDpe.dpe).toUpperCase()&&surfaceCompatible){score+=15;reasons.push("DPE identique +15")}
         if(rooms>0&&bestDpe.rooms>0){
           if(rooms===bestDpe.rooms&&surfaceCompatible){score+=15;reasons.push("Pièces identiques +15")}
@@ -944,7 +989,9 @@ async function api(pathname,url){
           else if(Math.abs(rooms-bestDpe.rooms)>1){score-=10;reasons.push("Nombre de pièces différent -10")}
         }
       }
-      return {...c,score:Math.min(100,score),reasons,dpe:bestDpe?{address:bestDpe.address,area:bestDpe.area,rooms:bestDpe.rooms,dpe:bestDpe.dpe,buildingType:bestDpe.buildingType,distanceMeters:distanceMeters(c,bestDpe)}:null};
+      const cappedScore=Math.max(0,Math.min(100,score));
+      const confidence=!bestDpe?"faible":(surfaceCompatible&&cappedScore>=75?"forte":(surfaceCompatible&&cappedScore>=55?"moyenne":"faible"));
+      return {...c,score:cappedScore,confidence,surfaceCompatible,matchable:Boolean(bestDpe&&surfaceCompatible&&cappedScore>=55),reasons,dpe:bestDpe?{address:bestDpe.address,area:bestDpe.area,rooms:bestDpe.rooms,dpe:bestDpe.dpe,buildingType:bestDpe.buildingType,distanceMeters:dpeDistance}:null};
     }));
     enriched.sort((a,b)=>b.score-a.score||a.distanceMeters-b.distanceMeters);
     return {source:"Géoplateforme BAN + ADEME DPE",candidates:enriched.slice(0,5),disclaimer:"Adresses candidates issues de données publiques. Le score est une concordance technique et ne constitue pas une confirmation d'adresse ni une identification de propriétaire."};
