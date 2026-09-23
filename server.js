@@ -924,27 +924,69 @@ async function api(pathname,url){
         dpes=rows.map(normalizeDpe);
       }catch{}
       const bestDpe=dpes.map(d=>({d,dist:distanceMeters(pointOf(c),pointOf(d))})).sort((a,b)=>a.dist-b.dist)[0]?.d||null;
+      // Calibration terrain V1.19.7 :
+      // la proximité géographique est le signal principal pour retrouver une adresse.
+      // Une discordance de surface DPE doit rester un avertissement, pas annuler une
+      // candidate géographiquement très proche. Le DPE peut décrire une autre unité,
+      // une ancienne configuration ou une surface différente du bien annoncé.
       let score=0,reasons=[];
-      if(c.distanceMeters<=75){score+=35;reasons.push("Coordonnées très proches +35")}else if(c.distanceMeters<=150){score+=28;reasons.push("Coordonnées proches +28")}else if(c.distanceMeters<=300){score+=18;reasons.push("Coordonnées compatibles +18")}else if(c.distanceMeters<=600){score+=8;reasons.push("Coordonnées éloignées +8")}
+      let geoScore=0;
+      if(c.distanceMeters<=50){geoScore=35;reasons.push("Coordonnées très proches +35")}
+      else if(c.distanceMeters<=100){geoScore=30;reasons.push("Coordonnées proches +30")}
+      else if(c.distanceMeters<=200){geoScore=22;reasons.push("Coordonnées compatibles +22")}
+      else if(c.distanceMeters<=400){geoScore=12;reasons.push("Coordonnées éloignées +12")}
+      else if(c.distanceMeters<=600){geoScore=4;reasons.push("Coordonnées éloignées +4")}
+      score+=geoScore;
+
+      let surfaceCompatible=true;
+      let surfaceRatio=null;
       if(bestDpe){
         const da=Number(bestDpe.area)||0;
-        let surfaceCompatible=true;
         if(area>0&&da>0){
-          const ratio=Math.abs(da-area)/area;
-          if(ratio<=.05){score+=30;reasons.push("Surface DPE très proche +30")}
-          else if(ratio<=.10){score+=24;reasons.push("Surface DPE proche +24")}
-          else if(ratio<=.20){score+=14;reasons.push("Surface DPE compatible +14")}
-          else if(ratio<=.30){score-=5;reasons.push("Surface DPE assez différente -5");surfaceCompatible=false}
-          else {score-=20;reasons.push("Surface DPE très différente -20");surfaceCompatible=false}
+          surfaceRatio=Math.abs(da-area)/area;
+          if(surfaceRatio<=.05){score+=30;reasons.push("Surface DPE très proche +30")}
+          else if(surfaceRatio<=.10){score+=24;reasons.push("Surface DPE proche +24")}
+          else if(surfaceRatio<=.20){score+=14;reasons.push("Surface DPE compatible +14")}
+          else if(surfaceRatio<=.30){score-=3;reasons.push("Surface DPE assez différente -3");surfaceCompatible=false}
+          else {score-=8;reasons.push("Surface DPE discordante -8");surfaceCompatible=false}
         }
         if(dpe&&bestDpe.dpe&&dpe===String(bestDpe.dpe).toUpperCase()&&surfaceCompatible){score+=15;reasons.push("DPE identique +15")}
         if(rooms>0&&bestDpe.rooms>0){
           if(rooms===bestDpe.rooms&&surfaceCompatible){score+=15;reasons.push("Pièces identiques +15")}
           else if(Math.abs(rooms-bestDpe.rooms)===1&&surfaceCompatible){score+=8;reasons.push("Pièces proches +8")}
+          else if(Math.abs(rooms-bestDpe.rooms)>1&&surfaceCompatible===false){reasons.push("Pièces non utilisées : surface DPE discordante")}
           else if(Math.abs(rooms-bestDpe.rooms)>1){score-=10;reasons.push("Nombre de pièces différent -10")}
         }
       }
-      return {...c,score:Math.min(100,score),reasons,dpe:bestDpe?{address:bestDpe.address,area:bestDpe.area,rooms:bestDpe.rooms,dpe:bestDpe.dpe,buildingType:bestDpe.buildingType,distanceMeters:distanceMeters(c,bestDpe)}:null};
+
+      const finalScore=Math.max(0,Math.min(100,score));
+      const confidence=
+        geoScore>=35 && surfaceCompatible ? "forte" :
+        geoScore>=30 ? "moyenne" :
+        geoScore>=22 ? "moyenne" : "faible";
+      const priority=
+        geoScore>=35 && !surfaceCompatible ? "priorite_geographique" :
+        confidence==="forte" ? "concordance_forte" :
+        confidence==="moyenne" ? "a_verifier" : "faible";
+
+      return {
+        ...c,
+        score:finalScore,
+        geoScore,
+        surfaceRatio,
+        surfaceCompatible,
+        confidence,
+        priority,
+        reasons,
+        dpe:bestDpe?{
+          address:bestDpe.address,
+          area:bestDpe.area,
+          rooms:bestDpe.rooms,
+          dpe:bestDpe.dpe,
+          buildingType:bestDpe.buildingType,
+          distanceMeters:distanceMeters(c,bestDpe)
+        }:null
+      };
     }));
     enriched.sort((a,b)=>b.score-a.score||a.distanceMeters-b.distanceMeters);
     return {source:"Géoplateforme BAN + ADEME DPE",candidates:enriched.slice(0,5),disclaimer:"Adresses candidates issues de données publiques. Le score est une concordance technique et ne constitue pas une confirmation d'adresse ni une identification de propriétaire."};
