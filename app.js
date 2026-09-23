@@ -1,4 +1,4 @@
-const APP_VERSION="1.19.7";
+const APP_VERSION="1.20.1";
 const KEY="jml_prospection_v1";let prospects=load(),pendingImport=[];const $=id=>document.getElementById(id);
 function load(){try{const x=JSON.parse(localStorage.getItem(KEY)||"[]");return Array.isArray(x)?x:[]}catch(e){return[]}}
 function save(){localStorage.setItem(KEY,JSON.stringify(prospects));render();if(typeof statsSync==="function")statsSync()}
@@ -403,6 +403,35 @@ function ctDistanceKm(lat1,lon1,lat2,lon2){
   const a=Math.sin(dLat/2)**2+Math.cos(lat1*rad)*Math.cos(lat2*rad)*Math.sin(dLon/2)**2;
   return 2*R*Math.asin(Math.sqrt(a));
 }
+let ctTourAnnonces=[];
+async function ctSectorTour(){
+  const btn=$("ctTourBtn"),box=$("ctTourResult");
+  if(!btn||!box)return;
+  btn.disabled=true; box.innerHTML='<div class="meta">Recherche du secteur le plus compact…</div>';
+  try{
+    const dept=$("ctDept").value.trim()||"08",type=$("ctType").value||"";
+    const data=await publicJson("/api/sector-tour?"+new URLSearchParams({dept,type,min:"10",maxRadius:"20"}));
+    ctTourAnnonces=data.items||[];
+    const inCrm=p=>prospects.some(x=>{
+      const a=norm(x.externalId||""),b=norm(p.reference||"");
+      if(a&&b&&a===b)return true;
+      return x.sourceUrl&&p.external_url&&String(x.sourceUrl)===String(p.external_url);
+    });
+    const fresh=ctTourAnnonces.filter(p=>!inCrm(p)).length;
+    const cards=ctTourAnnonces.map((p,i)=>'<div class="ct-tour-item"><strong>'+apiEsc(p.title||"Bien à vendre")+'</strong><span>'+apiEsc([p.postal_code,p.city].filter(Boolean).join(" · "))+' · '+(p.distanceKm!=null?p.distanceKm+" km du centre du secteur":"")+'</span><span>'+apiEsc([p.price?Number(p.price).toLocaleString("fr-FR")+" €":"",p.surface?p.surface+" m²":"",p.rooms?p.rooms+" pièces":"",p.dpe?"DPE "+p.dpe:""].filter(Boolean).join(" · "))+'</span><small>'+apiEsc(p.source||"Source publique")+(inCrm(p)?" · ⚪ déjà dans CRM":" · 🔥 hors CRM")+'</small>'+(p.external_url?'<a href="'+apiEsc(p.external_url)+'" target="_blank" rel="noopener">Voir l’annonce</a>':"")+'</div>').join("");
+    const sector=data.sector?.center?.city||"secteur détecté";
+    box.innerHTML='<div class="ct-tour-head"><div><strong>🎯 Tournée '+(data.enough?"prête":"incomplète")+' · '+data.found+'/10</strong><span>'+apiEsc(sector)+' · distance moyenne '+(data.sector?.averageDistanceKm??"—")+' km · max '+(data.sector?.maxDistanceKm??"—")+' km</span></div><button id="ctTourAddBtn" class="primary" '+(data.found?"":"disabled")+'>+ Ajouter la tournée au CRM</button></div>'+(data.warning?'<div class="ct-tour-warning">⚠️ '+apiEsc(data.warning)+'</div>':"")+'<div class="ct-tour-summary">🔥 '+fresh+' annonce(s) absente(s) du CRM · '+data.search.private+' particulier(s) reçue(s) · '+data.search.received+' annonce(s) API reçue(s)</div><div class="ct-tour-grid">'+cards+'</div>';
+    const add=$("ctTourAddBtn"); if(add)add.onclick=()=>{
+      let created=0,merged=0;
+      for(const p of ctTourAnnonces){
+        const incoming={address:"",postalCode:p.postal_code||"",city:p.city||"",district:"",type:ctAnnonceType(p.type),area:num(p.surface),land:num(p.land_surface),rooms:num(p.rooms),bedrooms:num(p.bedrooms),price:num(p.price),dpe:p.dpe||"",detectionDate:today(),nextFollow:"",source:"ChercherTrouver · "+(p.source||"catalogue"),externalId:p.reference||"",sourceUrl:p.external_url||"",description:p.description||p.title||"",notes:"Tournée sectorielle · annonce publique. Ne pas utiliser cette fiche pour identifier un propriétaire.",status:"Nouveau",publicListingActive:true,publicPriceDrop:Boolean(p.price_history?.previous&&Number(p.price_history.previous)>Number(p.price||0)),publicListingReappeared:false};
+        const result=mergeProspect(incoming);result==="created"?created++:merged++;
+      }
+      save();alert("Tournée : "+created+" ajoutée(s), "+merged+" déjà présente(s) fusionnée(s).");
+    };
+  }catch(e){box.innerHTML='<div class="meta">Erreur préparation tournée : '+apiEsc(e.message)+'</div>'}
+  finally{btn.disabled=false}
+}
 async function ctSearch(){
   const btn=$("ctSearchBtn");btn.disabled=true;$("ctStatus").textContent="Recherche ChercherTrouver en cours…";
   try{
@@ -486,4 +515,5 @@ async function ctFindAddress(index){
 document.addEventListener("click",e=>{const b=e.target.closest("[data-ct-address]");if(b)ctFindAddress(Number(b.dataset.ctAddress))});
 
 if($("ctSearchBtn"))$("ctSearchBtn").onclick=ctSearch;
+if($("ctTourBtn"))$("ctTourBtn").onclick=ctSectorTour;
 if($("ctAddBtn"))$("ctAddBtn").onclick=ctAddSelected;
