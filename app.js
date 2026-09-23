@@ -402,7 +402,7 @@ function ctRender(items){
 function multiSourceUrl(site,ville,cp,type){
   const q=encodeURIComponent([type,ville,cp].filter(Boolean).join(" "));
   const slug=norm(ville||"").replace(/ /g,"-");
-  const cpv=String(cp||"").replace(/\\D/g,"");
+  const cpv=String(cp||"").replace(/\D/g,"");
   if(site==="ParuVendu") return "https://www.paruvendu.fr/immobilier/vente/"+(type==="maison"?"maison/":type==="appartement"?"appartement/":"")+slug+(cpv?"-"+cpv:"")+"/";
   if(site==="SeLoger") return "https://www.google.com/search?q="+encodeURIComponent("site:seloger.com/recherche/achat "+q);
   if(site==="Bien'ici") return "https://www.google.com/search?q="+encodeURIComponent("site:bienici.com/recherche/achat "+q);
