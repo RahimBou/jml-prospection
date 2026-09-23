@@ -1,3 +1,12 @@
+## V1.20.0 — préparation test terrain
+
+- Cache serveur TTL pour réduire les requêtes répétées vers les sources publiques.
+- Indicateurs de cache exposés par /api/health.
+- Filtres CRM persistants entre les sessions.
+- Sauvegarde et restauration JSON du CRM local.
+- Rapprochement annonce → adresse renforcé avec distance DPE, type de bien, seuil de confiance et pénalisation des écarts de surface.
+- Aucun résultat ne présente une adresse candidate comme une identification certaine.
+
 ## V1.19.6 — concordance adresse renforcée
 
 - Pénalisation des écarts importants de surface entre annonce et DPE.
