@@ -1,3 +1,11 @@
+## V1.20.6 — vue rue des adresses candidates
+
+- Ajout de **👁️ Vue rue** à côté de chaque adresse candidate.
+- Ajout de **🗺️ Map View** pour ouvrir la position dans Google Maps.
+- Ajout de **📋 Copier** pour récupérer rapidement l'adresse.
+- Les liens utilisent l'adresse candidate et, lorsque disponibles, ses coordonnées publiques.
+- Aucun changement au moteur de recherche, au scoring d'adresse, à DVF, DPE ou à la Veille annonces.
+
 ## V1.20.5 — diagnostic connecteur ChercherTrouver
 
 - Synchronisation du health-check serveur en V1.20.5.
