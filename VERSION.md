@@ -1,3 +1,10 @@
+## V1.19.4 — commune + rayon géographique
+
+- Recherche autour d'une commune avec rayon de 5 à 50 km.
+- Géocodage du centre de commune via BAN/Géoplateforme.
+- Filtrage par distance Haversine sur les coordonnées publiques des annonces.
+- Conservation du filtre particulier uniquement et exclusion des exclusivités.
+
 ## V1.19.2 — veille annonces ChercherTrouver
 
 - Recherche manuelle des annonces de vente via le connecteur serveur ChercherTrouver.
