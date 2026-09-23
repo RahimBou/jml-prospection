@@ -463,7 +463,7 @@ async function ctSearch(){
     }):raw;
     ctRender(filtered);
     const zone=ville?(radius>0?" dans un rayon de "+radius+" km autour de "+ville:" à "+ville):" dans les Ardennes";
-    $("ctStatus").textContent=filtered.length+" annonce(s) particulière(s) hors exclusivité"+zone+" · "+(data.items?.length||0)+" reçue(s) avant filtrage;
+    $("ctStatus").textContent=filtered.length+" annonce(s) particulière(s) hors exclusivité"+zone+" · "+(data.items?.length||0)+" reçue(s) avant filtrage";
   }catch(e){$("ctStatus").textContent="Erreur ChercherTrouver : "+e.message;ctRender([])}
   finally{btn.disabled=false}
 }
