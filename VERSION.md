@@ -1,3 +1,12 @@
+## V1.20.1 — tournées sectorielles
+
+- Recherche départementale ciblée sur les annonces de vente récentes.
+- Sélection des particuliers hors exclusivité.
+- Regroupement géographique pour construire une tournée compacte de 10 biens.
+- Affichage du nombre reçu, du nombre de particuliers, de la distance moyenne et de la distance maximale.
+- Comparaison avec le CRM pour distinguer les annonces déjà connues des nouvelles.
+- Aucun bien professionnel n'est ajouté artificiellement pour atteindre l'objectif de 10.
+
 ## V1.19.7 — calibration terrain du rapprochement d'adresse
 
 - La proximité géographique reste le signal principal pour retrouver une adresse candidate.
