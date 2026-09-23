@@ -961,7 +961,6 @@ async function api(pathname,url){
       const dpes=await fetchDpeCandidates(c.address,c.city);
       const bestDpe=dpes.map(d=>({d,dist:distanceMeters(pointOf(c),pointOf(d))}))
         .sort((a,b)=>a.dist-b.dist)[0]?.d||null;
-      if(bdnb.length) reasons.push("BDNB bâtiment retrouvé +20");
       // Calibration terrain V1.19.7 :
       // la proximité géographique est le signal principal pour retrouver une adresse.
       // Une discordance de surface DPE doit rester un avertissement, pas annuler une
@@ -974,7 +973,8 @@ async function api(pathname,url){
       else if(c.distanceMeters<=200){geoScore=22;reasons.push("Coordonnées compatibles +22")}
       else if(c.distanceMeters<=400){geoScore=12;reasons.push("Coordonnées éloignées +12")}
       else if(c.distanceMeters<=600){geoScore=4;reasons.push("Coordonnées éloignées +4")}
-      score+=geoScore;\n      if(bdnb.length) score+=20;
+      score+=geoScore;
+      if(bdnb.length){ score+=20; reasons.push("BDNB bâtiment retrouvé +20"); }
 
       let surfaceCompatible=true;
       let surfaceRatio=null;
@@ -1016,7 +1016,8 @@ async function api(pathname,url){
         confidence,
         priority,
         reasons,
-        bdnb:bdnb.slice(0,5).map(x=>({buildingId:x.batiment_groupe_id||"",address:x.libelle_adr_principale_ban||"",banKey:x.cle_interop_adr||"",dpeId:x.identifiant_dpe||"",units:Number(x.nb_log)||0})),\n        dpe:bestDpe?{
+        bdnb:bdnb.slice(0,5).map(x=>({buildingId:x.batiment_groupe_id||"",address:x.libelle_adr_principale_ban||"",banKey:x.cle_interop_adr||"",dpeId:x.identifiant_dpe||"",units:Number(x.nb_log)||0})),
+        dpe:bestDpe?{
           address:bestDpe.address,
           area:bestDpe.area,
           rooms:bestDpe.rooms,
