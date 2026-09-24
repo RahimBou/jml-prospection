@@ -1,3 +1,13 @@
+# JML Prospection — V1.21.0
+
+## V1.21.0 — tableau de bord terrain
+- Ajout d'une vue **À faire maintenant** directement sous les compteurs du CRM.
+- Priorités terrain basées sur l'indice comportemental existant, sans prédiction de vente.
+- Compteurs opérationnels : nouveaux récents, adresses à compléter, relances en retard, changements récents et biens prêts terrain.
+- Vue des secteurs actifs et activité récente.
+- Les actions du tableau de bord filtrent directement le CRM ou amènent vers la veille annonces pour préparer une tournée.
+- Aucun changement au moteur DVF/DPE ni à la veille ChercherTrouver.
+
 ## V1.20.6 — vue rue des adresses candidates
 
 - Ajout de **👁️ Vue rue** à côté de chaque adresse candidate.
