@@ -300,3 +300,26 @@ body{background:linear-gradient(180deg,#f3efe8 0,#f7f5f1 42%,#f5f2ec 100%)}
 
 /* V1.31.0 — file de travail Radar */
 .prospection-priority-box{margin-top:9px;padding:9px 11px;border:1px solid #d8e3dc;border-radius:10px;background:#f4f8f5;display:grid;gap:3px}.prospection-priority-box strong{font-size:.92rem}.prospection-priority-box span{font-weight:700}.prospection-priority-box small{font-size:.76rem;line-height:1.35;color:var(--muted,#68736d)}.prospection-priority-box em{font-style:normal;font-size:.74rem;color:#53605a;line-height:1.35}@media(max-width:700px){.prospection-priority-box{font-size:.85rem}}.radar-worklist-summary{padding:10px 12px;margin-bottom:10px;border:1px solid rgba(0,0,0,.08);border-radius:10px;font-size:.86rem;line-height:1.45;background:rgba(255,255,255,.55)}
+
+/* V1.33.0 — fiche imprimable Radar */
+#radarPrintSheet{display:none}
+@media print{
+  body>*:not(#radarPrintSheet){display:none!important}
+  #radarPrintSheet{display:block!important;font-family:Arial,sans-serif;color:#222;padding:10mm}
+  .print-radar-title{border-bottom:2px solid #183c35;padding-bottom:5mm;margin-bottom:6mm}
+  .print-radar-title strong{display:block;font-size:18pt;color:#183c35}
+  .print-radar-title span{display:block;font-size:12pt;font-weight:700;margin-top:2mm}
+  .print-radar-title small{display:block;margin-top:2mm;color:#666}
+  .print-radar-card{break-inside:avoid;border:1px solid #bbb;border-radius:6px;padding:5mm;margin-bottom:5mm}
+  .print-radar-head{display:flex;justify-content:space-between;gap:8mm;border-bottom:1px solid #ddd;padding-bottom:3mm}
+  .print-radar-head strong{display:block;font-size:11pt}
+  .print-radar-head span{display:block;font-size:9pt;margin-top:1mm}
+  .print-radar-scores{display:grid;grid-template-columns:auto auto;column-gap:3mm;align-items:center;text-align:right}
+  .print-radar-scores b{font-size:12pt}.print-radar-scores small{font-size:7.5pt;color:#555}
+  .print-radar-grid{display:grid;grid-template-columns:1fr 1fr;gap:3mm;margin-top:4mm;font-size:8.5pt}
+  .print-radar-grid div{display:flex;flex-direction:column;border-bottom:1px dotted #ddd;padding-bottom:2mm}
+  .print-radar-grid span{margin-top:1mm}
+  .print-radar-reasons,.print-radar-action{margin-top:3mm;font-size:8.5pt;line-height:1.4}
+  .print-radar-notes{margin-top:4mm;padding-top:3mm;border-top:1px solid #ddd;font-size:8.5pt;line-height:1.8}
+  @page{size:A4;margin:8mm}
+}
