@@ -218,12 +218,12 @@ function futureRadarType(v=""){
   return "Autre";
 }
 function futureRadarRender(){
-  const box=$("futureRadarResults"),add=$("futureRadarAddAll");
+  const box=$("futureRadarResults"),add=$("futureRadarAddAll"),printBtn=$("futureRadarPrint");
   if(!box)return;
   const toggle=$("futureRadarToggle");
   if(!futureRadarCandidates.length){
     box.innerHTML='<div class="meta">Aucun candidat exploitable trouvé pour cette analyse.</div>';
-    if(add)add.disabled=true;
+    if(add)add.disabled=true;if(printBtn)printBtn.disabled=true;
     if(toggle){toggle.disabled=true;toggle.setAttribute("aria-expanded","false");toggle.textContent="▸ Afficher les biens détectés";box.hidden=true;}
     return;
   }
@@ -279,7 +279,7 @@ function futureRadarRender(){
     ].join(" · ");
     return '<article class="future-candidate"><div class="future-candidate-main"><label class="future-check"><input type="checkbox" data-future-check="'+i+'" checked><span></span></label><div><strong>'+apiEsc(p.address||"Adresse non renseignée")+'</strong><div class="meta">'+apiEsc((p.postalCode?p.postalCode+" ":"")+(p.city||""))+" · "+apiEsc(futureRadarType(p.buildingType))+(p.area?" · "+p.area+" m²":"")+'</div><div class="future-reasons"><span class="dpe-match '+(dpeConfirmed?"confirmed":p.dpeAddressStatus==="uncertain"?"uncertain":"none")+'">'+apiEsc(dpeText)+'</span><span class="dpe-match '+(sale.status==="confirmed"?"confirmed":sale.status==="ambiguous"?"uncertain":"none")+'">'+apiEsc(saleText)+'</span><span>'+apiEsc(compText)+'</span><span>'+apiEsc(terrainText)+'</span></div><div class="future-reasons">'+reasons.map(x=>'<span>'+apiEsc(x)+'</span>').join("")+'</div><div class="seller-score-breakdown"><strong>Potentiel du bien</strong> '+opportunity+'/100 · '+apiEsc(opportunityLevel)+' · '+apiEsc(actionLabel)+'</div><div class="meta">'+componentLine+(p.sellerOpportunityBonus? ' · Bonus convergence +'+p.sellerOpportunityBonus:"")+(opportunityReasons.length?' · '+apiEsc(opportunityReasons.slice(0,3).join(" · ")):"")+' · <strong>Priorité signal public</strong> '+(p.priorityScore??p.score??0)+'/100 · <strong>Contexte marché</strong> '+(p.marketContextScore??0)+'/100 · Qualité '+(quality.score||0)+'/5 · DPE '+(ms.dpe||0)+'% · vente '+(ms.saleAge||0)+'% · type/surface '+(ms.typeSurface||0)+'% · terrain '+(ms.terrain||0)+'% · proximité '+(ms.proximity||0)+'% · historique '+(ms.history||0)+'%</div><div class="prospection-priority-box"><strong>🎯 Priorité de prospection : '+workPriorityDisplay+'/100</strong><span>'+apiEsc(workPriorityLevel)+' · '+apiEsc(workPriorityAction)+'</span><small>'+apiEsc(workPriorityReasons.join(" · "))+'</small><em>'+workComponentLine+'</em><small>Ce score classe les dossiers à traiter ; il ne représente pas une probabilité de vente.</small></div><div class="commercial-signal-box '+(commercialScore>0?"has-signal":"no-signal")+'"><strong>Signal commercial public : '+commercialScore+'/100</strong><span>'+apiEsc(commercialLevel)+'</span>'+(commercialSignals.length?'<small>'+commercialSignals.map(x=>apiEsc(x.label)).join(" · ")+'</small>':'<small>Aucun signal public de mise en vente détecté. Ce candidat est uniquement à surveiller.</small>')+'</div><div class="future-candidate-actions"><button type="button" class="ghost" data-radar-prospect="'+i+'">＋ Ajouter à la surveillance</button></div></div></div><div class="future-score"><strong>'+opportunity+'/100</strong><small>'+apiEsc(surveillanceLabel)+'</small><em>'+apiEsc(actionLabel)+'</em><em>Signal public : '+(p.commercialSignalScore??0)+'/100 · Marché : '+(p.marketContextScore??0)+'/100</em></div></article>';
   }).join("");
-  add.disabled=false;
+  add.disabled=false;if(printBtn)printBtn.disabled=false;
   if(toggle){toggle.disabled=false;toggle.setAttribute("aria-expanded","true");toggle.textContent="✕ Masquer les "+futureRadarCandidates.length+" biens détectés";box.hidden=false;}
 }
 async function runFutureRadar(){
@@ -413,6 +413,42 @@ function addFutureRadarCandidate(index){
   save();
   alert(result==="created"?"Bien ajouté à la surveillance. Relance proposée dans 7 jours.":"Ce bien est déjà dans le CRM : ses informations ont été fusionnées.");
 }
+function printFutureRadarSelection(){
+  const selected=[...document.querySelectorAll("[data-future-check]:checked")]
+    .map(x=>futureRadarCandidates[Number(x.dataset.futureCheck)]).filter(Boolean);
+  if(!selected.length){alert("Sélectionne au moins un bien à imprimer.");return;}
+  const escp=v=>apiEsc(v??"—");
+  const money=v=>Number.isFinite(Number(v))&&Number(v)>0?Number(v).toLocaleString("fr-FR")+" €":"—";
+  const date=v=>v?new Date(v).toLocaleDateString("fr-FR"):"—";
+  const cards=selected.map((p,i)=>{
+    const sale=p.sameAddressSale||{};
+    const latest=p.latestSale||sale.latest||{};
+    const comps=Number(p.comparableCount)||0;
+    const priority=Number(p.priorityProspectionScore??0);
+    const potential=Number(p.sellerOpportunityScore??p.marketContextScore??0);
+    const reasons=Array.isArray(p.priorityProspectionReasons)?p.priorityProspectionReasons:[];
+    return '<article class="print-radar-card">'+
+      '<div class="print-radar-head"><div><strong>'+(i+1)+'. '+escp(p.address||"Adresse non renseignée")+'</strong><span>'+escp((p.postalCode?p.postalCode+" ":"")+(p.city||""))+' · '+escp(futureRadarType(p.buildingType))+'</span></div><div class="print-radar-scores"><b>'+priority.toFixed(1)+'/100</b><small>Priorité terrain</small><b>'+potential+'/100</b><small>Potentiel</small></div></div>'+
+      '<div class="print-radar-grid">'+
+        '<div><b>🏠 Bien</b><span>'+escp(p.area||"—")+' m² · '+escp(latest.rooms||p.rooms||"—")+' pièces</span></div>'+
+        '<div><b>🌳 Terrain</b><span>'+escp(p.terrainArea||latest.landArea||"—")+' m²</span></div>'+
+        '<div><b>⚡ DPE</b><span>'+escp(p.dpe||"—")+(p.dpeDate?" · "+date(p.dpeDate):"")+'</span></div>'+
+        '<div><b>💶 Dernière DVF</b><span>'+date(latest.date)+' · '+money(latest.value||latest.price||latest.amount)+'</span></div>'+
+        '<div><b>📊 Comparables</b><span>'+comps+' · médiane '+escp(p.comparableMedianDistance!=null?Math.round(p.comparableMedianDistance)+" m":"distance non disponible")+'</span></div>'+
+        '<div><b>📢 Signal public</b><span>'+Number(p.commercialSignalScore||0)+'/100</span></div>'+
+      '</div>'+
+      '<div class="print-radar-reasons"><b>Pourquoi ce bien ?</b> '+escp(reasons.join(" · ")||"Dossier à vérifier sur le terrain.")+'</div>'+
+      '<div class="print-radar-action"><b>Action :</b> '+escp(p.priorityProspectionAction||p.sellerOpportunityAction||"Vérification terrain")+'</div>'+
+      '<div class="print-radar-notes"><b>Retour terrain</b><br>☐ Propriétaire rencontré &nbsp; ☐ Estimation demandée &nbsp; ☐ Projet évoqué &nbsp; ☐ À relancer<br>Observation : ________________________________________________________________<br>____________________________________________________________________________</div>'+
+    '</article>';
+  }).join("");
+  const existing=$("radarPrintSheet"); if(existing)existing.remove();
+  const sheet=document.createElement("section");
+  sheet.id="radarPrintSheet";
+  sheet.innerHTML='<div class="print-radar-title"><strong>JML IMMOBILIER</strong><span>FICHE DE PROSPECTION · RADAR</span><small>'+selected.length+' bien(s) sélectionné(s) · '+new Date().toLocaleDateString("fr-FR")+'</small></div>'+cards;
+  document.body.appendChild(sheet);
+  window.print();
+}
 function addFutureRadarCandidates(){
   const selected=[...document.querySelectorAll("[data-future-check]:checked")].map(x=>futureRadarCandidates[Number(x.dataset.futureCheck)]).filter(Boolean);
   let created=0,merged=0;
@@ -433,6 +469,7 @@ function addFutureRadarCandidates(){
   if(selected.length){save();alert("Surveillance : "+created+" bien(s) ajouté(s), "+merged+" déjà présent(s) fusionné(s).")}
 }
 $("futureRadarBtn").onclick=runFutureRadar;
+$("futureRadarPrint").onclick=printFutureRadarSelection;
 $("futureRadarAddAll").onclick=addFutureRadarCandidates;
 if($("futureRadarResults"))$("futureRadarResults").onclick=e=>{
   const b=e.target.closest("[data-radar-prospect]");
