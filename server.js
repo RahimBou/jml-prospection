@@ -773,8 +773,8 @@ function radarDpeOpportunityScore(p){
   return 0;
 }
 function radarDpeFreshnessScore(p){
-  const age=Number(p?.dpeAgeYears);
-  const dateAge=age;
+  const rawDate=p?.date?new Date(p.date).getTime():NaN;
+  const age=Number.isFinite(rawDate)?Math.max(0,(Date.now()-rawDate)/86400000/365.25):Number(p?.dpeAgeYears);
   if(!Number.isFinite(age))return 0;
   if(age<=1)return 10;
   if(age<=3)return 8;
