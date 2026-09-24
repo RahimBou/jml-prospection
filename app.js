@@ -257,23 +257,50 @@ async function runFutureRadar(){
   }
   $("futureRadarBtn").disabled=true;
   if(selected.length){
-    $("futureRadarStatus").textContent="Analyse multi-secteurs en cours…";
-    if($("futureRadarReady")) $("futureRadarReady").textContent="⏳ Analyse de la zone…";
+    $("futureRadarStatus").textContent="Préparation de l'analyse par lots…";
+    if($("futureRadarReady")) $("futureRadarReady").textContent="⏳ Analyse progressive…";
     try{
-      const data=await publicJson("/api/radar-zone?sectors="+encodeURIComponent(JSON.stringify(selected))+"&limit=100&years=5&perCommuneLimit=100");
-      futureRadarCandidates=data.results||[];
-      futureRadarRender();
-      const sectors=(data.sectors||[]).map(x=>apiEsc(x.city)+" <strong>"+x.radiusKm+" km</strong> · "+x.candidateCount+" candidat(s) · "+x.communeCount+" commune(s)").join(" · ");
-      const dedupInfo=Number(data.dpeDuplicateCount||0)>0?" · "+data.dpeDuplicateCount+" doublon(s) DPE écarté(s)":"";
-      const errorInfo=Number(data.failedCommunes?.length||0)>0?" · "+data.failedCommunes.length+" commune(s) indisponible(s)":"";
-      $("futureRadarStatus").innerHTML="<strong>Zone de prospection</strong> · "+sectors+" · <strong>"+data.results.length+"</strong> candidats affichés / "+(data.totalCandidatesBeforeLimit||data.results.length)+" après dédoublonnage"+dedupInfo+errorInfo+" · "+data.dvfCount+" transactions comparées. "+apiEsc(data.dvfFallback?"DVF open-data utilisé en secours.":"DVF+ utilisé.");
-      if($("futureRadarReady")) $("futureRadarReady").textContent="✅ Zone analysée · "+selected.length+" secteur(s) · "+data.communeCount+" commune(s)";
+      const merged=new Map();
+      const sectorStats=new Map(selected.map(s=>[s.id,{...s,candidateCount:0,communeCount:0}]));
+      let offset=0,totalCommunes=0,processed=0,totalDvf=0,totalDpe=0,totalRawDpe=0,totalDuplicates=0,anyFallback=false,failed=[];
+      let complete=false;
+      const candidateKey=p=>[
+        norm(p.address||""),norm(p.postalCode||""),norm(p.city||""),
+        norm(p.buildingRef||""),norm(p.apartmentRef||""),Number(p.area)||0,Number(p.rooms)||0
+      ].join("|");
+      while(!complete){
+        $("futureRadarStatus").textContent="Analyse progressive · "+processed+(totalCommunes?"/"+totalCommunes:"")+" commune(s)…";
+        const data=await publicJson("/api/radar-zone?sectors="+encodeURIComponent(JSON.stringify(selected))+"&limit=100&years=5&perCommuneLimit=60&communeBatch=6&offset="+offset);
+        totalCommunes=Number(data.totalCommuneCount)||totalCommunes;
+        processed+=Number(data.communesAnalyzed)||0;
+        totalDvf+=Number(data.dvfCount)||0;
+        totalDpe+=Number(data.dpeCount)||0;
+        totalRawDpe+=Number(data.dpeRawCount)||0;
+        totalDuplicates+=Number(data.dpeDuplicateCount)||0;
+        anyFallback=anyFallback||Boolean(data.dvfFallback);
+        failed=failed.concat(data.failedCommunes||[]);
+        (data.results||[]).forEach(p=>merged.set(candidateKey(p),p));
+        (data.sectors||[]).forEach(s=>{
+          const old=sectorStats.get(s.id);
+          if(old){old.communeCount=Math.max(old.communeCount,Number(s.communeCount)||0);old.candidateCount+=Number(s.candidateCount)||0}
+        });
+        futureRadarCandidates=Array.from(merged.values()).sort((a,b)=>(Number(b.priorityScore??b.score)||0)-(Number(a.priorityScore??a.score)||0));
+        futureRadarRender();
+        complete=data.complete===true;
+        offset=Number(data.nextOffset);
+        if(!Number.isFinite(offset)||complete)break;
+      }
+      futureRadarCandidates=futureRadarCandidates.slice(0,100);
+      const sectors=Array.from(sectorStats.values()).map(x=>apiEsc(x.label)+" <strong>"+x.radiusKm+" km</strong>").join(" · ");
+      const dedupInfo=totalDuplicates>0?" · "+totalDuplicates+" doublon(s) DPE écarté(s)":"";
+      const errorInfo=failed.length>0?" · "+failed.length+" commune(s) indisponible(s)":"";
+      $("futureRadarStatus").innerHTML="<strong>Zone de prospection analysée</strong> · "+sectors+" · <strong>"+futureRadarCandidates.length+"</strong> biens affichés · "+processed+"/"+totalCommunes+" commune(s) analysée(s)"+dedupInfo+errorInfo+" · "+totalDvf+" transactions comparées. "+apiEsc(anyFallback?"DVF open-data utilisé en secours.":"DVF+ utilisé.");
+      if($("futureRadarReady")) $("futureRadarReady").textContent="✅ Analyse terminée · "+processed+" commune(s) · "+futureRadarCandidates.length+" bien(s)";
       if($("publicQuery")) $("publicQuery").value=selected[0]?.label||"";
     }catch(e){
-      futureRadarCandidates=[];
-      futureRadarRender();
       $("futureRadarStatus").textContent="Erreur analyse de la zone : "+e.message;
-      if($("futureRadarReady")) $("futureRadarReady").textContent="❌ Analyse interrompue";
+      if($("futureRadarReady")) $("futureRadarReady").textContent="❌ Analyse interrompue · résultats partiels conservés";
+      futureRadarRender();
     }finally{$("futureRadarBtn").disabled=false}
     return;
   }
