@@ -249,3 +249,10 @@ Toute modification fonctionnelle doit :
 ## V1.22.2
 - « À faire maintenant » et « Recherche avancée » sont repliables, fermés par défaut.
 - Les fonctionnalités et données existantes sont conservées.
+
+
+## V1.22.3
+- Ajout d'une commune de travail directement dans le Radar.
+- Vérification légère de la commune avant lancement.
+- Un clic lance automatiquement les sources publiques et le Radar.
+- Les outils existants restent conservés.
