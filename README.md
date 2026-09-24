@@ -1,4 +1,9 @@
-# JML Prospection — V1.21.0
+# JML Prospection — V1.21.1
+
+## V1.21.1 — correction JavaScript du dashboard
+- Correction d'une erreur de syntaxe qui empêchait le chargement de l'interface interactive après V1.21.0.
+- Les fonctions existantes du CRM sont conservées.
+
 
 ## V1.21.0 — tableau de bord terrain
 - Le tableau de bord devient une vue opérationnelle de prospection : priorités terrain, nouveaux récents, adresses à compléter, relances, changements et biens prêts terrain.
