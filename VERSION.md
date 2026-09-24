@@ -244,3 +244,8 @@ Toute modification fonctionnelle doit :
 - Pagination des prospects : 8 par page par défaut, choix 12/20.
 - Filtres et actions réinitialisent la pagination pour éviter les pages vides.
 - Aucun changement au moteur DVF/DPE, scoring ou CRM.
+
+
+## V1.22.2
+- « À faire maintenant » et « Recherche avancée » sont repliables, fermés par défaut.
+- Les fonctionnalités et données existantes sont conservées.
