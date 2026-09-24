@@ -1,3 +1,9 @@
+## V1.31.0
+- Hiérarchie commerciale affinée : 85+ priorité terrain, 75–84 contact prioritaire, 60–74 surveillance active, 40–59 couverture territoriale, <40 surveillance faible.
+- Création d'une file de travail de 30 priorités parmi les biens détectés.
+- Le Radar conserve jusqu'à 100 fiches visibles tout en distinguant la shortlist de travail.
+- Le classement privilégie le potentiel vendeur, puis le signal commercial public et le score de priorité.
+
 ## V1.30.0
 - Nouveau score vendeur sur 4 familles : patrimonial 30, DPE/rénovation 20, marché/comparables 25, qualité/ancienneté/cohérence 25.
 - Bonus de convergence limité à 5 points.
