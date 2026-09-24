@@ -1,3 +1,10 @@
+## V1.23.0 — interface poste de travail commercial
+- Cartes des prospects compactées et plus lisibles.
+- Passage à 3 colonnes sur grand écran, 2 sur écran intermédiaire, 1 sur mobile.
+- Informations secondaires réduites visuellement sans supprimer les données.
+- Radar et recherche conservent leurs fonctions existantes.
+- Aucun changement au moteur DPE/DVF ni au scoring.
+
 ## V1.22.5 — séparation Radar corrigée
 - Reconnaissance des biens Radar créés avec l’ancien libellé « Radar futur ».
 - Ces fiches restent dans « Biens à surveiller » lorsqu’elles n’ont pas de signal commercial public.
