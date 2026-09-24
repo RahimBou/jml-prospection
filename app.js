@@ -1,4 +1,4 @@
-const APP_VERSION="1.22.2";
+const APP_VERSION="1.22.3";
 const KEY="jml_prospection_v1";let prospects=load(),pendingImport=[];let prospectPage=1;let prospectTotalPages=1;const DEFAULT_PROSPECT_PAGE_SIZE=8;const $=id=>document.getElementById(id);
 function load(){try{const x=JSON.parse(localStorage.getItem(KEY)||"[]");return Array.isArray(x)?x:[]}catch(e){return[]}}
 function save(){localStorage.setItem(KEY,JSON.stringify(prospects));render();if(typeof statsSync==="function")statsSync()}
@@ -71,6 +71,28 @@ function dashboardTerrain(){
  $("dashboardTerrain").innerHTML='<div class="dashboard-head"><div><h2>🎯 À faire maintenant</h2><p>Vue opérationnelle pour organiser ta prospection terrain.</p></div><div class="dashboard-head-actions"><span class="dashboard-badge">'+priority+' priorité'+(priority>1?'s':'')+' terrain</span><button type="button" class="ghost dashboard-toggle" data-dashboard-toggle aria-expanded="false">▸ Afficher</button></div></div><div class="dashboard-collapsible" hidden><div class="dashboard-actions-grid"><button class="dashboard-action action-hot" data-dashboard-action="priority"><strong>🔥 '+priority+'</strong><span>Priorités terrain</span><small>Indice ≥ 65</small></button><button class="dashboard-action" data-dashboard-action="recent"><strong>🆕 '+recent+'</strong><span>Nouveaux récents</span><small>Détectés ≤ 7 jours</small></button><button class="dashboard-action" data-dashboard-action="address"><strong>📍 '+addressMissing+'</strong><span>Adresses à compléter</span><small>Informations manquantes</small></button><button class="dashboard-action" data-dashboard-action="follow"><strong>📞 '+follow+'</strong><span>Relances en retard</span><small>À traiter maintenant</small></button><button class="dashboard-action" data-dashboard-action="changes"><strong>🔄 '+changes+'</strong><span>Baisses de prix récentes</span><small>Changement public détecté</small></button><button class="dashboard-action" data-dashboard-action="tour"><strong>🚗 '+readyVisit+'</strong><span>Biens prêts terrain</span><small>Adresse + source publique</small></button></div><div class="dashboard-lower"><div class="dashboard-box"><h3>🗺️ Secteurs actifs</h3>'+(sectors.length?sectors.map(([city,n])=>'<button class="sector-row" data-dashboard-city="'+esc(city)+'"><span>'+esc(city)+'</span><strong>'+n+'</strong></button>').join(""):'<div class="meta">Aucune commune renseignée.</div>')+'</div><div class="dashboard-box"><h3>📊 Activité récente</h3><div class="activity-row"><span>Nouveaux cette semaine</span><strong>'+weekNew+'</strong></div><div class="activity-row"><span>Fiches avec adresse exploitable</span><strong>'+addressReady+'</strong></div><div class="activity-row"><span>Relances enregistrées cette semaine</span><strong>'+weekFollow+'</strong></div><div class="activity-row"><span>Total prospects actifs</span><strong>'+prospects.filter(active).length+'</strong></div></div></div><div class="dashboard-note">Les priorités sont des indicateurs internes basés sur les données présentes dans JML Prospection. Elles servent à organiser ton travail et ne prédisent pas qu’un propriétaire va vendre.</div></div>';
 }
 
+function initRadarCommuneInput(){
+ const input=$("futureRadarQuery"),status=$("futureRadarReady");
+ if(!input||input.dataset.ready)return;
+ input.dataset.ready="1";
+ let timer=null;
+ input.addEventListener("input",()=>{
+   clearTimeout(timer);
+   const value=input.value.trim();
+   if(status) status.textContent=value?"🔎 Commune prête à être vérifiée":"En attente d'une commune";
+   timer=setTimeout(async()=>{
+     if(!value)return;
+     try{
+       const rows=await publicJson("/api/commune?q="+encodeURIComponent(value));
+       const hit=rows?.[0];
+       if(hit?.city){
+         if(status) status.textContent="✅ Commune reconnue : "+hit.city;
+       }else if(status) status.textContent="⚠️ Commune à vérifier";
+     }catch(e){ if(status) status.textContent="Commune à vérifier avant analyse"; }
+   },450);
+ });
+ input.addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();$("futureRadarBtn")?.click();}});
+}
 function initCollapsiblePanels(){
  const advancedToggle=$("advancedSearchToggle"),advancedBody=$("advancedSearchBody");
  if(advancedToggle&&advancedBody){
@@ -159,20 +181,37 @@ function futureRadarRender(){
   add.disabled=false;
 }
 async function runFutureRadar(){
-  const q=$("publicQuery").value.trim();
-  if(!q){$("futureRadarStatus").textContent="Indique d'abord une commune dans le champ « Commune ou adresse ».";return}
-  $("futureRadarStatus").textContent="Analyse ADEME + comparables géographiques DVF en cours…";
+  const q=($("futureRadarQuery")?.value||$("publicQuery")?.value||"").trim();
+  if(!q){
+    $("futureRadarStatus").textContent="Indique d'abord une commune à analyser.";
+    $("futureRadarReady").textContent="⚠️ Commune manquante";
+    return;
+  }
+  if($("publicQuery")) $("publicQuery").value=q;
+  if($("futureRadarQuery")) $("futureRadarQuery").value=q;
+  $("futureRadarStatus").textContent="1/2 Vérification de la commune puis lancement ADEME + DVF + radar…";
+  if($("futureRadarReady")) $("futureRadarReady").textContent="⏳ Analyse en cours…";
   $("futureRadarBtn").disabled=true;
   try{
-    const data=await publicJson("/api/radar?q="+encodeURIComponent(q)+"&limit=100&years=5");
+    const commune=await publicJson("/api/commune?q="+encodeURIComponent(q));
+    const resolved=commune?.[0]?.city||q;
+    if($("futureRadarQuery")) $("futureRadarQuery").value=resolved;
+    if($("publicQuery")) $("publicQuery").value=resolved;
+    $("futureRadarStatus").textContent="2/2 "+resolved+" · lancement des sources publiques et du radar…";
+    const [sourceResult,radarResult]=await Promise.allSettled([searchPublicSources(),publicJson("/api/radar?q="+encodeURIComponent(resolved)+"&limit=100&years=5")]);
+    if(radarResult.status!=="fulfilled") throw radarResult.reason;
+    const data=radarResult.value;
     futureRadarCandidates=data.results||[];
     futureRadarRender();
     const dedupInfo=Number(data.dpeDuplicateCount||0)>0?" · "+data.dpeDuplicateCount+" doublon(s) DPE écarté(s)":"";
-    $("futureRadarStatus").innerHTML="<strong>"+apiEsc(q)+"</strong> · "+data.dpeCount+" DPE uniques analysés"+dedupInfo+" · "+data.dvfCount+" transactions comparées · "+futureRadarCandidates.length+" candidats classés. "+apiEsc(data.dvfFallback?"DVF open-data utilisé en secours.":"DVF+ utilisé.");
+    const sourceNote=sourceResult.status==="fulfilled"?" · Sources publiques synchronisées":" · Sources publiques non disponibles (radar conservé)";
+    $("futureRadarStatus").innerHTML="<strong>"+apiEsc(resolved)+"</strong> · "+data.dpeCount+" DPE uniques analysés"+dedupInfo+" · "+data.dvfCount+" transactions comparées · "+futureRadarCandidates.length+" candidats classés. "+apiEsc(data.dvfFallback?"DVF open-data utilisé en secours.":"DVF+ utilisé.")+sourceNote;
+    if($("futureRadarReady")) $("futureRadarReady").textContent="✅ Commune analysée : "+resolved;
   }catch(e){
     futureRadarCandidates=[];
     futureRadarRender();
-    $("futureRadarStatus").textContent="Erreur radar futur : "+e.message;
+    $("futureRadarStatus").textContent="Erreur analyse commune : "+e.message;
+    if($("futureRadarReady")) $("futureRadarReady").textContent="❌ Analyse interrompue";
   }finally{$("futureRadarBtn").disabled=false}
 }
 function addFutureRadarCandidates(){
@@ -348,7 +387,7 @@ $("publicDpeResults").onclick=e=>{
   const p=publicDpeResults[Number(b.dataset.dpeIndex)];if(!p)return;
   openForm({address:p.address||"",postalCode:p.postalCode||"",city:p.city||"",type:"Maison",area:p.area||0,land:0,rooms:0,bedrooms:0,price:0,dpe:p.dpe||"",status:"Nouveau",detectionDate:today(),nextFollow:"",source:"DPE ADEME",externalId:p.dpeNumber||"",sourceUrl:"https://data.ademe.fr/datasets/dpe03existant",description:"Donnée technique publique DPE ADEME. À vérifier sur le terrain avant toute qualification commerciale.",notes:"DPE : "+(p.dpe||"—")+" · GES : "+(p.ges||"—")+" · Date : "+(p.date||"—")});
 };
-prospects.forEach(ensureHistory);render();initCollapsiblePanels();
+prospects.forEach(ensureHistory);render();initCollapsiblePanels();initRadarCommuneInput();
 /* V1.13.0 — prospection annonce publique + carte + rapprochement DVF/DPE */
 let privateProspectMap=null;
 let privateProspectLayers=null;
