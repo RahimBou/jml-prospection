@@ -211,6 +211,10 @@ function previewImport(){const file=$("csvFile").files[0];if(!file)return;$("imp
 $("importBtn").onclick=()=>{$("csvFile").value="";$("importPreview").textContent="Choisis un fichier CSV." ;pendingImport=[];$("importConfirm").disabled=true;$("importDialog").showModal()};$("importClose").onclick=()=>$("importDialog").close();$("importCancel").onclick=()=>$("importDialog").close();$("csvFile").addEventListener("change",previewImport);$("importConfirm").onclick=()=>{let created=0,merged=0;pendingImport.forEach(x=>{const r=mergeProspect(x);r==="created"?created++:merged++});save();$("importDialog").close();alert("Import terminé : "+created+" nouveau(x), "+merged+" fusionné(s).");pendingImport=[]};$("exportBtn").onclick=exportCSV;
 
 let futureRadarCandidates=[];let futureRadarDetectedCount=0;let futureRadarPriorityCount=0;
+let futureRadarPage=0;
+let futureRadarSelectedIndices=new Set();
+const FUTURE_RADAR_PAGE_SIZE=10;
+const FUTURE_RADAR_MAX_SELECTED=10;
 function futureRadarType(v=""){
   const s=String(v).toLowerCase();
   if(s.includes("appartement"))return "Appartement";
@@ -219,17 +223,27 @@ function futureRadarType(v=""){
 }
 function futureRadarRender(){
   const box=$("futureRadarResults"),add=$("futureRadarAddAll"),printBtn=$("futureRadarPrint");
+  const selectBtn=$("futureRadarSelectAll"),deselectBtn=$("futureRadarDeselectAll");
   if(!box)return;
   const toggle=$("futureRadarToggle");
   if(!futureRadarCandidates.length){
     box.innerHTML='<div class="meta">Aucun candidat exploitable trouvé pour cette analyse.</div>';
     if(add)add.disabled=true;if(printBtn)printBtn.disabled=true;
+    if(selectBtn)selectBtn.disabled=true;if(deselectBtn)deselectBtn.disabled=true;
     if(toggle){toggle.disabled=true;toggle.setAttribute("aria-expanded","false");toggle.textContent="▸ Afficher les biens détectés";box.hidden=true;}
     return;
   }
-  const priorityCount=Math.min(30,futureRadarCandidates.length);
-  futureRadarPriorityCount=priorityCount;
-  const visible=futureRadarCandidates.slice(0,100);
+  futureRadarPage=Math.max(0,Math.min(futureRadarPage,Math.max(0,Math.ceil(futureRadarCandidates.length/FUTURE_RADAR_PAGE_SIZE)-1)));
+  // À chaque nouveau rendu, on garde uniquement les 10 premiers dossiers comme sélection de travail.
+  if(!futureRadarSelectedIndices.size){
+    for(let j=0;j<Math.min(FUTURE_RADAR_MAX_SELECTED,futureRadarCandidates.length);j++)futureRadarSelectedIndices.add(j);
+  }
+  futureRadarSelectedIndices=new Set([...futureRadarSelectedIndices].filter(i=>i>=0&&i<futureRadarCandidates.length).slice(0,FUTURE_RADAR_MAX_SELECTED));
+  futureRadarPriorityCount=Math.min(10,futureRadarCandidates.length);
+
+  const totalPages=Math.max(1,Math.ceil(futureRadarCandidates.length/FUTURE_RADAR_PAGE_SIZE));
+  const startIndex=futureRadarPage*FUTURE_RADAR_PAGE_SIZE;
+  const visible=futureRadarCandidates.slice(startIndex,startIndex+FUTURE_RADAR_PAGE_SIZE);
   const actionCounts=visible.reduce((acc,p)=>{
     const s=Number(p.priorityProspectionScore??0);
     if(s>=85)acc.field++;
@@ -239,8 +253,12 @@ function futureRadarRender(){
     else acc.watch++;
     return acc;
   },{field:0,contact:0,active:0,coverage:0,watch:0});
-  const summary='<div class="radar-worklist-summary"><strong>🎯 '+priorityCount+' priorités de travail</strong> sur '+(futureRadarDetectedCount||futureRadarCandidates.length)+' biens détectés · 🔥 '+actionCounts.field+' terrain · 📞 '+actionCounts.contact+' priorité · 👀 '+actionCounts.active+' à traiter · 🗺️ '+actionCounts.coverage+' à préparer · ⚪ '+actionCounts.watch+' faible</div>';
-  box.innerHTML=summary+visible.map((p,i)=>{
+  const selectedCount=futureRadarSelectedIndices.size;
+  const summary='<div class="radar-worklist-summary"><strong>🎯 10 dossiers affichés</strong> · page '+(futureRadarPage+1)+'/'+totalPages+' · '+(futureRadarDetectedCount||futureRadarCandidates.length)+' biens détectés · 🔥 '+actionCounts.field+' terrain · 📞 '+actionCounts.contact+' priorité · 👀 '+actionCounts.active+' à traiter · 🗺️ '+actionCounts.coverage+' à préparer · ⚪ '+actionCounts.watch+' faible</div>';
+  const controls='<div class="radar-selection-toolbar"><strong>📋 Sélection : '+selectedCount+'/'+FUTURE_RADAR_MAX_SELECTED+'</strong><button type="button" class="ghost" data-radar-page="prev" '+(futureRadarPage===0?"disabled":"")+'>&larr; 10 précédents</button><button type="button" class="ghost" data-radar-page="next" '+(futureRadarPage>=totalPages-1?"disabled":"")+'>'+ (futureRadarPage>=totalPages-1?"Fin":"10 suivants &rarr;")+'</button><span class="meta">Travail conseillé : 10 biens à la fois.</span></div>';
+
+  box.innerHTML=summary+controls+visible.map((p,localIndex)=>{
+    const i=startIndex+localIndex;
     const ms=p.methodScores||{},ev=p.evidence||{},quality=ev.dataQuality||p.dataQuality||{};
     const sale=p.sameAddressSale||{};
     const dpeConfirmed=p.dpeConfirmed===true;
@@ -256,12 +274,7 @@ function futureRadarRender(){
     const opportunityLevel=p.sellerOpportunityLevel||"Surveillance";
     const opportunityReasons=Array.isArray(p.sellerOpportunityReasons)?p.sellerOpportunityReasons:[];
     const components=p.sellerOpportunityComponents||{};
-    const componentLine=[
-      "🏠 "+(components.patrimonial?.score??0)+"/30",
-      "⚡ "+(components.renovation?.score??0)+"/20",
-      "📊 "+(components.market?.score??0)+"/25",
-      "🔎 "+(components.quality?.score??0)+"/25"
-    ].join(" · ");
+    const componentLine=["🏠 "+(components.patrimonial?.score??0)+"/30","⚡ "+(components.renovation?.score??0)+"/20","📊 "+(components.market?.score??0)+"/25","🔎 "+(components.quality?.score??0)+"/25"].join(" · ");
     const actionLabel=p.sellerOpportunityAction||"⚪ Surveillance faible";
     const surveillanceLabel=commercialScore>0?(p.priorityLevel||"Priorité prospection"):"Potentiel de prospection · "+opportunityLevel.toLowerCase();
     const workPriority=Number(p.priorityProspectionScore??0);
@@ -270,16 +283,12 @@ function futureRadarRender(){
     const workPriorityAction=p.priorityProspectionAction||"🗺️ Compléter le dossier";
     const workPriorityReasons=Array.isArray(p.priorityProspectionReasons)?p.priorityProspectionReasons:[];
     const workComponents=p.priorityProspectionComponents||{};
-    const workComponentLine=[
-      "🎯 "+(workComponents.potential?.score??0)+"/25",
-      "🔎 "+(workComponents.dataQuality?.score??0)+"/20",
-      "🧩 "+(workComponents.evidence?.score??0)+"/15",
-      "📊 "+(workComponents.market?.score??0)+"/20",
-      "🧭 "+(workComponents.readiness?.score??0)+"/20"
-    ].join(" · ");
-    return '<article class="future-candidate"><div class="future-candidate-main"><label class="future-check"><input type="checkbox" data-future-check="'+i+'" checked><span></span></label><div><strong>'+apiEsc(p.address||"Adresse non renseignée")+'</strong><div class="meta">'+apiEsc((p.postalCode?p.postalCode+" ":"")+(p.city||""))+" · "+apiEsc(futureRadarType(p.buildingType))+(p.area?" · "+p.area+" m²":"")+'</div><div class="future-reasons"><span class="dpe-match '+(dpeConfirmed?"confirmed":p.dpeAddressStatus==="uncertain"?"uncertain":"none")+'">'+apiEsc(dpeText)+'</span><span class="dpe-match '+(sale.status==="confirmed"?"confirmed":sale.status==="ambiguous"?"uncertain":"none")+'">'+apiEsc(saleText)+'</span><span>'+apiEsc(compText)+'</span><span>'+apiEsc(terrainText)+'</span></div><div class="future-reasons">'+reasons.map(x=>'<span>'+apiEsc(x)+'</span>').join("")+'</div><div class="seller-score-breakdown"><strong>Potentiel du bien</strong> '+opportunity+'/100 · '+apiEsc(opportunityLevel)+' · '+apiEsc(actionLabel)+'</div><div class="meta">'+componentLine+(p.sellerOpportunityBonus? ' · Bonus convergence +'+p.sellerOpportunityBonus:"")+(opportunityReasons.length?' · '+apiEsc(opportunityReasons.slice(0,3).join(" · ")):"")+' · <strong>Priorité signal public</strong> '+(p.priorityScore??p.score??0)+'/100 · <strong>Contexte marché</strong> '+(p.marketContextScore??0)+'/100 · Qualité '+(quality.score||0)+'/5 · DPE '+(ms.dpe||0)+'% · vente '+(ms.saleAge||0)+'% · type/surface '+(ms.typeSurface||0)+'% · terrain '+(ms.terrain||0)+'% · proximité '+(ms.proximity||0)+'% · historique '+(ms.history||0)+'%</div><div class="prospection-priority-box"><strong>🎯 Priorité de prospection : '+workPriorityDisplay+'/100</strong><span>'+apiEsc(workPriorityLevel)+' · '+apiEsc(workPriorityAction)+'</span><small>'+apiEsc(workPriorityReasons.join(" · "))+'</small><em>'+workComponentLine+'</em><small>Ce score classe les dossiers à traiter ; il ne représente pas une probabilité de vente.</small></div><div class="commercial-signal-box '+(commercialScore>0?"has-signal":"no-signal")+'"><strong>Signal commercial public : '+commercialScore+'/100</strong><span>'+apiEsc(commercialLevel)+'</span>'+(commercialSignals.length?'<small>'+commercialSignals.map(x=>apiEsc(x.label)).join(" · ")+'</small>':'<small>Aucun signal public de mise en vente détecté. Ce candidat est uniquement à surveiller.</small>')+'</div><div class="future-candidate-actions"><button type="button" class="ghost" data-radar-prospect="'+i+'">＋ Ajouter à la surveillance</button></div></div></div><div class="future-score"><strong>'+opportunity+'/100</strong><small>'+apiEsc(surveillanceLabel)+'</small><em>'+apiEsc(actionLabel)+'</em><em>Signal public : '+(p.commercialSignalScore??0)+'/100 · Marché : '+(p.marketContextScore??0)+'/100</em></div></article>';
+    const workComponentLine=["🎯 "+(workComponents.potential?.score??0)+"/25","🔎 "+(workComponents.dataQuality?.score??0)+"/20","🧩 "+(workComponents.evidence?.score??0)+"/15","📊 "+(workComponents.market?.score??0)+"/20","🧭 "+(workComponents.readiness?.score??0)+"/20"].join(" · ");
+    return '<article class="future-candidate"><div class="future-candidate-main"><label class="future-check"><input type="checkbox" data-future-check="'+i+'" '+(futureRadarSelectedIndices.has(i)?"checked":"")+'><span></span></label><div><strong>'+apiEsc(p.address||"Adresse non renseignée")+'</strong><div class="meta">'+apiEsc((p.postalCode?p.postalCode+" ":"")+(p.city||""))+" · "+apiEsc(futureRadarType(p.buildingType))+(p.area?" · "+p.area+" m²":"")+'</div><div class="future-reasons"><span class="dpe-match '+(dpeConfirmed?"confirmed":p.dpeAddressStatus==="uncertain"?"uncertain":"none")+'">'+apiEsc(dpeText)+'</span><span class="dpe-match '+(sale.status==="confirmed"?"confirmed":sale.status==="ambiguous"?"uncertain":"none")+'">'+apiEsc(saleText)+'</span><span>'+apiEsc(compText)+'</span><span>'+apiEsc(terrainText)+'</span></div><div class="future-reasons">'+reasons.map(x=>'<span>'+apiEsc(x)+'</span>').join("")+'</div><div class="seller-score-breakdown"><strong>Potentiel du bien</strong> '+opportunity+'/100 · '+apiEsc(opportunityLevel)+' · '+apiEsc(actionLabel)+'</div><div class="meta">'+componentLine+(p.sellerOpportunityBonus?' · Bonus convergence +'+p.sellerOpportunityBonus:"")+(opportunityReasons.length?' · '+apiEsc(opportunityReasons.slice(0,3).join(" · ")):"")+' · <strong>Priorité signal public</strong> '+(p.priorityScore??p.score??0)+'/100 · <strong>Contexte marché</strong> '+(p.marketContextScore??0)+'/100 · Qualité '+(quality.score||0)+'/5 · DPE '+(ms.dpe||0)+'% · vente '+(ms.saleAge||0)+'% · type/surface '+(ms.typeSurface||0)+'% · terrain '+(ms.terrain||0)+'% · proximité '+(ms.proximity||0)+'% · historique '+(ms.history||0)+'%</div><div class="prospection-priority-box"><strong>🎯 Priorité de prospection : '+workPriorityDisplay+'/100</strong><span>'+apiEsc(workPriorityLevel)+' · '+apiEsc(workPriorityAction)+'</span><small>'+apiEsc(workPriorityReasons.join(" · "))+'</small><em>'+workComponentLine+'</em><small>Ce score classe les dossiers à traiter ; il ne représente pas une probabilité de vente.</small></div><div class="commercial-signal-box '+(commercialScore>0?"has-signal":"no-signal")+'"><strong>Signal commercial public : '+commercialScore+'/100</strong><span>'+apiEsc(commercialLevel)+'</span>'+(commercialSignals.length?'<small>'+commercialSignals.map(x=>apiEsc(x.label)).join(" · ")+'</small>':'<small>Aucun signal public de mise en vente détecté. Ce candidat est uniquement à surveiller.</small>')+'</div><div class="future-candidate-actions"><button type="button" class="ghost" data-radar-prospect="'+i+'">＋ Ajouter à la surveillance</button></div></div></div><div class="future-score"><strong>'+opportunity+'/100</strong><small>'+apiEsc(surveillanceLabel)+'</small><em>'+apiEsc(actionLabel)+'</em><em>Signal public : '+(p.commercialSignalScore??0)+'/100 · Marché : '+(p.marketContextScore??0)+'/100</em></div></article>';
   }).join("");
-  add.disabled=false;if(printBtn)printBtn.disabled=false;
+
+  add.disabled=false;if(printBtn)printBtn.disabled=selectedCount===0;
+  if(selectBtn)selectBtn.disabled=false;if(deselectBtn)deselectBtn.disabled=selectedCount===0;
   if(toggle){toggle.disabled=false;toggle.setAttribute("aria-expanded","true");toggle.textContent="✕ Masquer les "+futureRadarCandidates.length+" biens détectés";box.hidden=false;}
 }
 async function runFutureRadar(){
@@ -414,8 +423,8 @@ function addFutureRadarCandidate(index){
   alert(result==="created"?"Bien ajouté à la surveillance. Relance proposée dans 7 jours.":"Ce bien est déjà dans le CRM : ses informations ont été fusionnées.");
 }
 function printFutureRadarSelection(){
-  const selected=[...document.querySelectorAll("[data-future-check]:checked")]
-    .map(x=>futureRadarCandidates[Number(x.dataset.futureCheck)]).filter(Boolean);
+  const selected=[...futureRadarSelectedIndices].slice(0,FUTURE_RADAR_MAX_SELECTED)
+    .map(i=>futureRadarCandidates[i]).filter(Boolean);
   if(!selected.length){alert("Sélectionne au moins un bien à imprimer.");return;}
   const escp=v=>apiEsc(v??"—");
   const money=v=>Number.isFinite(Number(v))&&Number(v)>0?Number(v).toLocaleString("fr-FR")+" €":"—";
@@ -468,10 +477,47 @@ function addFutureRadarCandidates(){
   }
   if(selected.length){save();alert("Surveillance : "+created+" bien(s) ajouté(s), "+merged+" déjà présent(s) fusionné(s).")}
 }
+
+$("futureRadarSelectAll").onclick=()=>{
+  const start=futureRadarPage*FUTURE_RADAR_PAGE_SIZE;
+  for(let i=start;i<Math.min(start+FUTURE_RADAR_PAGE_SIZE,futureRadarCandidates.length)&&futureRadarSelectedIndices.size<FUTURE_RADAR_MAX_SELECTED;i++)futureRadarSelectedIndices.add(i);
+  futureRadarRender();
+};
+$("futureRadarDeselectAll").onclick=()=>{
+  const start=futureRadarPage*FUTURE_RADAR_PAGE_SIZE;
+  for(let i=start;i<Math.min(start+FUTURE_RADAR_PAGE_SIZE,futureRadarCandidates.length);i++)futureRadarSelectedIndices.delete(i);
+  futureRadarRender();
+};
 $("futureRadarBtn").onclick=runFutureRadar;
 $("futureRadarPrint").onclick=printFutureRadarSelection;
 $("futureRadarAddAll").onclick=addFutureRadarCandidates;
 if($("futureRadarResults"))$("futureRadarResults").onclick=e=>{
+  const check=e.target.closest("[data-future-check]");
+  if(check){
+    const idx=Number(check.dataset.futureCheck);
+    if(check.checked){
+      if(futureRadarSelectedIndices.size>=FUTURE_RADAR_MAX_SELECTED){
+        check.checked=false;
+        alert("Maximum de 10 biens sélectionnés. Traite ces 10 biens puis passe à la page suivante.");
+        return;
+      }
+      futureRadarSelectedIndices.add(idx);
+    }else futureRadarSelectedIndices.delete(idx);
+    const pb=$("futureRadarPrint");if(pb)pb.disabled=futureRadarSelectedIndices.size===0;
+    const db=$("futureRadarDeselectAll");if(db)db.disabled=futureRadarSelectedIndices.size===0;
+    return;
+  }
+  const pg=e.target.closest("[data-radar-page]");
+  if(pg){
+    const totalPages=Math.max(1,Math.ceil(futureRadarCandidates.length/FUTURE_RADAR_PAGE_SIZE));
+    if(pg.dataset.radarPage==="prev")futureRadarPage=Math.max(0,futureRadarPage-1);
+    if(pg.dataset.radarPage==="next")futureRadarPage=Math.min(totalPages-1,futureRadarPage+1);
+    futureRadarRender();
+    return;
+  }
+  const b=e.target.closest("[data-radar-prospect]");
+  if(b){addFutureRadarCandidate(b.dataset.radarProspect);}
+};
   const b=e.target.closest("[data-radar-prospect]");
   if(b){addFutureRadarCandidate(b.dataset.radarProspect);}
 };
