@@ -1,4 +1,12 @@
-# JML Prospection — V1.21.4
+# JML Prospection — V1.21.5
+
+## V1.21.5 — Radar recalibré
+- Le score principal devient une **priorité de prospection** : 70 % signal commercial public + 30 % contexte marché.
+- Sans signal commercial public, le bien reste explicitement en **surveillance**.
+- Déduplication des DPE Radar par adresse/unité/surface/type, sans supprimer les logements réellement distincts.
+- Les distances des comparables DVF indiquent maintenant si elles sont calculées, partielles ou indisponibles ; aucun rayon n'est présenté comme certain lorsque la distance manque.
+
+
 
 ## V1.21.4 — correctif mode commune/adresse
 - Restauration de la fonction de détection commune/adresse pour les sources publiques.
