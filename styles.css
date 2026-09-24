@@ -162,3 +162,10 @@ body{background:linear-gradient(180deg,#f3efe8 0,#f7f5f1 42%,#f5f2ec 100%)}
  .search-panel .panel-title-actions{margin-top:8px}
  .dashboard-head-actions{margin-top:6px}
 }
+
+/* V1.22.3 — commune de travail du Radar */
+.radar-query-bar{display:flex;align-items:end;gap:12px;margin:12px 0 4px;padding:12px;border:1px solid rgba(160,120,60,.22);border-radius:12px;background:rgba(255,255,255,.55)}
+.radar-query-bar label{flex:1;display:flex;flex-direction:column;gap:6px;font-weight:600}
+.radar-query-bar input{width:100%;box-sizing:border-box}
+.radar-query-status{min-width:230px;font-size:.9rem;color:#6b6258}
+@media(max-width:650px){.radar-query-bar{display:block}.radar-query-status{margin-top:8px}}
