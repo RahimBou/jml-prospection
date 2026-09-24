@@ -848,7 +848,7 @@ function radarProspectionPriority(p,parts,sellerOpportunity,quality,comparable,m
   // Priorité de travail terrain : solidité et exploitabilité du dossier,
   // pas une probabilité de vente et jamais une intention du propriétaire.
   p={...p,dpeConfirmed:parts?.dpeConfirmed,dpeAddressStatus:parts?.dpeAddressStatus};
-  const potential=Math.round(Math.min(100,Number(sellerOpportunity?.score)||0)*0.25);
+  const potential=Math.min(25,Math.min(100,Number(sellerOpportunity?.score)||0)*0.25);
   const q=Math.max(0,Math.min(5,Number(quality?.score)||0));
   const dataQuality=Math.round((q/5)*20);
 
