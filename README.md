@@ -207,3 +207,11 @@ Le Radar futur distingue désormais trois niveaux de preuve qui ne doivent plus 
 - Historique DVF confirmé à la même adresse : **15 points**
 
 Le score est un **indice de surveillance** et non une probabilité de vente. Chaque candidat affiche maintenant les preuves utilisées et les éléments qui expliquent son score.
+
+
+## V1.22.0 — réorganisation du poste de pilotage
+- Réorganisation visuelle complète sans modification des identifiants fonctionnels utilisés par les scripts.
+- Navigation rapide sticky : Accueil, Radar, Prospects, Annonces, Sources, Laboratoire.
+- Priorité donnée au travail commercial : tableau de bord → Radar → recherche → Prospects.
+- Sources publiques, veille annonces, croisement DVF/DPE et laboratoire déplacés dans une zone secondaire.
+- Responsive renforcé pour tablette/mobile.
