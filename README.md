@@ -1,4 +1,10 @@
-# JML Prospection — V1.21.2
+# JML Prospection — V1.21.3
+
+## V1.21.3 — regroupement intelligent des sources publiques
+- Regroupement des DPE au niveau de l'adresse/bâtiment sans supprimer les logements distincts.
+- Regroupement des lignes DVF d'une même mutation en une opération unique.
+- Affichage séparé des lignes brutes et des opérations/adresses réellement exploitables.
+- Conservation des données détaillées pour les moteurs de rapprochement internes.
 
 ## V1.21.2 — sources publiques renforcées
 - Recherche commune/adresse différenciée.
