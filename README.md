@@ -1,3 +1,10 @@
+## V1.32.0 — priorité de prospection terrain
+- Le Radar distingue maintenant **Potentiel du bien /100** et **Priorité de prospection /100**.
+- La priorité combine le potentiel existant, la qualité des données, la solidité des rapprochements DPE/DVF, la qualité des comparables et la préparation du dossier pour le terrain.
+- Les biens sont classés d'abord par priorité de prospection.
+- Le score est un outil de classement opérationnel : **il ne représente pas une probabilité de vente et ne déduit aucune intention du propriétaire**.
+- Aucun changement aux sources DPE/DVF ni au signal commercial public.
+
 ## V1.25.0 — Territoire Ardennes
 - Le Radar considère désormais **tout le département des Ardennes comme territoire maître**.
 - Les secteurs sont dynamiques : n'importe quelle commune du 08 peut être ajoutée comme zone avec un rayon.
