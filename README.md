@@ -215,3 +215,10 @@ Le score est un **indice de surveillance** et non une probabilité de vente. Cha
 - Priorité donnée au travail commercial : tableau de bord → Radar → recherche → Prospects.
 - Sources publiques, veille annonces, croisement DVF/DPE et laboratoire déplacés dans une zone secondaire.
 - Responsive renforcé pour tablette/mobile.
+
+
+## V1.22.1 — pagination des prospects
+- Affichage des prospects par pages de 8 par défaut, avec choix 12 ou 20.
+- Navigation précédent/suivant et numéros de page.
+- Les filtres et actions du tableau de bord reviennent automatiquement à la première page.
+- Les données, le scoring, le CRM et le stockage local restent inchangés.
