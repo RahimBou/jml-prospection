@@ -1,3 +1,10 @@
+## V1.25.0 — Territoire Ardennes
+- Ardennes devient le territoire maître du Radar.
+- Référentiel dynamique de toutes les communes du département via l'API géographique publique.
+- Ajout libre de secteurs à partir de n'importe quelle commune des Ardennes.
+- Les secteurs Charleville/Sedan/Revin restent des exemples de départ et ne sont plus une limite du territoire.
+- Préparation de l'étape suivante : scan territorial complet et priorisation départementale.
+
 ## V1.24.0 — Radar multi-secteurs
 - Analyse simultanée de plusieurs secteurs de prospection.
 - Secteurs par défaut : Charleville-Mézières + 20 km, Sedan + 15 km, Revin + 15 km.
