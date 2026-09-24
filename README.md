@@ -1,4 +1,10 @@
-# JML Prospection — V1.21.3
+# JML Prospection — V1.21.4
+
+## V1.21.4 — correctif mode commune/adresse
+- Restauration de la fonction de détection commune/adresse pour les sources publiques.
+- Recherche `Sedan` en mode commune et adresse numérotée en mode ciblé.
+- Version affichée synchronisée avec le déploiement.
+
 
 ## V1.21.3 — regroupement intelligent des sources publiques
 - Regroupement des DPE au niveau de l'adresse/bâtiment sans supprimer les logements distincts.
