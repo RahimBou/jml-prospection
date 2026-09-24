@@ -1,3 +1,8 @@
+## V1.32.1 — précision du classement
+- Le score de priorité de prospection conserve désormais ses décimales.
+- L'affichage est au dixième et le tri utilise la valeur précise.
+- Objectif : mieux départager les biens proches sans modifier la logique générale du Radar.
+
 ## V1.32.0 — priorité de prospection terrain
 - Le Radar distingue maintenant **Potentiel du bien /100** et **Priorité de prospection /100**.
 - La priorité combine le potentiel existant, la qualité des données, la solidité des rapprochements DPE/DVF, la qualité des comparables et la préparation du dossier pour le terrain.
