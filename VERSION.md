@@ -1,3 +1,10 @@
+## V1.24.0 — Radar multi-secteurs
+- Analyse simultanée de plusieurs secteurs de prospection.
+- Secteurs par défaut : Charleville-Mézières + 20 km, Sedan + 15 km, Revin + 15 km.
+- Rayon configurable de 5 à 40 km par secteur.
+- Déduplication automatique des candidats lorsqu'un bien tombe dans plusieurs secteurs.
+- Analyse ponctuelle d'une commune conservée.
+
 ## V1.23.1 — finition des cartes prospects
 - Retour à 2 colonnes sur desktop pour donner une largeur confortable aux fiches.
 - Hauteur et structure visuelle harmonisées.
