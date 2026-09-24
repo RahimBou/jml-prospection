@@ -1,4 +1,10 @@
-# JML Prospection — V1.21.0
+# JML Prospection — V1.21.1
+
+## V1.21.1 — correction JavaScript du dashboard
+- Correction d'une erreur de syntaxe introduite dans le nouveau tableau de bord terrain.
+- Restauration des boutons et de l'initialisation du CRM.
+- Cache frontend synchronisé en V1.21.1.
+
 
 ## V1.21.0 — tableau de bord terrain
 - Ajout d'une vue **À faire maintenant** directement sous les compteurs du CRM.
