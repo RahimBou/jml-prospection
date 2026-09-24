@@ -1,3 +1,10 @@
+## V1.30.0
+- Nouveau score vendeur sur 4 familles : patrimonial 30, DPE/rénovation 20, marché/comparables 25, qualité/ancienneté/cohérence 25.
+- Bonus de convergence limité à 5 points.
+- Le DPE seul ne peut plus dominer le classement.
+- Chaque bien reçoit une action recommandée : contacter en priorité, surveiller, couverture territoriale ou surveillance faible.
+- Les composantes du score sont conservées dans le CRM.
+
 ## V1.29.0
 - Chaque candidat Radar peut être ajouté individuellement à la surveillance depuis sa fiche.
 - Une prochaine relance à J+7 est proposée automatiquement pour les biens ajoutés.
