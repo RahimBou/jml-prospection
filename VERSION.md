@@ -1,3 +1,9 @@
+## V1.22.5 — séparation Radar corrigée
+- Reconnaissance des biens Radar créés avec l’ancien libellé « Radar futur ».
+- Ces fiches restent dans « Biens à surveiller » lorsqu’elles n’ont pas de signal commercial public.
+- Correction du comptage des « Prospects commerciaux » pour les données déjà présentes dans le navigateur.
+- Aucun changement au moteur DPE/DVF ni au scoring.
+
 ## V1.22.4 — réorganisation du poste de prospection
 - Séparation visuelle entre **prospects commerciaux** et **biens à surveiller** issus du Radar.
 - Les biens Radar sans signal commercial ne gonflent plus les compteurs opérationnels des prospects commerciaux.
