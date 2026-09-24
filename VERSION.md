@@ -1,3 +1,8 @@
+## V1.25.1 — Affichage Radar corrigé
+- Les biens détectés par l'analyse multi-secteurs s'affichent automatiquement à la fin de l'analyse.
+- Le bouton permet ensuite de masquer/réafficher les résultats.
+- Cache-buster frontend actualisé pour éviter de conserver l'ancien JavaScript dans le navigateur.
+
 ## V1.25.0 — Territoire Ardennes
 - Ardennes devient le territoire maître du Radar.
 - Référentiel dynamique de toutes les communes du département via l'API géographique publique.
