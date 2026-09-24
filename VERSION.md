@@ -1,4 +1,11 @@
-# JML Prospection — V1.21.5
+## V1.22.4 — réorganisation du poste de prospection
+- Séparation visuelle entre **prospects commerciaux** et **biens à surveiller** issus du Radar.
+- Les biens Radar sans signal commercial ne gonflent plus les compteurs opérationnels des prospects commerciaux.
+- Le tableau de bord « À faire maintenant » travaille désormais sur les prospects commerciaux.
+- Les résultats détaillés du Radar sont repliés après analyse et s’ouvrent à la demande.
+- Aucun changement au moteur DPE/DVF, au rapprochement des sources ou au scoring serveur.
+
+# JML Prospection — V1.22.4
 
 ## V1.21.5 — Radar recalibré
 - Score principal = priorité de prospection : 70 % signal commercial public + 30 % contexte marché.
