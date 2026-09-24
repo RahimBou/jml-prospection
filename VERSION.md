@@ -231,3 +231,10 @@ Toute modification fonctionnelle doit :
 - Nouveau score transparent sur 100 : qualité des données, ancienneté de la dernière vente confirmée, DPE confirmé, type/surface/pièces, terrain documenté, proximité des comparables et historique DVF confirmé.
 - L'interface affiche séparément les trois preuves et le détail des composantes du score.
 - L'ajout au CRM conserve la distinction entre vente à la même adresse et comparables de proximité.
+
+
+## V1.22.0
+- Réorganisation complète de l'interface en conservant les IDs fonctionnels.
+- Navigation rapide et hiérarchie orientée prospection.
+- Radar et Prospects mis au premier plan ; modules techniques déplacés après le workflow commercial.
+- Responsive tablette/mobile renforcé.
