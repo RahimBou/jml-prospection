@@ -224,3 +224,42 @@ body{background:linear-gradient(180deg,#f3efe8 0,#f7f5f1 42%,#f5f2ec 100%)}
   #futureRadarPanel .panel-title{align-items:flex-start}
   #futureRadarPanel .future-radar-actions{max-width:none}
 }
+
+/* V1.23.1 — finition UI des cartes prospects */
+#prospectsPanel{padding:20px}
+#prospectsPanel .panel-title{align-items:flex-start;margin-bottom:12px}
+#prospectsPanel .panel-title>div:first-child{min-width:0}
+#prospectsPanel .prospects-panel-actions{margin-left:auto}
+#prospectsPanel .prospects-view-note{margin:8px 0 12px}
+#prospectsPanel .prospects-toolbar{margin:0 0 12px}
+#prospectsPanel .cards{grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;align-items:stretch}
+#prospectsPanel .card{height:100%;min-height:0;padding:16px;display:flex;flex-direction:column;overflow:hidden}
+#prospectsPanel .card-head{align-items:flex-start;min-height:46px}
+#prospectsPanel .card-head>div:first-child{min-width:0;flex:1}
+#prospectsPanel .address{font-size:16px;line-height:1.25;word-break:normal}
+#prospectsPanel .meta{line-height:1.35}
+#prospectsPanel .price{font-size:23px;line-height:1.1;margin:10px 0 7px}
+#prospectsPanel .details{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px;margin:8px 0}
+#prospectsPanel .detail{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:center;padding:5px 4px;font-size:10.5px}
+#prospectsPanel .signal{min-height:44px;max-height:58px;margin:9px 0;padding:8px 10px;line-height:1.35;overflow:hidden}
+#prospectsPanel .card>.meta{min-height:30px}
+#prospectsPanel .signal-tag{font-size:10px;padding:3px 6px;margin:3px 3px 1px 0}
+#prospectsPanel .movement-box{margin-top:9px;min-height:54px;padding:8px 10px}
+#prospectsPanel .movement-box small{line-height:1.2}
+#prospectsPanel .price-history{margin-top:9px;padding:8px 10px;min-height:52px}
+#prospectsPanel .price-history-list{max-height:45px;overflow:hidden}
+#prospectsPanel .card-actions{margin-top:auto;padding-top:12px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:7px}
+#prospectsPanel .card-actions button,#prospectsPanel .card-actions a{display:flex;justify-content:center;align-items:center;min-height:32px;padding:6px 7px;font-size:10.5px}
+#prospectsPanel .empty{margin-top:4px}
+@media(max-width:900px){
+  #prospectsPanel .cards{grid-template-columns:1fr}
+}
+@media(min-width:901px) and (max-width:1200px){
+  #prospectsPanel .cards{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:700px){
+  #prospectsPanel{padding:14px}
+  #prospectsPanel .panel-title{gap:10px}
+  #prospectsPanel .prospects-panel-actions{width:100%;margin-left:0}
+  #prospectsPanel .details{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
