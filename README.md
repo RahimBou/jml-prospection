@@ -1,3 +1,9 @@
+## V1.24.0 — Radar multi-secteurs
+- Nouvelle zone de prospection multi-villes : Charleville-Mézières, Sedan et Revin peuvent être analysées ensemble.
+- Rayon configurable par secteur ; valeurs par défaut 20 / 15 / 15 km.
+- Les communes couvertes sont calculées géographiquement, puis les résultats ADEME/DVF sont dédoublonnés globalement.
+- L'analyse ponctuelle d'une seule commune reste disponible.
+
 ## V1.23.0 — interface poste de travail commercial
 - Fiches prospects compactes et hiérarchie visuelle renforcée.
 - 3 colonnes sur grand écran, 2 sur intermédiaire, 1 sur mobile.
