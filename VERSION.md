@@ -1,3 +1,11 @@
+# JML Prospection — V1.33.0
+
+## V1.33.0 — fiche imprimable Radar
+- Ajout du bouton **Imprimer la sélection** dans le Radar.
+- L'impression reprend les informations essentielles : adresse, commune, type, surfaces, DPE, dernière mutation DVF, comparables, signal public, potentiel, priorité et raisons.
+- Ajout d'un espace **Retour terrain** pour noter le résultat de la prospection.
+- L'impression utilise les biens cochés dans le Radar et est optimisée pour A4.
+
 # JML Prospection — V1.32.1
 
 ## V1.32.1 — précision du classement Radar
