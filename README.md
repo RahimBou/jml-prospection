@@ -1,3 +1,8 @@
+## V1.23.0 — interface poste de travail commercial
+- Fiches prospects compactes et hiérarchie visuelle renforcée.
+- 3 colonnes sur grand écran, 2 sur intermédiaire, 1 sur mobile.
+- Cache-busters des scripts alignés sur V1.23.0.
+
 ## V1.22.5 — séparation Radar corrigée
 - Les anciennes fiches « Radar futur » sont maintenant reconnues comme biens à surveiller lorsqu’elles n'ont pas de signal commercial public.
 - Le compteur et la vue « Prospects commerciaux » ne doivent plus inclure ces fiches.
@@ -9,7 +14,7 @@
 - Résultats détaillés du Radar repliés après une analyse de commune afin de garder l’écran lisible.
 - Les moteurs DPE/DVF et le scoring existants restent inchangés.
 
-# JML Prospection — V1.22.5
+# JML Prospection — V1.23.0
 
 ## V1.21.5 — Radar recalibré
 - Le score principal devient une **priorité de prospection** : 70 % signal commercial public + 30 % contexte marché.
