@@ -292,3 +292,7 @@ body{background:linear-gradient(180deg,#f3efe8 0,#f7f5f1 42%,#f5f2ec 100%)}
 
 /* V1.29.0 — action commerciale depuis le Radar */
 .future-candidate-actions{display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap}.future-candidate-actions .ghost{font-size:.82rem;padding:7px 10px}.future-candidate-actions .ghost:hover{transform:translateY(-1px)}
+
+
+/* V1.30.0 — lecture du score vendeur */
+.seller-score-breakdown{margin-top:8px;font-weight:700;font-size:.9rem}.future-score em{display:block;font-style:normal;margin-top:3px}.future-score small{display:block;margin:2px 0}.future-candidate .seller-score-breakdown{line-height:1.35}
