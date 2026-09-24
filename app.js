@@ -381,7 +381,7 @@ async function runFutureRadar(){
     $("futureRadarStatus").innerHTML="<strong>"+apiEsc(resolved)+"</strong> · "+data.dpeCount+" DPE uniques analysés"+dedupInfo+" · "+data.dvfCount+" transactions comparées · "+futureRadarCandidates.length+" candidats classés. "+apiEsc(data.dvfFallback?"DVF open-data utilisé en secours.":"DVF+ utilisé.")+sourceNote;
     if($("futureRadarReady")) $("futureRadarReady").textContent="✅ Commune analysée : "+resolved;
   }catch(e){
-    futureRadarCandidates=[];
+    futureRadarCandidates=[];futureRadarSelectedIndices=new Set();futureRadarPage=0;;
     futureRadarRender();
     $("futureRadarStatus").textContent="Erreur analyse commune : "+e.message;
     if($("futureRadarReady")) $("futureRadarReady").textContent="❌ Analyse interrompue";
@@ -515,9 +515,6 @@ if($("futureRadarResults"))$("futureRadarResults").onclick=e=>{
     futureRadarRender();
     return;
   }
-  const b=e.target.closest("[data-radar-prospect]");
-  if(b){addFutureRadarCandidate(b.dataset.radarProspect);}
-};
   const b=e.target.closest("[data-radar-prospect]");
   if(b){addFutureRadarCandidate(b.dataset.radarProspect);}
 };
