@@ -9,6 +9,7 @@ const DVF_URL = "https://apidf-preprod.cerema.fr/dvf_opendata/mutations/";
 const DVF_GEO_BASE = "https://files.data.gouv.fr/geo-dvf/latest/csv";
 const DVF_GEO_LATEST_YEAR = 2025;
 const dvfGeoCache = new Map();
+const communeGeoCache = new Map();
 const DVF_LOCAL_FILE = path.join(ROOT,"data","dvf_ardennes.csv.gz");
 let dvfLocalCache = null;
 const ADDRESS_URL = "https://data.geopf.fr/geocodage/search/";
@@ -656,6 +657,24 @@ async function resolveCommune(query){
   };
   return known[norm(query)]||null;
 }
+async function getDepartmentCommunes(department="08"){
+  const dept=String(department||"08").trim();
+  if(communeGeoCache.has(dept))return communeGeoCache.get(dept);
+  const u=new URL("https://geo.api.gouv.fr/communes");
+  u.searchParams.set("codeDepartement",dept);
+  u.searchParams.set("fields","nom,code,codesPostaux,codeDepartement,centre");
+  u.searchParams.set("format","json");
+  u.searchParams.set("geometry","centre");
+  const data=await jsonFetch(u);
+  const rows=(Array.isArray(data)?data:[]).map(x=>{
+    const c=x?.centre?.coordinates||[];
+    return {city:x?.nom||"",cityCode:x?.code||"",postalCode:Array.isArray(x?.codesPostaux)?x.codesPostaux[0]||"": "",department:x?.codeDepartement||dept,point:(Number.isFinite(Number(c[0]))&&Number.isFinite(Number(c[1])))?{kind:"lonlat",x:Number(c[0]),y:Number(c[1])}:null};
+  }).filter(x=>x.cityCode);
+  communeGeoCache.set(dept,rows);
+  if(communeGeoCache.size>10)communeGeoCache.delete(communeGeoCache.keys().next().value);
+  return rows;
+}
+
 async function geocodeAddress(query,limit=5){
   const q=String(query||"").trim();
   if(!q)return [];
@@ -1224,6 +1243,87 @@ async function api(pathname,url){
     const rows=Array.isArray(data?.results)?data.results:Array.isArray(data?.data)?data.data:[];
     return {source:"ADEME",total:Number(data?.total)||rows.length,results:rows.map(normalizeDpe),rawCount:rows.length};
   }
+  if(pathname==="/api/radar-zone"){
+    let sectors=[];
+    try{sectors=JSON.parse(url.searchParams.get("sectors")||"[]")}catch{}
+    if(!Array.isArray(sectors)||!sectors.length)throw new Error("Aucun secteur de prospection sélectionné");
+    const normalizedSectors=sectors.map((x,i)=>({id:String(x?.id||("secteur-"+(i+1))).trim(),label:String(x?.label||x?.q||("Secteur "+(i+1))).trim(),q:String(x?.q||x?.label||"").trim(),radiusKm:Math.max(1,Math.min(50,Number(x?.radiusKm)||15))})).filter(x=>x.q);
+    if(!normalizedSectors.length)throw new Error("Les secteurs sélectionnés sont invalides");
+    const resolvedSectors=[];
+    for(const sector of normalizedSectors){
+      const resolved=await resolveCommune(sector.q);
+      if(!resolved?.cityCode)throw new Error("Commune introuvable pour le secteur : "+sector.q);
+      resolvedSectors.push({...sector,city:resolved.city||sector.label,cityCode:resolved.cityCode,postalCode:resolved.postalCode||""});
+    }
+    const departments=Array.from(new Set(resolvedSectors.map(x=>String(x.cityCode).slice(0,2)).filter(Boolean)));
+    const communeLists=await Promise.all(departments.map(getDepartmentCommunes));
+    const allCommunes=communeLists.flat();
+    const sectorPlans=resolvedSectors.map(sector=>({...sector,centerPoint:allCommunes.find(c=>c.cityCode===sector.cityCode)?.point||null}));
+    for(const sector of sectorPlans){
+      if(!sector.centerPoint){
+        try{const geo=await geocodeAddress(sector.city+" "+(sector.postalCode||""),1);const g=geo?.[0];if(g?.longitude&&g?.latitude)sector.centerPoint={kind:"lonlat",x:g.longitude,y:g.latitude}}catch{}
+      }
+      if(!sector.centerPoint)throw new Error("Position géographique introuvable pour "+sector.city);
+    }
+    const communeMembership=new Map();
+    for(const commune of allCommunes){
+      const memberships=[];
+      for(const sector of sectorPlans){
+        const d=distanceMeters(sector.centerPoint,commune.point);
+        if(d!==null&&d<=sector.radiusKm*1000)memberships.push({sectorId:sector.id,sectorLabel:sector.city+" + "+sector.radiusKm+" km",distanceKm:Math.round(d/100)/10});
+      }
+      if(memberships.length)communeMembership.set(commune.cityCode,memberships);
+    }
+    for(const sector of sectorPlans){
+      if(!communeMembership.has(sector.cityCode))communeMembership.set(sector.cityCode,[{sectorId:sector.id,sectorLabel:sector.city+" + "+sector.radiusKm+" km",distanceKm:0}]);
+    }
+    const codes=Array.from(communeMembership.keys());
+    const years=Number(url.searchParams.get("years"))||5;
+    const perCommuneLimit=cleanLimit(url.searchParams.get("perCommuneLimit"),100);
+    const aggregate=[],errors=[];
+    for(let i=0;i<codes.length;i+=4){
+      const batch=codes.slice(i,i+4);
+      const results=await Promise.allSettled(batch.map(code=>api("/api/radar",new URL("http://localhost/api/radar?codeInsee="+encodeURIComponent(code)+"&limit="+perCommuneLimit+"&years="+encodeURIComponent(years)))));
+      results.forEach((rr,j)=>rr.status==="fulfilled"?aggregate.push({codeInsee:batch[j],data:rr.value}):errors.push({codeInsee:batch[j],error:rr.reason?.message||"Analyse indisponible"}));
+    }
+    const candidatesByKey=new Map();
+    let dpeCount=0,dpeRawCount=0,dvfCount=0,dvfFallback=false;
+    for(const pack of aggregate){
+      const memberships=communeMembership.get(pack.codeInsee)||[];
+      const data=pack.data||{};
+      dpeCount+=Number(data.dpeCount)||0;
+      dpeRawCount+=Number(data.dpeRawCount)||0;
+      dvfCount+=Number(data.dvfCount)||0;
+      dvfFallback=dvfFallback||Boolean(data.dvfFallback);
+      for(const candidate of (data.results||[])){
+        const point=(Number(candidate.longitude)||0)!==0&&(Number(candidate.latitude)||0)!==0?{kind:"lonlat",x:Number(candidate.longitude),y:Number(candidate.latitude)}:null;
+        const exactMemberships=sectorPlans.map(sector=>{const d=point?distanceMeters(sector.centerPoint,point):null;return d!==null&&d<=sector.radiusKm*1000?{sectorId:sector.id,sectorLabel:sector.city+" + "+sector.radiusKm+" km",distanceKm:Math.round(d/100)/10}:null}).filter(Boolean);
+        const selectedMemberships=point&&exactMemberships.length?exactMemberships:memberships;
+        if(!selectedMemberships.length)continue;
+        const key=radarDpeIdentity(candidate),existing=candidatesByKey.get(key);
+        if(existing){
+          const merged=[...(existing.zoneSectors||[]),...selectedMemberships];
+          existing.zoneSectors=Array.from(new Map(merged.map(x=>[x.sectorId,x])).values());
+          existing.sectorLabels=existing.zoneSectors.map(x=>x.sectorLabel);
+          existing.sectorIds=existing.zoneSectors.map(x=>x.sectorId);
+          existing.nearestSectorDistanceKm=Math.min(...existing.zoneSectors.map(x=>Number(x.distanceKm)).filter(Number.isFinite));
+        }else{
+          const copy={...candidate,zoneSectors:selectedMemberships};
+          copy.sectorLabels=selectedMemberships.map(x=>x.sectorLabel);
+          copy.sectorIds=selectedMemberships.map(x=>x.sectorId);
+          copy.nearestSectorDistanceKm=Math.min(...selectedMemberships.map(x=>Number(x.distanceKm)).filter(Number.isFinite));
+          candidatesByKey.set(key,copy);
+        }
+      }
+    }
+    const results=Array.from(candidatesByKey.values()).sort((a,b)=>(b.priorityScore-a.priorityScore)||(b.marketContextScore-a.marketContextScore)).slice(0,cleanLimit(url.searchParams.get("limit"),100));
+    const sectorSummary=sectorPlans.map(sector=>{
+      const sectorCandidates=results.filter(x=>(x.sectorIds||[]).includes(sector.id));
+      const communeCount=codes.filter(code=>(communeMembership.get(code)||[]).some(x=>x.sectorId===sector.id)).length;
+      return {id:sector.id,label:sector.city+" + "+sector.radiusKm+" km",city:sector.city,radiusKm:sector.radiusKm,communeCount,candidateCount:sectorCandidates.length};
+    });
+    return {source:"ADEME + DVF · zone de prospection multi-secteurs",mode:"multi-sector",sectors:sectorSummary,communeCount:codes.length,communesAnalyzed:aggregate.length,failedCommunes:errors,dpeCount,dpeRawCount,dpeDuplicateCount:Math.max(0,dpeRawCount-dpeCount),dvfCount,dvfFallback,results,totalCandidatesBeforeLimit:candidatesByKey.size,disclaimer:"Zone calculée par communes dans les rayons demandés, puis dédoublonnée au niveau DPE/adresse. Les distances de secteur utilisent les coordonnées DPE lorsqu'elles sont disponibles ; sinon le centre de commune."};
+  }
   if(pathname==="/api/radar"){
     let codeInsee=url.searchParams.get("codeInsee")?.trim();
     const q=url.searchParams.get("q")?.trim();
@@ -1352,7 +1452,7 @@ async function api(pathname,url){
       const historyDates=(match.txs||[]).map(tx=>tx.date).filter(Boolean).sort();
       return {
         id:"dpe-"+(p.dpeNumber||index)+"-"+codeInsee,
-        address:p.address,postalCode:p.postalCode,city:p.city,cityCode:p.cityCode,area:p.area,
+        address:p.address,postalCode:p.postalCode,city:p.city,cityCode:p.cityCode,area:p.area,longitude:p.longitude||0,latitude:p.latitude||0,
         dpe:p.dpe,ges:p.ges,dpeDate:p.date,buildingRef:p.buildingRef||"",apartmentRef:p.apartmentRef||"",floor:p.floor||"",
         residenceName:p.residenceName||"",banId:p.banId||"",
         dpeAgeYears:p.date?Math.round(Math.max(0,(Date.now()-new Date(p.date).getTime())/86400000/365.25)*10)/10:null,
