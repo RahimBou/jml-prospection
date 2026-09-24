@@ -1,3 +1,9 @@
+## V1.29.0
+- Chaque candidat Radar peut être ajouté individuellement à la surveillance depuis sa fiche.
+- Une prochaine relance à J+7 est proposée automatiquement pour les biens ajoutés.
+- Le CRM conserve le potentiel vendeur, son niveau et les raisons de détection.
+- Une approche commerciale indicative est générée sans supposer une intention de vente.
+
 ## V1.28.0
 - Chaque bien Radar possède maintenant un niveau de potentiel de prospection : élevé, intéressant, à étudier ou surveillance.
 - Affichage de raisons synthétiques expliquant pourquoi le bien ressort.
