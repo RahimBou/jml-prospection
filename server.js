@@ -774,6 +774,7 @@ function radarDpeOpportunityScore(p){
 }
 function radarDpeFreshnessScore(p){
   const age=Number(p?.dpeAgeYears);
+  const dateAge=age;
   if(!Number.isFinite(age))return 0;
   if(age<=1)return 10;
   if(age<=3)return 8;
@@ -789,9 +790,8 @@ function radarSellerOpportunityScore(p,parts){
   const history=Math.min(5,Math.max(0,Number(parts?.historyScore)||0)/3);
   const terrain=Math.min(5,Math.max(0,Number(parts?.terrainScore)||0));
   const quality=Math.min(10,Math.max(0,Number(parts?.dataScore)||0)*2/3);
-  return Math.min(100,Math.round(
-    saleAge + dpe + dpeFresh + comparable + typeSurface + history + terrain + quality
-  ));
+  const raw=saleAge + dpe + dpeFresh + comparable + typeSurface + history + terrain + quality;
+  return Math.min(100,Math.round(raw*(100/90)));
 }
 
 function radarCommercialSignal(p){
