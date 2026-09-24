@@ -781,7 +781,7 @@ function radarDpeFreshnessScore(p){
   if(age<=5)return 5;
   return 2;
 }
-function radarSellerOpportunityScore(p,parts){
+function radarSellerOpportunity(p,parts){
   const saleAge=Number(parts?.saleAgeScore)||0;
   const dpe=radarDpeOpportunityScore(p);
   const dpeFresh=radarDpeFreshnessScore(p);
@@ -791,7 +791,30 @@ function radarSellerOpportunityScore(p,parts){
   const terrain=Math.min(5,Math.max(0,Number(parts?.terrainScore)||0));
   const quality=Math.min(10,Math.max(0,Number(parts?.dataScore)||0)*2/3);
   const raw=saleAge + dpe + dpeFresh + comparable + typeSurface + history + terrain + quality;
-  return Math.min(100,Math.round(raw*(100/90)));
+  const score=Math.min(100,Math.round(raw*(100/90)));
+  const reasons=[];
+  const grade=String(p?.dpe||"").toUpperCase();
+  if(grade==="G")reasons.push("DPE G · forte opportunité de rénovation");
+  else if(grade==="F")reasons.push("DPE F · forte opportunité de rénovation");
+  else if(grade==="E")reasons.push("DPE E · potentiel de rénovation");
+  if(dpeFresh>=8)reasons.push("DPE récent");
+  if(saleAge>=12)reasons.push("Dernière vente ancienne");
+  else if(saleAge>=8)reasons.push("Dernière vente déjà ancienne");
+  if(comparable>=10)reasons.push("Marché comparable bien documenté");
+  else if(comparable>=5)reasons.push("Comparables locaux disponibles");
+  if(typeSurface>=10)reasons.push("Type et surface bien comparables");
+  else if(typeSurface>=5)reasons.push("Type/surface cohérents");
+  if(history>=4)reasons.push("Historique DVF récurrent");
+  if(terrain>=3)reasons.push("Terrain significatif documenté");
+  if(quality>=7)reasons.push("Données fiables et complètes");
+  let level="Surveillance";
+  if(score>=70)level="Potentiel élevé";
+  else if(score>=50)level="Potentiel intéressant";
+  else if(score>=30)level="Potentiel à étudier";
+  return {score,level,reasons:reasons.slice(0,5)};
+}
+function radarSellerOpportunityScore(p,parts){
+  return radarSellerOpportunity(p,parts).score;
 }
 
 function radarCommercialSignal(p){
@@ -1489,9 +1512,10 @@ async function api(pathname,url){
       // Le score principal devient une priorité de prospection : 70 % signal public + 30 % contexte marché.
       // Sans signal commercial public, le bien reste une cible de surveillance.
       const priorityScore=Math.round(commercialSignalScore*0.70+marketContextScore*0.30);
-      const sellerOpportunityScore=radarSellerOpportunityScore(p,{
+      const sellerOpportunity=radarSellerOpportunity(p,{
         saleAgeScore,typeSurfaceScore:typeSurface.score,terrainScore,proximityScore,historyScore,dataScore
       });
+      const sellerOpportunityScore=sellerOpportunity.score;
       const priorityLevel=radarPriorityLevel(commercialSignalScore);
       const score=priorityScore;
       const methodScores={
@@ -1542,7 +1566,7 @@ async function api(pathname,url){
         comparableDispersion:comparable.dispersion,comparableMedianDistance:comparable.medianDistance,
         comparableRecentCount:comparable.recentCount,comparables:comparable.items,
         bestComparable,
-        score,priorityScore,priorityLevel,sellerOpportunityScore,marketContextScore,commercialSignalScore,commercialSignalLevel,commercialSignals:commercialSignals.signals,
+        score,priorityScore,priorityLevel,sellerOpportunityScore,sellerOpportunityLevel:sellerOpportunity.level,sellerOpportunityReasons:sellerOpportunity.reasons,marketContextScore,commercialSignalScore,commercialSignalLevel,commercialSignals:commercialSignals.signals,
         evidence:{
           commercialSignal:{score:commercialSignalScore,level:commercialSignalLevel,signals:commercialSignals.signals},
           dataQuality:{level:quality.level,label:quality.label,score:quality.score},
