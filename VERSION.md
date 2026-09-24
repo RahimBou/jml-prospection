@@ -1,3 +1,11 @@
+# JML Prospection — V1.32.1
+
+## V1.32.1 — précision du classement Radar
+- Suppression de l'arrondi prématuré de la composante potentiel du bien.
+- Conservation des décimales dans la priorité de prospection.
+- Affichage de la priorité au dixième.
+- Le tri utilise la valeur précise afin de réduire les ex æquo artificiels.
+
 # JML Prospection — V1.32.0
 
 ## V1.32.0 — score « priorité de prospection »
