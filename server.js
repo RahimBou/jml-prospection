@@ -844,6 +844,80 @@ function radarSellerOpportunityScore(p,parts){
   return radarSellerOpportunity(p,parts).score;
 }
 
+function radarProspectionPriority(p,parts,sellerOpportunity,quality,comparable,match,saleHistory){
+  // Priorité de travail terrain : solidité et exploitabilité du dossier,
+  // pas une probabilité de vente et jamais une intention du propriétaire.
+  p={...p,dpeConfirmed:parts?.dpeConfirmed,dpeAddressStatus:parts?.dpeAddressStatus};
+  const potential=Math.round(Math.min(100,Number(sellerOpportunity?.score)||0)*0.25);
+  const q=Math.max(0,Math.min(5,Number(quality?.score)||0));
+  const dataQuality=Math.round((q/5)*20);
+
+  let evidence=0;
+  if(p?.dpeConfirmed===true || p?.dpeAddressStatus==="confirmed") evidence+=5;
+  else if(p?.dpeAddressStatus==="uncertain") evidence+=2;
+  if(saleHistory?.status==="confirmed") evidence+=5;
+  else if(saleHistory?.status==="ambiguous") evidence+=2;
+  if(match?.matchQuality==="exact" || match?.unitConfidence==="high") evidence+=5;
+  else if(match?.matchQuality==="street" || match?.unitConfidence==="medium") evidence+=3;
+  evidence=Math.min(15,evidence);
+
+  const comparableCount=Number(comparable?.count)||0;
+  const medianDistance=Number(comparable?.medianDistance);
+  const dispersion=Number(comparable?.dispersion);
+  let market=0;
+  if(comparableCount>=10)market+=10;
+  else if(comparableCount>=5)market+=7;
+  else if(comparableCount>=2)market+=4;
+  else if(comparableCount===1)market+=2;
+  if(Number.isFinite(medianDistance)){
+    if(medianDistance<=500)market+=5;
+    else if(medianDistance<=1000)market+=3;
+    else market+=1;
+  }
+  if(Number.isFinite(dispersion)){
+    if(dispersion<=0.25)market+=5;
+    else if(dispersion<=0.40)market+=3;
+    else market+=1;
+  }
+  market=Math.min(20,market);
+
+  let readiness=0;
+  if(p?.address)readiness+=3;
+  if(p?.postalCode)readiness+=2;
+  if(p?.city)readiness+=2;
+  if(Number.isFinite(Number(p?.longitude)) && Number.isFinite(Number(p?.latitude)) &&
+     (Number(p.longitude)!==0 || Number(p.latitude)!==0))readiness+=3;
+  if(p?.buildingType)readiness+=2;
+  if(Number(p?.area)>0)readiness+=2;
+  if(Number(p?.rooms)>0)readiness+=1;
+  if(Number(p?.terrainArea)>0)readiness+=1;
+  readiness=Math.min(20,readiness);
+
+  const score=Math.min(100,potential+dataQuality+evidence+market+readiness);
+  let level="Faible priorité",action="⚪ Surveillance";
+  if(score>=85){level="Priorité terrain";action="🔥 À traiter sur le terrain";}
+  else if(score>=70){level="Priorité prospection";action="📞 À préparer / contacter";}
+  else if(score>=55){level="À traiter";action="👀 Vérification ciblée";}
+  else if(score>=40){level="À préparer";action="🗺️ Compléter le dossier";}
+  const reasons=[];
+  if(potential>=20)reasons.push("Potentiel du bien élevé");
+  if(dataQuality>=16)reasons.push("Données de bonne qualité");
+  if(evidence>=10)reasons.push("Rapprochement DPE/DVF solide");
+  if(market>=14)reasons.push("Comparables locaux exploitables");
+  if(readiness>=15)reasons.push("Dossier prêt pour une vérification terrain");
+  if(!reasons.length)reasons.push("Dossier à compléter avant déplacement");
+  return {
+    score,level,action,reasons:reasons.slice(0,4),
+    components:{
+      potential:{score:potential,max:25},
+      dataQuality:{score:dataQuality,max:20},
+      evidence:{score:evidence,max:15},
+      market:{score:market,max:20},
+      readiness:{score:readiness,max:20}
+    },
+    disclaimer:"Priorité de travail calculée à partir de la qualité et de l'exploitabilité des données publiques. Ce score ne constitue pas une probabilité de vente et ne permet pas d'inférer l'intention du propriétaire."
+  };
+}
 function radarCommercialSignal(p){
   // Seuls des signaux explicitement documentés par une source publique donnent des points.
   // DPE, DVF, consommations ou informations privées ne créent jamais une intention de vente.
@@ -1543,6 +1617,19 @@ async function api(pathname,url){
         saleAgeScore,typeSurfaceScore:typeSurface.score,terrainScore,proximityScore,historyScore,dataScore
       });
       const sellerOpportunityScore=sellerOpportunity.score;
+      const priorityProspection=radarProspectionPriority(
+        p,
+        {dpeConfirmed,dpeAddressStatus},
+        sellerOpportunity,
+        quality,
+        comparable,
+        match,
+        saleHistory
+      );
+      const priorityProspectionScore=priorityProspection.score;
+      const priorityProspectionLevel=priorityProspection.level;
+      const priorityProspectionAction=priorityProspection.action;
+      const priorityProspectionReasons=priorityProspection.reasons;
       const priorityLevel=radarPriorityLevel(commercialSignalScore);
       const score=priorityScore;
       const methodScores={
@@ -1593,7 +1680,7 @@ async function api(pathname,url){
         comparableDispersion:comparable.dispersion,comparableMedianDistance:comparable.medianDistance,
         comparableRecentCount:comparable.recentCount,comparables:comparable.items,
         bestComparable,
-        score,priorityScore,priorityLevel,sellerOpportunityScore,sellerOpportunityLevel:sellerOpportunity.level,sellerOpportunityAction:sellerOpportunity.action,sellerOpportunityReasons:sellerOpportunity.reasons,sellerOpportunityComponents:sellerOpportunity.components,sellerOpportunityBonus:sellerOpportunity.bonus,marketContextScore,commercialSignalScore,commercialSignalLevel,commercialSignals:commercialSignals.signals,
+        score,priorityScore,priorityLevel,sellerOpportunityScore,sellerOpportunityLevel:sellerOpportunity.level,sellerOpportunityAction:sellerOpportunity.action,sellerOpportunityReasons:sellerOpportunity.reasons,sellerOpportunityComponents:sellerOpportunity.components,sellerOpportunityBonus:sellerOpportunity.bonus,priorityProspectionScore,priorityProspectionLevel,priorityProspectionAction,priorityProspectionReasons,priorityProspectionComponents:priorityProspection.components,priorityProspectionDisclaimer:priorityProspection.disclaimer,marketContextScore,commercialSignalScore,commercialSignalLevel,commercialSignals:commercialSignals.signals,
         evidence:{
           commercialSignal:{score:commercialSignalScore,level:commercialSignalLevel,signals:commercialSignals.signals},
           dataQuality:{level:quality.level,label:quality.label,score:quality.score},
