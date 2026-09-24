@@ -1,3 +1,8 @@
+## V1.28.0
+- Chaque bien Radar possède maintenant un niveau de potentiel de prospection : élevé, intéressant, à étudier ou surveillance.
+- Affichage de raisons synthétiques expliquant pourquoi le bien ressort.
+- Le potentiel reste distinct de toute intention de vente : aucun signal commercial public n'est inventé.
+
 ## V1.27.0
 - Ajout du « potentiel de prospection » pour distinguer l'intérêt commercial d'un simple signal public.
 - Les biens sans signal commercial restent des biens à surveiller, sans être présentés comme des vendeurs.
