@@ -192,6 +192,9 @@ function renderPublicDvf(rows){
   publicDvfResults=rows||[];
   $("publicDvfResults").innerHTML=publicDvfResults.length?publicDvfResults.slice(0,20).map(p=>'<article class="source-result"><div><strong>'+apiEsc(p.date||"Date inconnue")+'</strong><span>'+apiEsc(p.type||"Bien immobilier")+'</span></div><div class="source-result-details">'+(p.value?p.value.toLocaleString("fr-FR")+" € · ":"")+(p.builtArea?p.builtArea+" m² bâti · ":"")+(p.landArea?p.landArea+" m² terrain":"")+'</div><span class="meta">Source : '+apiEsc(p.source||"DVF open-data")+' · '+apiEsc(p.cityCode||"")+'</span></article>').join(""):'<div class="meta">Aucune transaction trouvée.</div>';
 }
+function publicSourceQueryMode(q){
+  return /\\d/.test(String(q||"")) ? "adresse" : "commune";
+}
 async function searchPublicSources(){
   const q=$("publicQuery").value.trim();
   if(!q){$("publicStatus").textContent="Indique une commune ou une adresse.";return}
@@ -206,29 +209,34 @@ async function searchPublicSources(){
       "givet":{city:"Givet",cityCode:"08190"},
       "vouziers":{city:"Vouziers",cityCode:"08490"}
     };
-    const key=String(q).normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/[^a-z0-9]+/g," ").trim();
+    const key=String(q).normalize("NFD").replace(/[\\u0300-\\u036f]/g,"").toLowerCase().replace(/[^a-z0-9]+/g," ").trim();
     let c=known[key];
     if(!c){
       const communes=await publicJson("/api/commune?q="+encodeURIComponent(q));
       c=communes[0];
     }
     if(!c)throw new Error("Commune introuvable");
+    const mode=publicSourceQueryMode(q);
     const params="codeInsee="+encodeURIComponent(c.cityCode);
+    const dpeUrl=mode==="adresse"
+      ? "/api/dpe?q="+encodeURIComponent(q)+"&limit=100"
+      : "/api/dpe?"+params+"&limit=100";
+    const dvfUrl="/api/dvf?"+params+"&limit=100&yearMin="+(new Date().getFullYear()-5)+(mode==="adresse"?"&address="+encodeURIComponent(q):"");
     const [dpeResult,dvfResult]=await Promise.allSettled([
-      publicJson("/api/dpe?"+params+"&limit=20"),
-      publicJson("/api/dvf?"+params+"&limit=20&yearMin="+(new Date().getFullYear()-5))
+      publicJson(dpeUrl),
+      publicJson(dvfUrl)
     ]);
     const dpe=dpeResult.status==="fulfilled"?dpeResult.value:null;
     const dvf=dvfResult.status==="fulfilled"?dvfResult.value:null;
-    const dvfError=dvfResult.status==="rejected"?String(dvfResult.reason?.message||"erreur source DVF+"): "";
+    const dvfError=dvfResult.status==="rejected"?String(dvfResult.reason?.message||"erreur source DVF+"):"";
     renderPublicDpe(dpe?.results||[]);
     renderPublicDvf(dvf?.results||[]);
-    const parts=[
-      "<strong>"+apiEsc(c.city)+"</strong> · code INSEE "+apiEsc(c.cityCode),
-      dpe ? dpe.rawCount+" DPE récupérés" : "ADEME indisponible",
-      dvf ? dvf.rawCount+" transactions récupérées · "+apiEsc(dvf.source||"DVF open-data")+(dvf.fallback?" (secours après indisponibilité Cerema)":"") : "DVF indisponible ("+apiEsc(dvfError)+")"
-    ];
-    $("publicStatus").innerHTML=parts.join(" · ");
+    const modeText=mode==="adresse"?"🎯 Recherche ciblée sur l’adresse":"🗺️ Recherche communale";
+    const dpeText=dpe?((dpe.rawCount??dpe.results?.length??0)+" DPE récupérés"): "ADEME indisponible";
+    const dvfText=dvf
+      ? ((dvf.filteredCount!=null?dvf.filteredCount:(dvf.rawCount??dvf.results?.length??0))+" transactions"+(mode==="adresse"?" à cette adresse":"")+" · "+String(dvf.source||"DVF open-data")+(dvf.fallback?" · secours":""))
+      : "DVF indisponible ("+apiEsc(dvfError)+")";
+    $("publicStatus").innerHTML="<strong>"+apiEsc(c.city)+"</strong> · code INSEE "+apiEsc(c.cityCode)+" · "+modeText+" · "+dpeText+" · "+dvfText;
   }catch(e){
     $("publicStatus").textContent="Erreur : "+e.message;
     renderPublicDpe([]);renderPublicDvf([]);
