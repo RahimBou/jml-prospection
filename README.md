@@ -1,4 +1,11 @@
-# JML Prospection — V1.21.5
+## V1.22.4 — réorganisation du poste de prospection
+- Vue par défaut : **Prospects commerciaux**.
+- Vue séparée : **Biens à surveiller** pour les biens Radar sans signal commercial.
+- Vue **Tous les biens** conservée pour retrouver l’intégralité du CRM.
+- Résultats détaillés du Radar repliés après une analyse de commune afin de garder l’écran lisible.
+- Les moteurs DPE/DVF et le scoring existants restent inchangés.
+
+# JML Prospection — V1.22.4
 
 ## V1.21.5 — Radar recalibré
 - Le score principal devient une **priorité de prospection** : 70 % signal commercial public + 30 % contexte marché.
