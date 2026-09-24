@@ -184,12 +184,18 @@ $("futureRadarAddAll").onclick=addFutureRadarCandidates;
 let publicDpeResults=[],publicDvfResults=[];
 function apiEsc(v=""){return esc(v)}
 async function publicJson(url){let r;try{r=await fetch(url,{cache:"no-store"});}catch(e){throw new Error("Connexion au serveur JML impossible : "+(e.message||"fetch failed"))}let d;try{d=await r.json()}catch(e){throw new Error("Réponse serveur invalide (HTTP "+r.status+")")}if(!r.ok)throw new Error(d.error||("Erreur serveur HTTP "+r.status));return d}
+function publicDpeKey(p){return [norm(p.address),norm(p.postalCode),Number(p.area)||0,norm(p.dpe),String(p.date||"")].join("|")}
+function publicDvfKey(p){return String(p.mutationId||"").trim()||[String(p.date||""),norm(p.address),Number(p.value)||0,Number(p.builtArea)||0,Number(p.landArea)||0].join("|")}
 function renderPublicDpe(rows){
-  publicDpeResults=rows||[];
+  const unique=[],seen=new Set();
+  for(const p of (rows||[])){const k=publicDpeKey(p);if(seen.has(k))continue;seen.add(k);unique.push(p)}
+  publicDpeResults=unique;
   $("publicDpeResults").innerHTML=publicDpeResults.length?publicDpeResults.slice(0,30).map((p,i)=>'<article class="source-result"><div><strong>'+apiEsc(p.address||"Adresse non renseignée")+'</strong><span>'+apiEsc((p.postalCode?p.postalCode+" ":"")+(p.city||""))+'</span></div><div class="source-result-details">'+(p.area?p.area+" m² · ":"")+(p.dpe?"DPE "+apiEsc(p.dpe):"DPE —")+(p.ges?" · GES "+apiEsc(p.ges):"")+(p.buildingType?" · "+apiEsc(p.buildingType):"")+'</div><div class="meta">'+(p.date?"DPE du "+apiEsc(p.date):"Date DPE inconnue")+'</div><button class="ghost" data-dpe-index="'+i+'">Préparer une fiche</button></article>').join(""):'<div class="meta">Aucun DPE trouvé pour cette recherche.</div>';
 }
 function renderPublicDvf(rows){
-  publicDvfResults=rows||[];
+  const unique=[],seen=new Set();
+  for(const p of (rows||[])){const k=publicDvfKey(p);if(seen.has(k))continue;seen.add(k);unique.push(p)}
+  publicDvfResults=unique;
   $("publicDvfResults").innerHTML=publicDvfResults.length?publicDvfResults.slice(0,30).map(p=>'<article class="source-result"><div><strong>'+apiEsc(p.date||"Date inconnue")+'</strong><span>'+apiEsc(p.type||"Bien immobilier")+'</span></div><div class="source-result-details">'+(p.value?p.value.toLocaleString("fr-FR")+" € · ":"")+(p.builtArea?p.builtArea+" m² bâti · ":"")+(p.landArea?p.landArea+" m² terrain":"")+(p.rooms?" · "+p.rooms+" pièce(s)":"")+'</div><div class="meta">'+(p.address?apiEsc(p.address)+" · ":"")+"Source : "+apiEsc(p.source||"DVF open-data")+" · "+apiEsc(p.cityCode||"")+'</div></article>').join(""):'<div class="meta">Aucune transaction trouvée.</div>';
 }
 function publicSourceQueryMode(q){
