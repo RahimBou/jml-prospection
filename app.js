@@ -84,6 +84,39 @@ function dashboardTerrain(){
  $("dashboardTerrain").innerHTML='<div class="dashboard-head"><div><h2>🎯 À faire maintenant</h2><p>Vue opérationnelle des prospects commerciaux. Les biens de surveillance restent séparés.</p></div><div class="dashboard-head-actions"><span class="dashboard-badge">'+priority+' priorité'+(priority>1?'s':'')+' terrain</span><button type="button" class="ghost dashboard-toggle" data-dashboard-toggle aria-expanded="false">▸ Afficher</button></div></div><div class="dashboard-collapsible" hidden><div class="dashboard-actions-grid"><button class="dashboard-action action-hot" data-dashboard-action="priority"><strong>🔥 '+priority+'</strong><span>Priorités terrain</span><small>Indice ≥ 65</small></button><button class="dashboard-action" data-dashboard-action="recent"><strong>🆕 '+recent+'</strong><span>Nouveaux récents</span><small>Détectés ≤ 7 jours</small></button><button class="dashboard-action" data-dashboard-action="address"><strong>📍 '+addressMissing+'</strong><span>Adresses à compléter</span><small>Informations manquantes</small></button><button class="dashboard-action" data-dashboard-action="follow"><strong>📞 '+follow+'</strong><span>Relances en retard</span><small>À traiter maintenant</small></button><button class="dashboard-action" data-dashboard-action="changes"><strong>🔄 '+changes+'</strong><span>Baisses de prix récentes</span><small>Changement public détecté</small></button><button class="dashboard-action" data-dashboard-action="tour"><strong>🚗 '+readyVisit+'</strong><span>Biens prêts terrain</span><small>Adresse + source publique</small></button></div><div class="dashboard-lower"><div class="dashboard-box"><h3>🗺️ Secteurs actifs</h3>'+(sectors.length?sectors.map(([city,n])=>'<button class="sector-row" data-dashboard-city="'+esc(city)+'"><span>'+esc(city)+'</span><strong>'+n+'</strong></button>').join(""):'<div class="meta">Aucun prospect commercial renseigné.</div>')+'</div><div class="dashboard-box"><h3>📊 Activité récente</h3><div class="activity-row"><span>Nouveaux cette semaine</span><strong>'+weekNew+'</strong></div><div class="activity-row"><span>Fiches avec adresse exploitable</span><strong>'+addressReady+'</strong></div><div class="activity-row"><span>Relances enregistrées cette semaine</span><strong>'+weekFollow+'</strong></div><div class="activity-row"><span>Total prospects commerciaux actifs</span><strong>'+work.length+'</strong></div></div></div><div class="dashboard-note">Les biens issus du Radar sans signal commercial ne sont pas comptés comme prospects commerciaux : ils restent disponibles dans « Biens à surveiller ».</div></div>';
 }
 
+
+async function initRadarTerritory(){
+  const select=$("radarTerritoryCity"),add=$("radarAddSector"),count=$("radarTerritoryCount"),list=$("radarSectorList");
+  if(!select||!add||!list||select.dataset.ready)return;
+  select.dataset.ready="1";
+  try{
+    const data=await publicJson("/api/territory?department=08");
+    window.radarTerritoryCommunes=data.communes||[];
+    if(count)count.textContent=data.communeCount+" communes disponibles";
+    select.innerHTML='<option value="">+ Ajouter une commune comme secteur…</option>'+window.radarTerritoryCommunes.map(c=>'<option value="'+apiEsc(c.city)+'">'+apiEsc(c.city)+(c.population?" · "+Number(c.population).toLocaleString("fr-FR")+" hab.":"")+'</option>').join("");
+  }catch(e){
+    if(count)count.textContent="Référentiel Ardennes indisponible";
+    return;
+  }
+  add.onclick=()=>{
+    const city=select.value;
+    if(!city)return;
+    if([...document.querySelectorAll("[data-radar-sector]")].some(x=>(x.dataset.label||"").toLowerCase()===city.toLowerCase())){select.value="";return}
+    const id="custom-"+Date.now();
+    const row=document.createElement("label");
+    row.className="radar-sector-row";
+    row.setAttribute("data-radar-sector-row","");
+    row.innerHTML='<span class="radar-sector-check"><input type="checkbox" data-radar-sector value="'+apiEsc(id)+'" data-label="'+apiEsc(city)+'" checked><strong>'+apiEsc(city)+'</strong></span><select data-radar-radius aria-label="Rayon '+apiEsc(city)+'"><option value="5">5 km</option><option value="10">10 km</option><option value="15" selected>15 km</option><option value="20">20 km</option><option value="25">25 km</option><option value="30">30 km</option><option value="40">40 km</option></select><button type="button" class="radar-remove-sector" title="Retirer">×</button>';
+    list.appendChild(row);
+    select.value="";
+    const remove=row.querySelector(".radar-remove-sector");
+    remove.onclick=()=>row.remove();
+    const total=list.querySelectorAll("[data-radar-sector]").length;
+    $("futureRadarReady").textContent=total+" secteur(s) prêt(s) à être analysé(s)";
+  };
+  list.querySelectorAll(".radar-remove-sector").forEach(btn=>btn.onclick=()=>btn.closest("[data-radar-sector-row]")?.remove());
+}
+
 function initRadarCommuneInput(){
  const input=$("futureRadarQuery"),status=$("futureRadarReady");
  if(!input||input.dataset.ready)return;
@@ -442,7 +475,7 @@ $("publicDpeResults").onclick=e=>{
   const p=publicDpeResults[Number(b.dataset.dpeIndex)];if(!p)return;
   openForm({address:p.address||"",postalCode:p.postalCode||"",city:p.city||"",type:"Maison",area:p.area||0,land:0,rooms:0,bedrooms:0,price:0,dpe:p.dpe||"",status:"Nouveau",detectionDate:today(),nextFollow:"",source:"DPE ADEME",externalId:p.dpeNumber||"",sourceUrl:"https://data.ademe.fr/datasets/dpe03existant",description:"Donnée technique publique DPE ADEME. À vérifier sur le terrain avant toute qualification commerciale.",notes:"DPE : "+(p.dpe||"—")+" · GES : "+(p.ges||"—")+" · Date : "+(p.date||"—")});
 };
-prospects.forEach(ensureHistory);render();initCollapsiblePanels();initRadarCommuneInput();
+prospects.forEach(ensureHistory);render();initCollapsiblePanels();initRadarCommuneInput();initRadarTerritory();
 /* V1.13.0 — prospection annonce publique + carte + rapprochement DVF/DPE */
 let privateProspectMap=null;
 let privateProspectLayers=null;
