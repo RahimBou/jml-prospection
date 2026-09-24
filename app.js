@@ -243,7 +243,7 @@ function futureRadarRender(){
     const opportunityLevel=p.sellerOpportunityLevel||"Surveillance";
     const opportunityReasons=Array.isArray(p.sellerOpportunityReasons)?p.sellerOpportunityReasons:[];
     const surveillanceLabel=commercialScore>0?(p.priorityLevel||"Priorité prospection"):"Potentiel de prospection · "+opportunityLevel.toLowerCase();
-    return '<article class="future-candidate"><div class="future-candidate-main"><label class="future-check"><input type="checkbox" data-future-check="'+i+'" checked><span></span></label><div><strong>'+apiEsc(p.address||"Adresse non renseignée")+'</strong><div class="meta">'+apiEsc((p.postalCode?p.postalCode+" ":"")+(p.city||""))+" · "+apiEsc(futureRadarType(p.buildingType))+(p.area?" · "+p.area+" m²":"")+'</div><div class="future-reasons"><span class="dpe-match '+(dpeConfirmed?"confirmed":p.dpeAddressStatus==="uncertain"?"uncertain":"none")+'">'+apiEsc(dpeText)+'</span><span class="dpe-match '+(sale.status==="confirmed"?"confirmed":sale.status==="ambiguous"?"uncertain":"none")+'">'+apiEsc(saleText)+'</span><span>'+apiEsc(compText)+'</span><span>'+apiEsc(terrainText)+'</span></div><div class="future-reasons">'+reasons.map(x=>'<span>'+apiEsc(x)+'</span>').join("")+'</div><div class="meta"><strong>Potentiel de prospection</strong> '+opportunity+'/100 · '+apiEsc(opportunityLevel)+(opportunityReasons.length?' · '+apiEsc(opportunityReasons.slice(0,3).join(" · ")):"")+' · <strong>Priorité signal public</strong> '+(p.priorityScore??p.score??0)+'/100 · <strong>Contexte marché</strong> '+(p.marketContextScore??0)+'/100 · Qualité '+(quality.score||0)+'/5 · DPE '+(ms.dpe||0)+'% · vente '+(ms.saleAge||0)+'% · type/surface '+(ms.typeSurface||0)+'% · terrain '+(ms.terrain||0)+'% · proximité '+(ms.proximity||0)+'% · historique '+(ms.history||0)+'%</div><div class="commercial-signal-box '+(commercialScore>0?"has-signal":"no-signal")+'"><strong>Signal commercial public : '+commercialScore+'/100</strong><span>'+apiEsc(commercialLevel)+'</span>'+(commercialSignals.length?'<small>'+commercialSignals.map(x=>apiEsc(x.label)).join(" · ")+'</small>':'<small>Aucun signal public de mise en vente détecté. Ce candidat est uniquement à surveiller.</small>')+'</div></div></div><div class="future-score"><strong>'+opportunity+'/100</strong><small>'+apiEsc(surveillanceLabel)+'</small><em>Signal public : '+(p.commercialSignalScore??0)+'/100 · Marché : '+(p.marketContextScore??0)+'/100</em></div></article>';
+    return '<article class="future-candidate"><div class="future-candidate-main"><label class="future-check"><input type="checkbox" data-future-check="'+i+'" checked><span></span></label><div><strong>'+apiEsc(p.address||"Adresse non renseignée")+'</strong><div class="meta">'+apiEsc((p.postalCode?p.postalCode+" ":"")+(p.city||""))+" · "+apiEsc(futureRadarType(p.buildingType))+(p.area?" · "+p.area+" m²":"")+'</div><div class="future-reasons"><span class="dpe-match '+(dpeConfirmed?"confirmed":p.dpeAddressStatus==="uncertain"?"uncertain":"none")+'">'+apiEsc(dpeText)+'</span><span class="dpe-match '+(sale.status==="confirmed"?"confirmed":sale.status==="ambiguous"?"uncertain":"none")+'">'+apiEsc(saleText)+'</span><span>'+apiEsc(compText)+'</span><span>'+apiEsc(terrainText)+'</span></div><div class="future-reasons">'+reasons.map(x=>'<span>'+apiEsc(x)+'</span>').join("")+'</div><div class="meta"><strong>Potentiel de prospection</strong> '+opportunity+'/100 · '+apiEsc(opportunityLevel)+(opportunityReasons.length?' · '+apiEsc(opportunityReasons.slice(0,3).join(" · ")):"")+' · <strong>Priorité signal public</strong> '+(p.priorityScore??p.score??0)+'/100 · <strong>Contexte marché</strong> '+(p.marketContextScore??0)+'/100 · Qualité '+(quality.score||0)+'/5 · DPE '+(ms.dpe||0)+'% · vente '+(ms.saleAge||0)+'% · type/surface '+(ms.typeSurface||0)+'% · terrain '+(ms.terrain||0)+'% · proximité '+(ms.proximity||0)+'% · historique '+(ms.history||0)+'%</div><div class="commercial-signal-box '+(commercialScore>0?"has-signal":"no-signal")+'"><strong>Signal commercial public : '+commercialScore+'/100</strong><span>'+apiEsc(commercialLevel)+'</span>'+(commercialSignals.length?'<small>'+commercialSignals.map(x=>apiEsc(x.label)).join(" · ")+'</small>':'<small>Aucun signal public de mise en vente détecté. Ce candidat est uniquement à surveiller.</small>')+'</div><div class="future-candidate-actions"><button type="button" class="ghost" data-radar-prospect="'+i+'">＋ Ajouter à la surveillance</button></div></div></div><div class="future-score"><strong>'+opportunity+'/100</strong><small>'+apiEsc(surveillanceLabel)+'</small><em>Signal public : '+(p.commercialSignalScore??0)+'/100 · Marché : '+(p.marketContextScore??0)+'/100</em></div></article>';
   }).join("");
   add.disabled=false;
   if(toggle){toggle.disabled=false;toggle.setAttribute("aria-expanded","true");toggle.textContent="✕ Masquer les "+futureRadarCandidates.length+" biens détectés";box.hidden=false;}
@@ -336,6 +336,39 @@ async function runFutureRadar(){
     if($("futureRadarReady")) $("futureRadarReady").textContent="❌ Analyse interrompue";
   }finally{$("futureRadarBtn").disabled=false}
 }
+function radarFollowUpDate(days=7){
+  const d=new Date();
+  d.setDate(d.getDate()+days);
+  return d.toISOString().slice(0,10);
+}
+function radarProspectionApproach(p){
+  const grade=String(p?.dpe||"").toUpperCase();
+  const score=Number(p?.sellerOpportunityScore||0);
+  if(grade==="F"||grade==="G")return "Approche conseil : proposer un point sur la valeur du bien et les conséquences du DPE, sans supposer une intention de vente.";
+  if(Number(p?.marketContextScore||0)>=70)return "Approche marché local : proposer une lecture personnalisée de la valeur du bien et des ventes comparables.";
+  if(Number(p?.sameAddressSale?.ageYears||0)>=8)return "Approche patrimoniale : proposer une actualisation de la valeur du bien après plusieurs années depuis la dernière vente.";
+  if(score>=50)return "Approche découverte : proposer une estimation confidentielle et comprendre le projet à moyen terme.";
+  return "Approche douce : prise de contact informative, sans présenter le propriétaire comme vendeur.";
+}
+function addFutureRadarCandidate(index){
+  const p=futureRadarCandidates[Number(index)];
+  if(!p)return;
+  const incoming={
+    address:p.address||"",postalCode:p.postalCode||"",city:p.city||"",district:"",
+    type:futureRadarType(p.buildingType),area:num(p.area),land:num(p.terrainArea||p.latestSale?.landArea),
+    rooms:num(p.sameAddressSale?.latest?.rooms||p.latestSale?.rooms),bedrooms:0,price:0,dpe:p.dpe||"",
+    futureRadarScore:num(p.priorityScore??p.score),sellerOpportunityScore:num(p.sellerOpportunityScore),
+    sellerOpportunityLevel:p.sellerOpportunityLevel||"",marketContextScore:num(p.marketContextScore),
+    commercialSignalScore:num(p.commercialSignalScore),dataQuality:p.dataQuality||null,status:"Pas encore en vente",
+    detectionDate:today(),nextFollow:radarFollowUpDate(7),source:"Radar vendeur · ADEME + DVF",
+    externalId:p.id||"",sourceUrl:"https://data.ademe.fr/datasets/dpe03existant",
+    description:"Potentiel de prospection : "+num(p.sellerOpportunityScore)+"/100 · "+(p.sellerOpportunityLevel||"Surveillance")+".",
+    notes:"Pourquoi le Radar le remonte : "+(p.sellerOpportunityReasons||[]).join(" · ")+". Approche suggérée : "+radarProspectionApproach(p)
+  };
+  const result=mergeProspect(incoming);
+  save();
+  alert(result==="created"?"Bien ajouté à la surveillance. Relance proposée dans 7 jours.":"Ce bien est déjà dans le CRM : ses informations ont été fusionnées.");
+}
 function addFutureRadarCandidates(){
   const selected=[...document.querySelectorAll("[data-future-check]:checked")].map(x=>futureRadarCandidates[Number(x.dataset.futureCheck)]).filter(Boolean);
   let created=0,merged=0;
@@ -357,6 +390,10 @@ function addFutureRadarCandidates(){
 }
 $("futureRadarBtn").onclick=runFutureRadar;
 $("futureRadarAddAll").onclick=addFutureRadarCandidates;
+if($("futureRadarResults"))$("futureRadarResults").onclick=e=>{
+  const b=e.target.closest("[data-radar-prospect]");
+  if(b){addFutureRadarCandidate(b.dataset.radarProspect);}
+};
 let publicDpeResults=[],publicDvfResults=[];
 function apiEsc(v=""){return esc(v)}
 async function publicJson(url){let r;try{r=await fetch(url,{cache:"no-store"});}catch(e){throw new Error("Connexion au serveur JML impossible : "+(e.message||"fetch failed"))}let d;try{d=await r.json()}catch(e){throw new Error("Réponse serveur invalide (HTTP "+r.status+")")}if(!r.ok)throw new Error(d.error||("Erreur serveur HTTP "+r.status));return d}
