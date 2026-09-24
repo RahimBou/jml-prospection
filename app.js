@@ -366,11 +366,13 @@ function addFutureRadarCandidate(index){
     type:futureRadarType(p.buildingType),area:num(p.area),land:num(p.terrainArea||p.latestSale?.landArea),
     rooms:num(p.sameAddressSale?.latest?.rooms||p.latestSale?.rooms),bedrooms:0,price:0,dpe:p.dpe||"",
     futureRadarScore:num(p.priorityScore??p.score),sellerOpportunityScore:num(p.sellerOpportunityScore),
-    sellerOpportunityLevel:p.sellerOpportunityLevel||"",marketContextScore:num(p.marketContextScore),
+    sellerOpportunityLevel:p.sellerOpportunityLevel||"",sellerOpportunityAction:p.sellerOpportunityAction||"",
+    sellerOpportunityComponents:p.sellerOpportunityComponents||null,sellerOpportunityBonus:num(p.sellerOpportunityBonus),
+    marketContextScore:num(p.marketContextScore),
     commercialSignalScore:num(p.commercialSignalScore),dataQuality:p.dataQuality||null,status:"Pas encore en vente",
     detectionDate:today(),nextFollow:radarFollowUpDate(7),source:"Radar vendeur · ADEME + DVF",
     externalId:p.id||"",sourceUrl:"https://data.ademe.fr/datasets/dpe03existant",
-    description:"Potentiel de prospection : "+num(p.sellerOpportunityScore)+"/100 · "+(p.sellerOpportunityLevel||"Surveillance")+".",
+    description:"Potentiel de prospection : "+num(p.sellerOpportunityScore)+"/100 · "+(p.sellerOpportunityLevel||"Surveillance")+" · "+(p.sellerOpportunityAction||"Surveillance faible")+"." ,
     notes:"Pourquoi le Radar le remonte : "+(p.sellerOpportunityReasons||[]).join(" · ")+". Approche suggérée : "+radarProspectionApproach(p)
   };
   const result=mergeProspect(incoming);
