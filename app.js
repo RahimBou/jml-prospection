@@ -264,7 +264,8 @@ function futureRadarRender(){
     ].join(" · ");
     const actionLabel=p.sellerOpportunityAction||"⚪ Surveillance faible";
     const surveillanceLabel=commercialScore>0?(p.priorityLevel||"Priorité prospection"):"Potentiel de prospection · "+opportunityLevel.toLowerCase();
-    const workPriority=Number(p.priorityProspectionScore??0);\n    const workPriorityDisplay=Number.isFinite(workPriority)?workPriority.toFixed(1):"0.0";
+    const workPriority=Number(p.priorityProspectionScore??0);
+    const workPriorityDisplay=Number.isFinite(workPriority)?workPriority.toFixed(1):"0.0";
     const workPriorityLevel=p.priorityProspectionLevel||"Priorité non calculée";
     const workPriorityAction=p.priorityProspectionAction||"🗺️ Compléter le dossier";
     const workPriorityReasons=Array.isArray(p.priorityProspectionReasons)?p.priorityProspectionReasons:[];
