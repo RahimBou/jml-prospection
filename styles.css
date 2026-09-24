@@ -147,3 +147,18 @@ body{background:linear-gradient(180deg,#f3efe8 0,#f7f5f1 42%,#f5f2ec 100%)}
 #prospectsPanel .cards{align-items:start}
 #prospectsPanel .card{min-height:0}
 @media(max-width:600px){.prospects-toolbar{align-items:flex-start;flex-direction:column}.prospect-pagination{flex-wrap:wrap}}
+
+/* V1.22.2 — panneaux repliables pour garder un écran de travail propre */
+.panel-title-actions,.dashboard-head-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.collapsible-body{padding-top:4px}
+.search-panel .panel-title{margin-bottom:0}
+.search-panel .panel-title-actions button{white-space:nowrap}
+.dashboard-head-actions{margin-left:auto}
+.dashboard-toggle{white-space:nowrap}
+.dashboard-collapsible{padding-top:4px}
+#advancedSearchBody[hidden],.dashboard-collapsible[hidden]{display:none!important}
+@media(max-width:650px){
+ .panel-title-actions,.dashboard-head-actions{width:100%;justify-content:flex-end}
+ .search-panel .panel-title-actions{margin-top:8px}
+ .dashboard-head-actions{margin-top:6px}
+}
