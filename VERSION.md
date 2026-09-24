@@ -238,3 +238,9 @@ Toute modification fonctionnelle doit :
 - Navigation rapide et hiérarchie orientée prospection.
 - Radar et Prospects mis au premier plan ; modules techniques déplacés après le workflow commercial.
 - Responsive tablette/mobile renforcé.
+
+
+## V1.22.1
+- Pagination des prospects : 8 par page par défaut, choix 12/20.
+- Filtres et actions réinitialisent la pagination pour éviter les pages vides.
+- Aucun changement au moteur DVF/DPE, scoring ou CRM.
