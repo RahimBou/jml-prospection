@@ -1,3 +1,8 @@
+## V1.26.1
+- Radar multi-secteurs : mode DVF local accéléré pour réduire fortement le temps de chaque lot.
+- Limitation DVF dédiée au mode zone pour éviter les 502 Render.
+- Version/cache frontend alignés.
+
 ## V1.26.0 — Radar progressif anti-502
 - L'analyse multi-secteurs est maintenant découpée en lots de communes.
 - Le navigateur enchaîne automatiquement les lots au lieu d'attendre une seule requête géante.
