@@ -1,4 +1,12 @@
-# JML Prospection — V1.21.1
+# JML Prospection — V1.21.2
+
+## V1.21.2 — sources publiques renforcées
+- Recherche commune/adresse différenciée.
+- Rapprochement DVF ciblé sur l'adresse saisie lorsque possible.
+- Résultats DPE/DVF enrichis et volumes affichés plus utiles.
+- Mention claire du mode de recherche et du secours open-data.
+
+
 
 ## V1.21.1 — correction JavaScript du dashboard
 - Correction d'une erreur de syntaxe qui empêchait le chargement de l'interface interactive après V1.21.0.
