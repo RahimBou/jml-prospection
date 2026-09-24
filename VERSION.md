@@ -1,3 +1,8 @@
+## V1.27.0
+- Ajout du « potentiel de prospection » pour distinguer l'intérêt commercial d'un simple signal public.
+- Les biens sans signal commercial restent des biens à surveiller, sans être présentés comme des vendeurs.
+- Classement secondaire par potentiel vendeur pour mieux différencier les candidats.
+
 ## V1.26.1
 - Radar multi-secteurs : mode DVF local accéléré pour réduire fortement le temps de chaque lot.
 - Limitation DVF dédiée au mode zone pour éviter les 502 Render.
