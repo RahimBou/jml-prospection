@@ -662,13 +662,13 @@ async function getDepartmentCommunes(department="08"){
   if(communeGeoCache.has(dept))return communeGeoCache.get(dept);
   const u=new URL("https://geo.api.gouv.fr/communes");
   u.searchParams.set("codeDepartement",dept);
-  u.searchParams.set("fields","nom,code,codesPostaux,codeDepartement,centre");
+  u.searchParams.set("fields","nom,code,codesPostaux,codeDepartement,centre,population");
   u.searchParams.set("format","json");
   u.searchParams.set("geometry","centre");
   const data=await jsonFetch(u);
   const rows=(Array.isArray(data)?data:[]).map(x=>{
     const c=x?.centre?.coordinates||[];
-    return {city:x?.nom||"",cityCode:x?.code||"",postalCode:Array.isArray(x?.codesPostaux)?x.codesPostaux[0]||"": "",department:x?.codeDepartement||dept,point:(Number.isFinite(Number(c[0]))&&Number.isFinite(Number(c[1])))?{kind:"lonlat",x:Number(c[0]),y:Number(c[1])}:null};
+    return {city:x?.nom||"",cityCode:x?.code||"",postalCode:Array.isArray(x?.codesPostaux)?x.codesPostaux[0]||"": "",department:x?.codeDepartement||dept,population:Number(x?.population)||0,point:(Number.isFinite(Number(c[0]))&&Number.isFinite(Number(c[1])))?{kind:"lonlat",x:Number(c[0]),y:Number(c[1])}:null};
   }).filter(x=>x.cityCode);
   communeGeoCache.set(dept,rows);
   if(communeGeoCache.size>10)communeGeoCache.delete(communeGeoCache.keys().next().value);
@@ -1242,6 +1242,17 @@ async function api(pathname,url){
     const data=await jsonFetch(u);
     const rows=Array.isArray(data?.results)?data.results:Array.isArray(data?.data)?data.data:[];
     return {source:"ADEME",total:Number(data?.total)||rows.length,results:rows.map(normalizeDpe),rawCount:rows.length};
+  }
+  if(pathname==="/api/territory"){
+    const department=String(url.searchParams.get("department")||"08").trim();
+    const communes=await getDepartmentCommunes(department);
+    const cities=communes.slice().sort((a,b)=>(b.population-a.population)||a.city.localeCompare(b.city,"fr"));
+    return {
+      department,
+      label:department==="08"?"Ardennes":"Département "+department,
+      communeCount:cities.length,
+      communes:cities.map(x=>({city:x.city,cityCode:x.cityCode,postalCode:x.postalCode,population:x.population,point:x.point}))
+    };
   }
   if(pathname==="/api/radar-zone"){
     let sectors=[];
