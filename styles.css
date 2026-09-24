@@ -135,3 +135,15 @@ body{background:linear-gradient(180deg,#f3efe8 0,#f7f5f1 42%,#f5f2ec 100%)}
 .container>#privateProspectPanel{order:10}
 .container>#dataAgentPanel{order:11}
 .container>#statsLab{order:12}
+
+/* V1.22.1 — pagination et densité maîtrisée des prospects */
+.prospects-toolbar{display:flex;justify-content:space-between;align-items:center;gap:10px;margin:-3px 0 10px;padding:8px 10px;background:#faf8f4;border:1px solid var(--line);border-radius:9px;color:var(--muted);font-size:11px}
+.page-size-label{display:flex;align-items:center;gap:6px;margin:0;font-size:11px}
+.page-size-label select{width:auto;padding:6px 8px;border:1px solid var(--line);border-radius:7px;background:#fff;color:var(--ink)}
+.prospect-pagination{display:flex;justify-content:center;align-items:center;gap:5px;margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}
+.prospect-pagination button{min-width:34px;padding:7px 9px}
+.prospect-pagination button.active{background:#f7efe0;border-color:#d8bd86;color:#76551d;font-weight:800}
+.prospect-pagination button:disabled{opacity:.4;cursor:not-allowed}
+#prospectsPanel .cards{align-items:start}
+#prospectsPanel .card{min-height:0}
+@media(max-width:600px){.prospects-toolbar{align-items:flex-start;flex-direction:column}.prospect-pagination{flex-wrap:wrap}}
