@@ -1,3 +1,10 @@
+## V1.26.0 — Radar progressif anti-502
+- L'analyse multi-secteurs est maintenant découpée en lots de communes.
+- Le navigateur enchaîne automatiquement les lots au lieu d'attendre une seule requête géante.
+- Les résultats apparaissent progressivement et sont fusionnés/dédoublonnés côté interface.
+- Les timeouts HTTP Node sont adaptés à Render.
+- Une interruption conserve les résultats partiels déjà obtenus.
+
 ## V1.25.1 — Affichage Radar corrigé
 - Les biens détectés par l'analyse multi-secteurs s'affichent automatiquement à la fin de l'analyse.
 - Le bouton permet ensuite de masquer/réafficher les résultats.
