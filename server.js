@@ -1349,6 +1349,8 @@ async function api(pathname,url){
     const years=Number(url.searchParams.get("years"))||5;
     const yearMin=String(Math.max(2021,DVF_GEO_LATEST_YEAR-years+1));
     const yearMax=String(DVF_GEO_LATEST_YEAR);
+    const zoneMode=url.searchParams.get("zoneMode")==="1";
+    const dvfMaxRows=Math.max(500,Math.min(10000,Number(url.searchParams.get("dvfMaxRows"))||(zoneMode?2500:10000)));
     const dpeUrl=new URL(DPE_URL);
     dpeUrl.searchParams.set("code_insee_ban_eq",codeInsee);
     dpeUrl.searchParams.set("size",String(Math.min(100,limit)));
@@ -1356,10 +1358,14 @@ async function api(pathname,url){
       jsonFetch(dpeUrl),
       (async()=>{
         try{
-          const rows=await fetchDvfPaginated(DVF_URL,{codeInsee,yearMin,yearMax,maxRows:10000});
-          return {source:"DVF+ Cerema · pagination jusqu'à 10 000",rows:rows.map(normalizeDvf)};
+          if(zoneMode){
+            const localRows=await dvfLocalOpenData({codeInsee,yearMin,yearMax,limit:dvfMaxRows});
+            if(localRows)return {source:"DVF Ardennes local · zone rapide",fallback:true,rows:localRows.map(normalizeDvf)};
+          }
+          const rows=await fetchDvfPaginated(DVF_URL,{codeInsee,yearMin,yearMax,maxRows:dvfMaxRows});
+          return {source:"DVF+ Cerema · pagination",rows:rows.map(normalizeDvf)};
         }catch(e){
-          const rows=await dvfGeoOpenData({codeInsee,yearMin,yearMax,limit:10000});
+          const rows=await dvfGeoOpenData({codeInsee,yearMin,yearMax,limit:dvfMaxRows});
           return {source:"DVF open-data · data.gouv.fr",fallback:true,rows:rows.map(x=>({mutationId:first(x,["id_mutation"]),date:first(x,["date_mutation"]),year:(first(x,["date_mutation"])||"").slice(0,4),natureMutation:first(x,["nature_mutation","libnatmut"]),value:Number(first(x,["valeur_fonciere"]))||0,typeCode:first(x,["code_type_local"]),type:first(x,["type_local"]),builtArea:Number(first(x,["surface_reelle_bati"]))||0,landArea:Number(first(x,["surface_terrain"]))||0,cityCode:first(x,["code_commune"]),department:first(x,["code_departement"]),address:[first(x,["adresse_numero"]),first(x,["adresse_nom_voie"])].filter(Boolean).join(" "),
             addressNumber:first(x,["adresse_numero"]),
             street:first(x,["adresse_nom_voie"]),
