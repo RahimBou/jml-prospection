@@ -824,9 +824,10 @@ function radarSellerOpportunity(p,parts){
 
   let level="Surveillance";
   let action="⚪ Surveillance faible";
-  if(score>=70){level="Potentiel élevé";action="📞 À contacter en priorité";}
-  else if(score>=50){level="Potentiel intéressant";action="👀 À surveiller";}
-  else if(score>=30){level="Potentiel à étudier";action="🗺️ Couverture territoriale";}
+  if(score>=85){level="Potentiel très élevé";action="🔥 Priorité terrain";}
+  else if(score>=75){level="Potentiel élevé";action="📞 À contacter en priorité";}
+  else if(score>=60){level="Potentiel intéressant";action="👀 À surveiller activement";}
+  else if(score>=40){level="Potentiel à étudier";action="🗺️ Couverture territoriale";}
 
   return {
     score,level,action,reasons:reasons.slice(0,5),
