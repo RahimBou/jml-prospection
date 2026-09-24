@@ -782,16 +782,31 @@ function radarDpeFreshnessScore(p){
   return 2;
 }
 function radarSellerOpportunity(p,parts){
-  const saleAge=Number(parts?.saleAgeScore)||0;
-  const dpe=radarDpeOpportunityScore(p);
-  const dpeFresh=radarDpeFreshnessScore(p);
-  const comparable=Number(parts?.proximityScore)||0;
-  const typeSurface=Number(parts?.typeSurfaceScore)||0;
-  const history=Math.min(5,Math.max(0,Number(parts?.historyScore)||0)/3);
-  const terrain=Math.min(5,Math.max(0,Number(parts?.terrainScore)||0));
-  const quality=Math.min(10,Math.max(0,Number(parts?.dataScore)||0)*2/3);
-  const raw=saleAge + dpe + dpeFresh + comparable + typeSurface + history + terrain + quality;
-  const score=Math.min(100,Math.round(raw*(100/90)));
+  const saleAge=Math.max(0,Math.min(15,Number(parts?.saleAgeScore)||0));
+  const typeSurface=Math.max(0,Math.min(15,Number(parts?.typeSurfaceScore)||0));
+  const terrain=Math.max(0,Math.min(5,Number(parts?.terrainScore)||0));
+  const dpe=Math.max(0,Math.min(20,radarDpeOpportunityScore(p)));
+  const dpeFresh=Math.max(0,Math.min(10,radarDpeFreshnessScore(p)));
+  const proximity=Math.max(0,Math.min(15,Number(parts?.proximityScore)||0));
+  const history=Math.max(0,Math.min(15,Number(parts?.historyScore)||0));
+  const data=Math.max(0,Math.min(15,Number(parts?.dataScore)||0));
+
+  // 4 familles : 30 + 20 + 25 + 25 = 100.
+  const patrimonial=Math.round((saleAge+typeSurface+terrain));
+  const renovation=Math.round(dpe);
+  const market=Math.round((proximity+history)*(25/30));
+  const quality=Math.round(Math.min(25,data+dpeFresh));
+
+  // Bonus volontairement limité : il récompense les convergences sans laisser
+  // un seul signal (notamment le DPE) dominer le classement.
+  let bonus=0;
+  if(dpe>=11 && saleAge>=8)bonus+=2;
+  if(proximity>=8 && data>=9)bonus+=2;
+  if(typeSurface>=8 && proximity>=8)bonus+=1;
+  bonus=Math.min(5,bonus);
+
+  const raw=patrimonial+renovation+market+quality+bonus;
+  const score=Math.min(100,Math.round(raw));
   const reasons=[];
   const grade=String(p?.dpe||"").toUpperCase();
   if(grade==="G")reasons.push("DPE G · forte opportunité de rénovation");
@@ -800,18 +815,29 @@ function radarSellerOpportunity(p,parts){
   if(dpeFresh>=8)reasons.push("DPE récent");
   if(saleAge>=12)reasons.push("Dernière vente ancienne");
   else if(saleAge>=8)reasons.push("Dernière vente déjà ancienne");
-  if(comparable>=10)reasons.push("Marché comparable bien documenté");
-  else if(comparable>=5)reasons.push("Comparables locaux disponibles");
+  if(proximity>=10)reasons.push("Marché comparable bien documenté");
+  else if(proximity>=5)reasons.push("Comparables locaux disponibles");
   if(typeSurface>=10)reasons.push("Type et surface bien comparables");
   else if(typeSurface>=5)reasons.push("Type/surface cohérents");
   if(history>=4)reasons.push("Historique DVF récurrent");
-  if(terrain>=3)reasons.push("Terrain significatif documenté");
   if(quality>=7)reasons.push("Données fiables et complètes");
+
   let level="Surveillance";
-  if(score>=70)level="Potentiel élevé";
-  else if(score>=50)level="Potentiel intéressant";
-  else if(score>=30)level="Potentiel à étudier";
-  return {score,level,reasons:reasons.slice(0,5)};
+  let action="⚪ Surveillance faible";
+  if(score>=70){level="Potentiel élevé";action="📞 À contacter en priorité";}
+  else if(score>=50){level="Potentiel intéressant";action="👀 À surveiller";}
+  else if(score>=30){level="Potentiel à étudier";action="🗺️ Couverture territoriale";}
+
+  return {
+    score,level,action,reasons:reasons.slice(0,5),
+    components:{
+      patrimonial:{score:patrimonial,max:30},
+      renovation:{score:renovation,max:20},
+      market:{score:market,max:25},
+      quality:{score:quality,max:25}
+    },
+    bonus
+  };
 }
 function radarSellerOpportunityScore(p,parts){
   return radarSellerOpportunity(p,parts).score;
@@ -1566,7 +1592,7 @@ async function api(pathname,url){
         comparableDispersion:comparable.dispersion,comparableMedianDistance:comparable.medianDistance,
         comparableRecentCount:comparable.recentCount,comparables:comparable.items,
         bestComparable,
-        score,priorityScore,priorityLevel,sellerOpportunityScore,sellerOpportunityLevel:sellerOpportunity.level,sellerOpportunityReasons:sellerOpportunity.reasons,marketContextScore,commercialSignalScore,commercialSignalLevel,commercialSignals:commercialSignals.signals,
+        score,priorityScore,priorityLevel,sellerOpportunityScore,sellerOpportunityLevel:sellerOpportunity.level,sellerOpportunityAction:sellerOpportunity.action,sellerOpportunityReasons:sellerOpportunity.reasons,sellerOpportunityComponents:sellerOpportunity.components,sellerOpportunityBonus:sellerOpportunity.bonus,marketContextScore,commercialSignalScore,commercialSignalLevel,commercialSignals:commercialSignals.signals,
         evidence:{
           commercialSignal:{score:commercialSignalScore,level:commercialSignalLevel,signals:commercialSignals.signals},
           dataQuality:{level:quality.level,label:quality.label,score:quality.score},
