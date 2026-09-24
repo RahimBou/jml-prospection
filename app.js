@@ -255,6 +255,9 @@ function renderPublicDvf(rows){
     return '<article class="source-result"><div><strong>'+apiEsc(p.date||"Date inconnue")+'</strong><span>'+apiEsc(types)+'</span></div><div class="source-result-details">'+(p.value?p.value.toLocaleString("fr-FR")+" € · ":"")+areas+(areas&&lands?" · ":"")+lands+rooms+apiEsc(grouped)+'</div><div class="meta">'+(p.address?apiEsc(p.address)+" · ":"")+"Source : "+apiEsc(p.source||"DVF open-data")+" · "+apiEsc(p.cityCode||"")+'</div></article>';
   }).join(""):'<div class="meta">Aucune transaction trouvée.</div>';
 }
+function publicSourceQueryMode(q){
+  return /\\d/.test(String(q||"")) ? "adresse" : "commune";
+}
 async function searchPublicSources(){
   const q=$("publicQuery").value.trim();
   if(!q){$("publicStatus").textContent="Indique une commune ou une adresse.";return}
