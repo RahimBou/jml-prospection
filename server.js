@@ -764,6 +764,36 @@ function radarHistoryScore(count){
   return 0;
 }
 
+function radarDpeOpportunityScore(p){
+  const grade=String(p?.dpe||"").toUpperCase();
+  if(grade==="G")return 15;
+  if(grade==="F")return 14;
+  if(grade==="E")return 11;
+  if(grade==="D")return 6;
+  return 0;
+}
+function radarDpeFreshnessScore(p){
+  const age=Number(p?.dpeAgeYears);
+  if(!Number.isFinite(age))return 0;
+  if(age<=1)return 10;
+  if(age<=3)return 8;
+  if(age<=5)return 5;
+  return 2;
+}
+function radarSellerOpportunityScore(p,parts){
+  const saleAge=Number(parts?.saleAgeScore)||0;
+  const dpe=radarDpeOpportunityScore(p);
+  const dpeFresh=radarDpeFreshnessScore(p);
+  const comparable=Number(parts?.proximityScore)||0;
+  const typeSurface=Number(parts?.typeSurfaceScore)||0;
+  const history=Math.min(5,Math.max(0,Number(parts?.historyScore)||0)/3);
+  const terrain=Math.min(5,Math.max(0,Number(parts?.terrainScore)||0));
+  const quality=Math.min(10,Math.max(0,Number(parts?.dataScore)||0)*2/3);
+  return Math.min(100,Math.round(
+    saleAge + dpe + dpeFresh + comparable + typeSurface + history + terrain + quality
+  ));
+}
+
 function radarCommercialSignal(p){
   // Seuls des signaux explicitement documentés par une source publique donnent des points.
   // DPE, DVF, consommations ou informations privées ne créent jamais une intention de vente.
@@ -1332,7 +1362,11 @@ async function api(pathname,url){
         }
       }
     }
-    const results=Array.from(candidatesByKey.values()).sort((a,b)=>(b.priorityScore-a.priorityScore)||(b.marketContextScore-a.marketContextScore)).slice(0,cleanLimit(url.searchParams.get("limit"),100));
+    const results=Array.from(candidatesByKey.values()).sort((a,b)=>
+      (b.priorityScore-a.priorityScore)||
+      (b.sellerOpportunityScore-a.sellerOpportunityScore)||
+      (b.marketContextScore-a.marketContextScore)
+    ).slice(0,cleanLimit(url.searchParams.get("limit"),100));
     const sectorSummary=sectorPlans.map(sector=>{
       const sectorCandidates=results.filter(x=>(x.sectorIds||[]).includes(sector.id));
       const communeCount=codes.filter(code=>(communeMembership.get(code)||[]).some(x=>x.sectorId===sector.id)).length;
@@ -1455,6 +1489,9 @@ async function api(pathname,url){
       // Le score principal devient une priorité de prospection : 70 % signal public + 30 % contexte marché.
       // Sans signal commercial public, le bien reste une cible de surveillance.
       const priorityScore=Math.round(commercialSignalScore*0.70+marketContextScore*0.30);
+      const sellerOpportunityScore=radarSellerOpportunityScore(p,{
+        saleAgeScore,typeSurfaceScore:typeSurface.score,terrainScore,proximityScore,historyScore,dataScore
+      });
       const priorityLevel=radarPriorityLevel(commercialSignalScore);
       const score=priorityScore;
       const methodScores={
@@ -1505,7 +1542,7 @@ async function api(pathname,url){
         comparableDispersion:comparable.dispersion,comparableMedianDistance:comparable.medianDistance,
         comparableRecentCount:comparable.recentCount,comparables:comparable.items,
         bestComparable,
-        score,priorityScore,priorityLevel,marketContextScore,commercialSignalScore,commercialSignalLevel,commercialSignals:commercialSignals.signals,
+        score,priorityScore,priorityLevel,sellerOpportunityScore,marketContextScore,commercialSignalScore,commercialSignalLevel,commercialSignals:commercialSignals.signals,
         evidence:{
           commercialSignal:{score:commercialSignalScore,level:commercialSignalLevel,signals:commercialSignals.signals},
           dataQuality:{level:quality.level,label:quality.label,score:quality.score},
