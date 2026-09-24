@@ -1,4 +1,13 @@
-# JML Prospection — V1.21.1
+# JML Prospection — V1.21.2
+
+## V1.21.2 — sources publiques renforcées
+- Recherche intelligente : distingue une **commune** d'une **adresse**.
+- Une adresse saisie interroge l'ADEME avec la requête d'adresse et filtre les mutations DVF sur la même adresse lorsque possible.
+- Résultats enrichis : date/type DPE, adresse/pièces DVF, volume de résultats plus utile.
+- Affichage explicite du mode de recherche et du recours éventuel au secours DVF open-data.
+- Aucun changement aux règles de prospection, au CRM ou au moteur de signaux.
+
+
 
 ## V1.21.1 — correction JavaScript du dashboard
 - Correction d'une erreur de syntaxe introduite dans le nouveau tableau de bord terrain.
