@@ -794,8 +794,53 @@ function radarTerrainScore(saleHistory){
   if(area>0)return 1;
   return 0;
 }
+function groupPublicDvfRows(rows){
+  const groups=new Map();
+  for(const row of rows||[]){
+    const mutation=String(row?.mutationId||"").trim();
+    const address=norm(row?.address||"");
+    const value=Number(row?.value)||0;
+    const date=String(row?.date||"");
+    const key=mutation
+      ? "mutation|"+mutation+"|"+address
+      : "fallback|"+date+"|"+address+"|"+value;
+    if(!groups.has(key)){
+      groups.set(key,{
+        ...row,
+        groupedCount:1,
+        groupedTypes:[],
+        groupedBuiltAreas:[],
+        groupedLandAreas:[],
+        groupedRooms:[]
+      });
+    }else{
+      const g=groups.get(key);
+      g.groupedCount++;
+      if(!g.value&&value)g.value=value;
+      if(!g.address&&row.address)g.address=row.address;
+      if(!g.postalCode&&row.postalCode)g.postalCode=row.postalCode;
+      if(!g.cityCode&&row.cityCode)g.cityCode=row.cityCode;
+      if((Number(row.builtArea)||0)>(Number(g.builtArea)||0))g.builtArea=Number(row.builtArea)||0;
+      if((Number(row.landArea)||0)>(Number(g.landArea)||0))g.landArea=Number(row.landArea)||0;
+      if((Number(row.rooms)||0)>(Number(g.rooms)||0))g.rooms=Number(row.rooms)||0;
+    }
+    const g=groups.get(key);
+    for(const [field,target] of [["type","groupedTypes"],["builtArea","groupedBuiltAreas"],["landArea","groupedLandAreas"],["rooms","groupedRooms"]]){
+      const value=field==="type"?String(row?.[field]||"").trim():Number(row?.[field])||0;
+      if(value && !g[target].includes(value))g[target].push(value);
+    }
+  }
+  return Array.from(groups.values()).map(g=>({
+    ...g,
+    groupedTypes:g.groupedTypes.slice(0,8),
+    groupedBuiltAreas:g.groupedBuiltAreas.filter(Number.isFinite).sort((a,b)=>a-b).slice(0,8),
+    groupedLandAreas:g.groupedLandAreas.filter(Number.isFinite).sort((a,b)=>a-b).slice(0,8),
+    groupedRooms:g.groupedRooms.filter(Number.isFinite).sort((a,b)=>a-b).slice(0,8)
+  }));
+}
+
 async function api(pathname,url){
-  if(pathname==="/api/health") return {ok:true,sources:{dpe:"ADEME",dvf:"DVF+ Cerema",geocoding:"Géoplateforme",chercherTrouver:"ChercherTrouver.immo"},server:"jml-prospection",version:"1.21.2"};
+  if(pathname==="/api/health") return {ok:true,sources:{dpe:"ADEME",dvf:"DVF+ Cerema",geocoding:"Géoplateforme",chercherTrouver:"ChercherTrouver.immo"},server:"jml-prospection",version:"1.21.3"};
   if(pathname==="/api/integrations-health"){
     const ct=await fetchChercherTrouverPing();
     return {ok:ct.ok===true,checkedAt:new Date().toISOString(),chercherTrouver:ct};
@@ -1435,7 +1480,8 @@ async function api(pathname,url){
       const rows=Array.isArray(data?.results)?data.results:Array.isArray(data?.data)?data.data:Array.isArray(data)?data:[];
       const normalized=rows.map(normalizeDvf);
       const filtered=filterAddressRows(normalized);
-      return {source:"DVF+ Cerema",codeInsee,total:Number(data?.count??data?.total)||rows.length,results:filtered,rawCount:rows.length,filteredCount:filtered.length,addressFilter:Boolean(addressNeedle)};
+      const grouped=groupPublicDvfRows(filtered);
+      return {source:"DVF+ Cerema",codeInsee,total:Number(data?.count??data?.total)||rows.length,results:grouped,rawCount:rows.length,filteredCount:filtered.length,groupedCount:grouped.length,addressFilter:Boolean(addressNeedle)};
     }catch(ceremaError){
       const rows=await dvfGeoOpenData({codeInsee,yearMin,yearMax,limit});
       const normalized=rows.map(x=>({
@@ -1457,7 +1503,8 @@ async function api(pathname,url){
         source:"DVF open-data · data.gouv.fr"
       }));
       const filtered=filterAddressRows(normalized);
-      return {source:"DVF Ardennes / open-data",codeInsee,total:normalized.length,results:filtered,rawCount:normalized.length,filteredCount:filtered.length,fallback:true,addressFilter:Boolean(addressNeedle),primaryError:ceremaError.message};
+      const grouped=groupPublicDvfRows(filtered);
+      return {source:"DVF Ardennes / open-data",codeInsee,total:normalized.length,results:grouped,rawCount:normalized.length,filteredCount:filtered.length,groupedCount:grouped.length,fallback:true,addressFilter:Boolean(addressNeedle),primaryError:ceremaError.message};
     }
   }
   throw new Error("Route API inconnue");
