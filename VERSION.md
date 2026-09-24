@@ -1,3 +1,13 @@
+# JML Prospection — V1.34.0
+
+## V1.34.0 — Radar par lots de 10
+- Le Radar affiche désormais **10 biens à la fois**.
+- Navigation **10 précédents / 10 suivants**.
+- Sélection limitée à **10 biens maximum**.
+- Boutons **Sélectionner les 10** et **Désélectionner**.
+- L'impression travaille sur la sélection des 10 biens.
+- Les biens détectés restent tous conservés dans le résultat : seule l'affichage et la sélection sont organisés par lots.
+
 # JML Prospection — V1.33.0
 
 ## V1.33.0 — fiche imprimable Radar
