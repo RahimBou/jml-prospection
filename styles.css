@@ -126,3 +126,12 @@ body{background:linear-gradient(180deg,#f3efe8 0,#f7f5f1 42%,#f5f2ec 100%)}
   .stats article{padding:14px}
   .workspace-nav a{font-size:11px;padding:6px 8px}
 }
+
+
+/* V1.22.0 — connecteur technique rangé avec les sources, pas au-dessus du dashboard */
+.container>.integrations-panel{order:7}
+.container>#publicSourcesPanel{order:8}
+.container>#ctAnnoncesPanel{order:9}
+.container>#privateProspectPanel{order:10}
+.container>#dataAgentPanel{order:11}
+.container>#statsLab{order:12}
