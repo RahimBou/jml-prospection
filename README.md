@@ -229,3 +229,11 @@ Le score est un **indice de surveillance** et non une probabilité de vente. Cha
 - « Recherche avancée » est repliable et fermée par défaut.
 - Les filtres restent actifs lorsqu'ils sont masqués.
 - Aucun changement au moteur DVF/DPE, au scoring ou au CRM.
+
+
+## V1.22.3 — analyse commune centralisée
+- Le Radar possède maintenant son propre champ « Commune à analyser ».
+- La commune est vérifiée avant analyse et peut être validée en appuyant sur Entrée.
+- Un lancement « Analyser la commune » synchronise automatiquement la recherche publique ADEME/DVF et le Radar.
+- Le champ public historique reste synchronisé pour conserver les outils existants.
+- En cas d'échec des sources publiques, le Radar peut conserver son résultat propre.
