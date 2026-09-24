@@ -1,4 +1,4 @@
-const APP_VERSION="1.22.3";
+const APP_VERSION="1.22.5";
 const KEY="jml_prospection_v1";let prospects=load(),pendingImport=[];let prospectPage=1;let prospectTotalPages=1;const DEFAULT_PROSPECT_PAGE_SIZE=8;const $=id=>document.getElementById(id);
 function load(){try{const x=JSON.parse(localStorage.getItem(KEY)||"[]");return Array.isArray(x)?x:[]}catch(e){return[]}}
 function save(){localStorage.setItem(KEY,JSON.stringify(prospects));render();if(typeof statsSync==="function")statsSync()}
@@ -57,7 +57,13 @@ function inRange(value,min,max){if(min!==""&&value<num(min))return false;if(max!
 function isRadarSurveillance(p){
  const source=String(p?.source||"").toLowerCase();
  const status=String(p?.status||"");
- return source.includes("radar surveillance") || (status==="Pas encore en vente" && Number(p?.commercialSignalScore||0)<=0 && Number.isFinite(Number(p?.futureRadarScore)));
+ const description=String(p?.description||"").toLowerCase();
+ const notes=String(p?.notes||"").toLowerCase();
+ const radarSource=source.includes("radar surveillance")||source.includes("radar futur");
+ const radarText=description.includes("cible de surveillance")||description.includes("aucun signal commercial public")||notes.includes("cible de surveillance");
+ const radarScore=Number(p?.futureRadarScore);
+ const commercialScore=Number(p?.commercialSignalScore||0);
+ return radarSource || (status==="Pas encore en vente" && commercialScore<=0 && Number.isFinite(radarScore) && (radarText||source.includes("ademe")||source.includes("dvf")));
 }
 function isCommercialProspect(p){return !isRadarSurveillance(p)}
 function dashboardTerrain(){
