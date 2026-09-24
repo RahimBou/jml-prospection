@@ -1,3 +1,8 @@
+## V1.25.0 — Territoire Ardennes
+- Le Radar considère désormais **tout le département des Ardennes comme territoire maître**.
+- Les secteurs sont dynamiques : n'importe quelle commune du 08 peut être ajoutée comme zone avec un rayon.
+- Cette version prépare le scan territorial complet sans imposer une analyse massive et lente à chaque clic.
+
 ## V1.24.0 — Radar multi-secteurs
 - Nouvelle zone de prospection multi-villes : Charleville-Mézières, Sedan et Revin peuvent être analysées ensemble.
 - Rayon configurable par secteur ; valeurs par défaut 20 / 15 / 15 km.
