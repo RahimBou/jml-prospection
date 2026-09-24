@@ -263,3 +263,18 @@ body{background:linear-gradient(180deg,#f3efe8 0,#f7f5f1 42%,#f5f2ec 100%)}
   #prospectsPanel .prospects-panel-actions{width:100%;margin-left:0}
   #prospectsPanel .details{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
+
+/* V1.24.0 — Radar multi-secteurs */
+.radar-zone-config{margin:14px 0 10px;padding:16px;border:1px solid var(--line,#d9ded9);border-radius:16px;background:linear-gradient(180deg,#fff,#f7f9f7)}
+.radar-zone-heading{display:flex;justify-content:space-between;gap:12px;align-items:baseline;margin-bottom:10px}
+.radar-zone-heading span,.radar-zone-note{font-size:.82rem;color:var(--muted,#68736d)}
+.radar-sector-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.radar-sector-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 13px;border:1px solid var(--line,#d9ded9);border-radius:12px;background:#fff;cursor:pointer}
+.radar-sector-row:hover{border-color:#aeb9b0}
+.radar-sector-check{display:flex;align-items:center;gap:9px;min-width:0}
+.radar-sector-check strong{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.radar-sector-row input{accent-color:#1d5b42}
+.radar-sector-row select{min-width:78px;padding:7px 8px;border-radius:8px}
+.radar-zone-note{margin-top:10px}
+.radar-single-query{opacity:.88}
+@media(max-width:900px){.radar-sector-grid{grid-template-columns:1fr}.radar-zone-heading{display:block}.radar-zone-heading span{display:block;margin-top:3px}}
