@@ -1,4 +1,4 @@
-const APP_VERSION="1.21.1";
+const APP_VERSION="1.21.3";
 const KEY="jml_prospection_v1";let prospects=load(),pendingImport=[];const $=id=>document.getElementById(id);
 function load(){try{const x=JSON.parse(localStorage.getItem(KEY)||"[]");return Array.isArray(x)?x:[]}catch(e){return[]}}
 function save(){localStorage.setItem(KEY,JSON.stringify(prospects));render();if(typeof statsSync==="function")statsSync()}
@@ -184,22 +184,76 @@ $("futureRadarAddAll").onclick=addFutureRadarCandidates;
 let publicDpeResults=[],publicDvfResults=[];
 function apiEsc(v=""){return esc(v)}
 async function publicJson(url){let r;try{r=await fetch(url,{cache:"no-store"});}catch(e){throw new Error("Connexion au serveur JML impossible : "+(e.message||"fetch failed"))}let d;try{d=await r.json()}catch(e){throw new Error("Réponse serveur invalide (HTTP "+r.status+")")}if(!r.ok)throw new Error(d.error||("Erreur serveur HTTP "+r.status));return d}
-function publicDpeKey(p){return [norm(p.address),norm(p.postalCode),Number(p.area)||0,norm(p.dpe),String(p.date||"")].join("|")}
-function publicDvfKey(p){return String(p.mutationId||"").trim()||[String(p.date||""),norm(p.address),Number(p.value)||0,Number(p.builtArea)||0,Number(p.landArea)||0].join("|")}
+function publicDpeKey(p){
+  return [norm(p.address),norm(p.postalCode),norm(p.city)].join("|");
+}
+function groupPublicDpe(rows){
+  const groups=new Map();
+  for(const p of (rows||[])){
+    const key=publicDpeKey(p)||("unknown|"+(p.dpeNumber||Math.random()));
+    if(!groups.has(key))groups.set(key,{primary:p,items:[],grades:new Set(),areas:new Set(),types:new Set(),dates:[]});
+    const g=groups.get(key);
+    g.items.push(p);
+    if(p.dpe)g.grades.add(String(p.dpe));
+    if(Number(p.area)>0)g.areas.add(Number(p.area));
+    if(p.buildingType)g.types.add(String(p.buildingType));
+    if(p.date)g.dates.push(String(p.date));
+  }
+  return Array.from(groups.values()).map(g=>({
+    ...g.primary,
+    groupedCount:g.items.length,
+    groupedGrades:[...g.grades].sort(),
+    groupedAreas:[...g.areas].sort((a,b)=>a-b),
+    groupedTypes:[...g.types],
+    latestDpeDate:g.dates.sort().at(-1)||g.primary.date||"",
+    groupedDpeNumbers:g.items.map(x=>x.dpeNumber).filter(Boolean)
+  })).sort((a,b)=>String(b.latestDpeDate||"").localeCompare(String(a.latestDpeDate||"")));
+}
+function groupPublicDvf(rows){
+  const groups=new Map();
+  for(const p of (rows||[])){
+    const mutation=String(p.mutationId||"").trim();
+    const address=norm(p.address||"");
+    const value=Number(p.value)||0;
+    const key=mutation
+      ? "mutation|"+mutation+"|"+address
+      : "fallback|"+String(p.date||"")+"|"+address+"|"+value;
+    if(!groups.has(key))groups.set(key,{...p,groupedCount:0,groupedTypes:new Set(),groupedBuiltAreas:new Set(),groupedLandAreas:new Set(),groupedRooms:new Set()});
+    const g=groups.get(key);
+    g.groupedCount++;
+    if(p.type)g.groupedTypes.add(String(p.type));
+    if(Number(p.builtArea)>0)g.groupedBuiltAreas.add(Number(p.builtArea));
+    if(Number(p.landArea)>0)g.groupedLandAreas.add(Number(p.landArea));
+    if(Number(p.rooms)>0)g.groupedRooms.add(Number(p.rooms));
+  }
+  return Array.from(groups.values()).map(g=>({
+    ...g,
+    groupedTypes:[...g.groupedTypes],
+    groupedBuiltAreas:[...g.groupedBuiltAreas].sort((a,b)=>a-b),
+    groupedLandAreas:[...g.groupedLandAreas].sort((a,b)=>a-b),
+    groupedRooms:[...g.groupedRooms].sort((a,b)=>a-b)
+  }));
+}
 function renderPublicDpe(rows){
-  const unique=[],seen=new Set();
-  for(const p of (rows||[])){const k=publicDpeKey(p);if(seen.has(k))continue;seen.add(k);unique.push(p)}
-  publicDpeResults=unique;
-  $("publicDpeResults").innerHTML=publicDpeResults.length?publicDpeResults.slice(0,30).map((p,i)=>'<article class="source-result"><div><strong>'+apiEsc(p.address||"Adresse non renseignée")+'</strong><span>'+apiEsc((p.postalCode?p.postalCode+" ":"")+(p.city||""))+'</span></div><div class="source-result-details">'+(p.area?p.area+" m² · ":"")+(p.dpe?"DPE "+apiEsc(p.dpe):"DPE —")+(p.ges?" · GES "+apiEsc(p.ges):"")+(p.buildingType?" · "+apiEsc(p.buildingType):"")+'</div><div class="meta">'+(p.date?"DPE du "+apiEsc(p.date):"Date DPE inconnue")+'</div><button class="ghost" data-dpe-index="'+i+'">Préparer une fiche</button></article>').join(""):'<div class="meta">Aucun DPE trouvé pour cette recherche.</div>';
+  publicDpeResults=groupPublicDpe(rows);
+  $("publicDpeResults").innerHTML=publicDpeResults.length?publicDpeResults.slice(0,30).map((p,i)=>{
+    const areas=p.groupedAreas?.length?p.groupedAreas.map(x=>x+" m²").join(" / "):(p.area?p.area+" m²":"");
+    const grades=p.groupedGrades?.length?"DPE "+p.groupedGrades.join(" / "):"DPE —";
+    const types=p.groupedTypes?.length?p.groupedTypes.join(" / "):"";
+    const units=p.groupedCount>1?" · "+p.groupedCount+" DPE/logements regroupés":"";
+    return '<article class="source-result"><div><strong>'+apiEsc(p.address||"Adresse non renseignée")+'</strong><span>'+apiEsc((p.postalCode?p.postalCode+" ":"")+(p.city||""))+'</span></div><div class="source-result-details">'+areas+(areas?" · ":"")+grades+(p.ges?" · GES "+apiEsc(p.ges):"")+(types?" · "+apiEsc(types):"")+apiEsc(units)+'</div><div class="meta">'+(p.latestDpeDate?"DPE le plus récent : "+apiEsc(p.latestDpeDate):"Date DPE inconnue")+'</div><button class="ghost" data-dpe-index="'+i+'">Préparer une fiche</button></article>';
+  }).join(""):'<div class="meta">Aucun DPE trouvé pour cette recherche.</div>';
 }
 function renderPublicDvf(rows){
-  const unique=[],seen=new Set();
-  for(const p of (rows||[])){const k=publicDvfKey(p);if(seen.has(k))continue;seen.add(k);unique.push(p)}
-  publicDvfResults=unique;
-  $("publicDvfResults").innerHTML=publicDvfResults.length?publicDvfResults.slice(0,30).map(p=>'<article class="source-result"><div><strong>'+apiEsc(p.date||"Date inconnue")+'</strong><span>'+apiEsc(p.type||"Bien immobilier")+'</span></div><div class="source-result-details">'+(p.value?p.value.toLocaleString("fr-FR")+" € · ":"")+(p.builtArea?p.builtArea+" m² bâti · ":"")+(p.landArea?p.landArea+" m² terrain":"")+(p.rooms?" · "+p.rooms+" pièce(s)":"")+'</div><div class="meta">'+(p.address?apiEsc(p.address)+" · ":"")+"Source : "+apiEsc(p.source||"DVF open-data")+" · "+apiEsc(p.cityCode||"")+'</div></article>').join(""):'<div class="meta">Aucune transaction trouvée.</div>';
-}
-function publicSourceQueryMode(q){
-  return /\\d/.test(String(q||"")) ? "adresse" : "commune";
+  publicDvfResults=groupPublicDvf(rows);
+  $("publicDvfResults").innerHTML=publicDvfResults.length?publicDvfResults.slice(0,30).map(p=>{
+    const types=p.groupedTypes?.length?p.groupedTypes.join(" / "):(p.type||"Bien immobilier");
+    const areas=p.groupedBuiltAreas?.length?p.groupedBuiltAreas.map(x=>x+" m² bâti").join(" / "):(p.builtArea?p.builtArea+" m² bâti":"");
+    const lands=p.groupedLandAreas?.length?p.groupedLandAreas.map(x=>x+" m² terrain").join(" / "):(p.landArea?p.landArea+" m² terrain":"");
+    const rooms=p.groupedRooms?.length?" · "+p.groupedRooms.join(" / ")+" pièce(s)":"";
+    const grouped=p.groupedCount>1?" · "+p.groupedCount+" éléments regroupés":"";
+    return '<article class="source-result"><div><strong>'+apiEsc(p.date||"Date inconnue")+'</strong><span>'+apiEsc(types)+'</span></div><div class="source-result-details">'+(p.value?p.value.toLocaleString("fr-FR")+" € · ":"")+areas+(areas&&lands?" · ":"")+lands+rooms+apiEsc(grouped)+'</div><div class="meta">'+(p.address?apiEsc(p.address)+" · ":"")+"Source : "+apiEsc(p.source||"DVF open-data")+" · "+apiEsc(p.cityCode||"")+'</div></article>';
+  }).join(""):'<div class="meta">Aucune transaction trouvée.</div>';
 }
 async function searchPublicSources(){
   const q=$("publicQuery").value.trim();
@@ -238,9 +292,9 @@ async function searchPublicSources(){
     renderPublicDpe(dpe?.results||[]);
     renderPublicDvf(dvf?.results||[]);
     const modeText=mode==="adresse"?"🎯 Recherche ciblée sur l’adresse":"🗺️ Recherche communale";
-    const dpeText=dpe?((dpe.rawCount??dpe.results?.length??0)+" DPE récupérés"): "ADEME indisponible";
+    const dpeText=dpe?((dpe.rawCount??dpe.results?.length??0)+" DPE bruts · "+groupPublicDpe(dpe.results||[]).length+" adresses DPE"): "ADEME indisponible";
     const dvfText=dvf
-      ? ((dvf.filteredCount!=null?dvf.filteredCount:(dvf.rawCount??dvf.results?.length??0))+" transactions"+(mode==="adresse"?" à cette adresse":"")+" · "+String(dvf.source||"DVF open-data")+(dvf.fallback?" · secours":""))
+      ? ((dvf.groupedCount!=null?dvf.groupedCount:groupPublicDvf(dvf.results||[]).length)+" opérations uniques"+(mode==="adresse"?" à cette adresse":"")+" · "+(dvf.filteredCount!=null?dvf.filteredCount:(dvf.rawCount??dvf.results?.length??0))+" lignes brutes · "+String(dvf.source||"DVF open-data")+(dvf.fallback?" · secours":""))
       : "DVF indisponible ("+apiEsc(dvfError)+")";
     $("publicStatus").innerHTML="<strong>"+apiEsc(c.city)+"</strong> · code INSEE "+apiEsc(c.cityCode)+" · "+modeText+" · "+dpeText+" · "+dvfText;
   }catch(e){
