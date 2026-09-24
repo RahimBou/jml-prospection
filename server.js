@@ -1456,7 +1456,8 @@ async function api(pathname,url){
         rooms:Number(first(x,["nombre_pieces_principales"]))||0,
         source:"DVF open-data · data.gouv.fr"
       }));
-      return {source:"DVF Ardennes / open-data",codeInsee,total:normalized.length,results:normalized,rawCount:normalized.length,fallback:true,primaryError:ceremaError.message};
+      const filtered=filterAddressRows(normalized);
+      return {source:"DVF Ardennes / open-data",codeInsee,total:normalized.length,results:filtered,rawCount:normalized.length,filteredCount:filtered.length,fallback:true,addressFilter:Boolean(addressNeedle),primaryError:ceremaError.message};
     }
   }
   throw new Error("Route API inconnue");
