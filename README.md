@@ -222,3 +222,10 @@ Le score est un **indice de surveillance** et non une probabilité de vente. Cha
 - Navigation précédent/suivant et numéros de page.
 - Les filtres et actions du tableau de bord reviennent automatiquement à la première page.
 - Les données, le scoring, le CRM et le stockage local restent inchangés.
+
+
+## V1.22.2 — panneaux repliables
+- Le bloc « À faire maintenant » est repliable et fermé par défaut.
+- « Recherche avancée » est repliable et fermée par défaut.
+- Les filtres restent actifs lorsqu'ils sont masqués.
+- Aucun changement au moteur DVF/DPE, au scoring ou au CRM.
