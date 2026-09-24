@@ -184,3 +184,43 @@ body{background:linear-gradient(180deg,#f3efe8 0,#f7f5f1 42%,#f5f2ec 100%)}
   .prospect-view-label{flex:1}
   .prospect-view-label select{flex:1}
 }
+
+/* V1.23.0 — interface poste de travail commercial
+   Réduction de la hauteur des fiches et meilleure hiérarchie visuelle. */
+.container{max-width:1240px}
+#prospectsPanel{padding:18px}
+#prospectsPanel .panel-title{margin-bottom:10px}
+#prospectsPanel .cards{grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+#prospectsPanel .card{padding:13px;border-radius:11px;display:flex;flex-direction:column}
+#prospectsPanel .card-head{min-height:42px}
+#prospectsPanel .address{font-size:15px}
+#prospectsPanel .price{font-size:21px;margin-top:8px}
+#prospectsPanel .details{gap:5px;margin:8px 0}
+#prospectsPanel .detail{padding:4px 6px;font-size:11px}
+#prospectsPanel .signal{margin:7px 0;padding:7px 9px;font-size:11px;line-height:1.35;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+#prospectsPanel .card>.meta{font-size:10px}
+#prospectsPanel .signal-tag{font-size:10px;padding:3px 6px;margin:3px 3px 1px 0}
+#prospectsPanel .movement-box{margin-top:8px;padding:8px 10px}
+#prospectsPanel .movement-score{font-size:17px}
+#prospectsPanel .movement-reasons{display:none}
+#prospectsPanel .price-history{margin-top:8px;padding:7px 9px}
+#prospectsPanel .price-history-list div{grid-template-columns:70px 1fr auto;font-size:10px}
+#prospectsPanel .card-actions{margin-top:auto;padding-top:9px}
+#prospectsPanel .card-actions button,#prospectsPanel .card-actions a{padding:7px 9px;font-size:11px}
+#prospectsPanel .prospects-view-note{margin-top:10px}
+#futureRadarPanel .panel-title{align-items:center}
+#futureRadarPanel .future-radar-actions{max-width:520px}
+#futureRadarPanel .future-radar-actions button{padding:9px 11px}
+#futureRadarPanel .radar-query-bar{background:#faf8f4}
+#futureRadarPanel .radar-query-status{min-width:190px}
+#signalPanel{margin-top:0}
+#signalPanel .signal-chips{gap:6px}
+#signalPanel .signal-chip{padding:6px 9px;font-size:11px}
+@media(max-width:1100px){
+  #prospectsPanel .cards{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:700px){
+  #prospectsPanel .cards{grid-template-columns:1fr}
+  #futureRadarPanel .panel-title{align-items:flex-start}
+  #futureRadarPanel .future-radar-actions{max-width:none}
+}
