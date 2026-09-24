@@ -1,3 +1,11 @@
+## V1.23.1 — finition des cartes prospects
+- Retour à 2 colonnes sur desktop pour donner une largeur confortable aux fiches.
+- Hauteur et structure visuelle harmonisées.
+- Caractéristiques regroupées dans une grille compacte.
+- Zone signal, historique et actions mieux alignées.
+- Responsive conservé : 1 colonne sur écran étroit.
+- Aucun changement au moteur DPE/DVF ni aux calculs.
+
 ## V1.23.0 — interface poste de travail commercial
 - Cartes des prospects compactées et plus lisibles.
 - Passage à 3 colonnes sur grand écran, 2 sur écran intermédiaire, 1 sur mobile.
