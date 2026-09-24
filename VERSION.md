@@ -1,3 +1,12 @@
+# JML Prospection — V1.32.0
+
+## V1.32.0 — score « priorité de prospection »
+- Séparation claire entre **potentiel du bien** et **priorité de travail terrain**.
+- Nouveau score Priorité de prospection /100 fondé sur : potentiel du bien, qualité des données, solidité du rapprochement, qualité des comparables et préparation opérationnelle.
+- Le classement de la file Radar utilise désormais cette priorité avant le potentiel vendeur.
+- L'interface explique les composantes et rappelle explicitement qu'il ne s'agit **pas d'une probabilité de vente**.
+- Le score commercial public reste séparé et inchangé.
+
 ## V1.31.0
 - Hiérarchie commerciale affinée : 85+ priorité terrain, 75–84 contact prioritaire, 60–74 surveillance active, 40–59 couverture territoriale, <40 surveillance faible.
 - Création d'une file de travail de 30 priorités parmi les biens détectés.
