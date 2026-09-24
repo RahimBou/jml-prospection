@@ -1,3 +1,7 @@
+## V1.22.5 — séparation Radar corrigée
+- Les anciennes fiches « Radar futur » sont maintenant reconnues comme biens à surveiller lorsqu’elles n'ont pas de signal commercial public.
+- Le compteur et la vue « Prospects commerciaux » ne doivent plus inclure ces fiches.
+
 ## V1.22.4 — réorganisation du poste de prospection
 - Vue par défaut : **Prospects commerciaux**.
 - Vue séparée : **Biens à surveiller** pour les biens Radar sans signal commercial.
@@ -5,7 +9,7 @@
 - Résultats détaillés du Radar repliés après une analyse de commune afin de garder l’écran lisible.
 - Les moteurs DPE/DVF et le scoring existants restent inchangés.
 
-# JML Prospection — V1.22.4
+# JML Prospection — V1.22.5
 
 ## V1.21.5 — Radar recalibré
 - Le score principal devient une **priorité de prospection** : 70 % signal commercial public + 30 % contexte marché.
