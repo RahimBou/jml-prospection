@@ -278,3 +278,13 @@ body{background:linear-gradient(180deg,#f3efe8 0,#f7f5f1 42%,#f5f2ec 100%)}
 .radar-zone-note{margin-top:10px}
 .radar-single-query{opacity:.88}
 @media(max-width:900px){.radar-sector-grid{grid-template-columns:1fr}.radar-zone-heading{display:block}.radar-zone-heading span{display:block;margin-top:3px}}
+
+/* V1.25.0 — Territoire Ardennes */
+.radar-territory-banner{display:flex;justify-content:space-between;gap:14px;align-items:center;margin:12px 0;padding:12px 15px;border-radius:13px;background:#eef5f0;border:1px solid #d7e5db}
+.radar-territory-banner>div{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
+.radar-territory-banner span,.radar-territory-banner small{font-size:.8rem;color:var(--muted,#68736d)}
+.radar-add-sector{display:flex;gap:9px;margin-top:10px}
+.radar-add-sector select{flex:1;min-width:0;padding:9px 10px;border-radius:9px;border:1px solid var(--line,#d9ded9);background:#fff}
+.radar-remove-sector{border:0;background:transparent;color:#7b8580;font-size:18px;line-height:1;padding:2px 5px;cursor:pointer}
+.radar-remove-sector:hover{color:#a33}
+@media(max-width:700px){.radar-territory-banner{display:block}.radar-territory-banner small{display:block;margin-top:5px}.radar-add-sector{display:block}.radar-add-sector button{margin-top:7px;width:100%}}
