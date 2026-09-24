@@ -1,3 +1,11 @@
+# JML Prospection — V1.21.0
+
+## V1.21.0 — tableau de bord terrain
+- Le tableau de bord devient une vue opérationnelle de prospection : priorités terrain, nouveaux récents, adresses à compléter, relances, changements et biens prêts terrain.
+- Ajout des secteurs actifs et d'indicateurs d'activité récente.
+- Les raccourcis du dashboard filtrent directement les prospects concernés.
+- Cette version ne modifie ni le moteur DVF/DPE, ni la veille ChercherTrouver.
+
 ## V1.20.6 — vue rue des adresses candidates
 - Chaque adresse candidate dispose maintenant d'un bouton **👁️ Vue rue**.
 - **🗺️ Map View** ouvre Google Maps sur la position candidate.
