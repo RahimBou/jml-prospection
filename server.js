@@ -552,7 +552,17 @@ function localComparables(property,rows){
   const prices=selected.map(x=>x.priceM2);
   const med=median(prices),q1=percentile(prices,.25),q3=percentile(prices,.75);
   const recent=selected.filter(x=>x.ageYears!==null&&x.ageYears<=2).length;
-  const medianDistance=median(selected.map(x=>x.distance).filter(Number.isFinite));
+  const knownDistances=selected.map(x=>x.distance).filter(Number.isFinite);
+  const unknownDistanceCount=selected.length-knownDistances.length;
+  const medianDistance=median(knownDistances);
+  const distanceCoverage=selected.length?knownDistances.length/selected.length:0;
+  const distanceStatus=selected.length===0
+    ?"Aucun comparable"
+    :unknownDistanceCount===0
+      ?"Distances calculées · rayon "+radius+" m"
+      :knownDistances.length>0
+        ?"Distance partiellement disponible · "+knownDistances.length+"/"+selected.length+" distances"
+        :"Distance indisponible pour les comparables";
   const dispersion=med&&q1!==null&&q3!==null?(q3-q1)/med:null;
   let marketScore=0;
   if(selected.length>=8)marketScore+=5;else if(selected.length>=5)marketScore+=4;else if(selected.length>=3)marketScore+=3;else if(selected.length>=2)marketScore+=2;else if(selected.length===1)marketScore+=1;
@@ -561,7 +571,7 @@ function localComparables(property,rows){
   marketScore=Math.min(10,marketScore);
   const best=selected[0]||null;
   return {
-    count:selected.length,radius,medianPriceM2:med,q1,q3,dispersion,medianDistance,recentCount:recent,marketScore,
+    count:selected.length,radius:unknownDistanceCount===0?radius:null,selectionRadius:radius,medianPriceM2:med,q1,q3,dispersion,medianDistance,recentCount:recent,marketScore,distanceKnownCount:knownDistances.length,distanceUnknownCount:unknownDistanceCount,distanceCoverage,distanceStatus,
     best:best?{date:best.tx.date,value:best.tx.value,type:best.tx.type,builtArea:best.tx.builtArea,carrezArea:best.tx.carrezArea,rooms:best.tx.rooms,landArea:best.tx.landArea,priceM2:best.priceM2,distanceMeters:best.distance,surfaceRatio:best.surfaceRatio}:null,
     items:selected.map(x=>({date:x.tx.date,value:x.tx.value,type:x.tx.type,area:x.area,rooms:x.rooms,priceM2:x.priceM2,distanceMeters:x.distance}))
   };
@@ -753,6 +763,34 @@ function radarCommercialSignal(p){
   else if(score>=35)level="Signal commercial public";
   else if(score>0)level="Signal commercial public faible";
   return {score,level,signals};
+}
+function radarDpeIdentity(p){
+  const address=norm(p?.address||""),postal=norm(p?.postalCode||""),type=norm(p?.buildingType||"");
+  const area=Number(p?.area)||0,rooms=Number(p?.rooms)||0;
+  const building=norm(p?.buildingRef||""),apartment=norm(p?.apartmentRef||""),floor=norm(p?.floor||"");
+  if(apartment)return ["unit",address,postal,building,apartment].join("|");
+  if(building)return ["building",address,postal,building,area,rooms,floor,type].join("|");
+  return ["fallback",address,postal,type,Math.round(area*10)/10,rooms,floor].join("|");
+}
+function dedupeRadarDpeRows(rows){
+  const groups=new Map();
+  for(const row of rows||[]){
+    const key=radarDpeIdentity(row);
+    if(!groups.has(key)){groups.set(key,row);continue}
+    const current=groups.get(key);
+    const currentDate=current?.date?new Date(current.date).getTime():0;
+    const rowDate=row?.date?new Date(row.date).getTime():0;
+    const fields=["address","postalCode","city","dpe","buildingType","area","date","buildingRef","apartmentRef"];
+    const completeness=x=>fields.filter(k=>x?.[k]).length;
+    if(rowDate>currentDate || (rowDate===currentDate && completeness(row)>completeness(current)))groups.set(key,row);
+  }
+  return Array.from(groups.values());
+}
+function radarPriorityLevel(score){
+  if(score>=65)return "Priorité · signal public fort";
+  if(score>=35)return "Priorité · signal public";
+  if(score>0)return "À vérifier · signal public faible";
+  return "Surveillance · aucun signal commercial public";
 }
 function radarDataScore(quality){
   return Math.min(15,Math.max(0,Number(quality?.score)||0)*3);
@@ -1221,7 +1259,8 @@ async function api(pathname,url){
     ]);
     if(dpeResult.status!=="fulfilled")throw new Error("ADEME DPE indisponible pour cette commune : "+(dpeResult.reason?.message||"erreur source"));
     const dpeData=dpeResult.value;
-    const dpeRows=(Array.isArray(dpeData?.results)?dpeData.results:Array.isArray(dpeData?.data)?dpeData.data:[]).map(normalizeDpe);
+    const dpeRowsRaw=(Array.isArray(dpeData?.results)?dpeData.results:Array.isArray(dpeData?.data)?dpeData.data:[]).map(normalizeDpe);
+    const dpeRows=dedupeRadarDpeRows(dpeRowsRaw);
     const dvf=dvfResult.status==="fulfilled"?dvfResult.value:{source:"DVF indisponible",rows:[]};
     const dvfRows=dvf.rows||[];
     const indexes=buildDvfIndexes(dvfRows);
@@ -1291,7 +1330,11 @@ async function api(pathname,url){
       const commercialSignals=radarCommercialSignal(p);
       const commercialSignalScore=commercialSignals.score;
       const commercialSignalLevel=commercialSignals.level;
-      const score=marketContextScore;
+      // Le score principal devient une priorité de prospection : 70 % signal public + 30 % contexte marché.
+      // Sans signal commercial public, le bien reste une cible de surveillance.
+      const priorityScore=Math.round(commercialSignalScore*0.70+marketContextScore*0.30);
+      const priorityLevel=radarPriorityLevel(commercialSignalScore);
+      const score=priorityScore;
       const methodScores={
         dpe:Math.round(dpeScore/20*100),
         saleAge:Math.round(saleAgeScore/15*100),
@@ -1340,7 +1383,7 @@ async function api(pathname,url){
         comparableDispersion:comparable.dispersion,comparableMedianDistance:comparable.medianDistance,
         comparableRecentCount:comparable.recentCount,comparables:comparable.items,
         bestComparable,
-        score,marketContextScore,commercialSignalScore,commercialSignalLevel,commercialSignals:commercialSignals.signals,
+        score,priorityScore,priorityLevel,marketContextScore,commercialSignalScore,commercialSignalLevel,commercialSignals:commercialSignals.signals,
         evidence:{
           commercialSignal:{score:commercialSignalScore,level:commercialSignalLevel,signals:commercialSignals.signals},
           dataQuality:{level:quality.level,label:quality.label,score:quality.score},
@@ -1355,8 +1398,8 @@ async function api(pathname,url){
         dataQuality:quality,
         disclaimer:"Indice de contexte de marché transparent basé sur des données publiques. Il ne constitue pas un signal de vente. Un signal commercial n'est crédité que lorsqu'une source publique explicite le documente ; DPE, DVF et comparables seuls n'identifient pas une intention de vendre et n'identifient pas un propriétaire."
       };
-    }).filter(x=>x.address).sort((a,b)=>b.score-a.score).slice(0,limit);
-    return {source:"ADEME + DVF comparables locaux",codeInsee,dpeCount:dpeRows.length,dvfCount:dvfRows.length,dvfSource:dvf.source,dvfFallback:!!dvf.fallback,results:candidates};
+    }).filter(x=>x.address).sort((a,b)=>(b.priorityScore-a.priorityScore)||(b.marketContextScore-a.marketContextScore)).slice(0,limit);
+    return {source:"ADEME + DVF comparables locaux",codeInsee,dpeCount:dpeRows.length,dpeRawCount:dpeRowsRaw.length,dpeDuplicateCount:Math.max(0,dpeRowsRaw.length-dpeRows.length),dvfCount:dvfRows.length,dvfSource:dvf.source,dvfFallback:!!dvf.fallback,results:candidates};
   }
   if(pathname==="/api/backtest"){
     let codeInsee=url.searchParams.get("codeInsee")?.trim();
