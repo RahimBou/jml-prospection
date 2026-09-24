@@ -1416,6 +1416,14 @@ async function api(pathname,url){
     const yearMin=url.searchParams.get("yearMin")||String(DVF_GEO_LATEST_YEAR-4);
     const yearMax=url.searchParams.get("yearMax")||String(DVF_GEO_LATEST_YEAR);
     const type=url.searchParams.get("type");
+    const addressQuery=url.searchParams.get("address")?.trim()||"";
+    const addressNeedle=norm(addressQuery.split(",")[0]);
+    const filterAddressRows=(rows)=>addressNeedle
+      ? rows.filter(x=>{
+          const a=norm(x.address||"");
+          return a && (a.includes(addressNeedle)||addressNeedle.includes(a));
+        })
+      : rows;
     try{
       const u=new URL(DVF_URL);
       u.searchParams.set("code_insee",codeInsee);
@@ -1425,7 +1433,9 @@ async function api(pathname,url){
       if(type)u.searchParams.set("codtypbien",type);
       const data=await jsonFetch(u);
       const rows=Array.isArray(data?.results)?data.results:Array.isArray(data?.data)?data.data:Array.isArray(data)?data:[];
-      return {source:"DVF+ Cerema",codeInsee,total:Number(data?.count??data?.total)||rows.length,results:rows.map(normalizeDvf),rawCount:rows.length};
+      const normalized=rows.map(normalizeDvf);
+      const filtered=filterAddressRows(normalized);
+      return {source:"DVF+ Cerema",codeInsee,total:Number(data?.count??data?.total)||rows.length,results:filtered,rawCount:rows.length,filteredCount:filtered.length,addressFilter:Boolean(addressNeedle)};
     }catch(ceremaError){
       const rows=await dvfGeoOpenData({codeInsee,yearMin,yearMax,limit});
       const normalized=rows.map(x=>({
