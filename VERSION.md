@@ -1,3 +1,9 @@
+## V1.37.13 — Radar communal non bloquant — 25/09/2026
+
+- Le Radar affiche immédiatement les communes principales des Ardennes pendant le chargement du référentiel complet.
+- Si le référentiel distant est lent ou indisponible, le Radar reste utilisable avec un référentiel de secours.
+- Le référentiel complet remplace automatiquement le secours lorsqu'il répond.
+
 ## V1.37.12 — Base stable avant actualisation — 25/09/2026
 
 - Retour au dernier état identifié juste avant l'ajout des boutons d'actualisation indépendants.
