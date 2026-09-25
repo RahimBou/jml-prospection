@@ -1119,7 +1119,7 @@ function groupPublicDvfRows(rows){
 }
 
 async function api(pathname,url){
-  pathname=String(pathname||"").replace(/\\/+$/,"")||"/";
+  pathname=String(pathname||"").replace(/\/+$/,"")||"/";
   if(pathname==="/api/veille-annonces") pathname="/api/annonces-multi";
   if(pathname==="/api/health") return {ok:true,sources:{dpe:"ADEME",dvf:"DVF+ Cerema",geocoding:"Géoplateforme",chercherTrouver:"ChercherTrouver.immo"},server:"jml-prospection",version:"1.40.8"};
   if(pathname==="/api/integrations-health"){
