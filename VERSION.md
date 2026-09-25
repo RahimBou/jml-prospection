@@ -1,3 +1,10 @@
+## V1.37.6 — Radar recherche simplifiée — 25/09/2026
+
+- Recherche principale réduite à Commune + Rayon + Lancer la recherche.
+- Le Radar conserve le croisement DVF/DPE, dédoublonnage et classement existants.
+- Le mode multi-secteurs est conservé dans Recherche multi-secteurs.
+- Objectif terrain mis en avant : identifier les 10 dossiers prioritaires.
+
 ## V1.37.2 — Radar multi-secteurs accéléré — 25/09/2026
 
 - Analyse de zone : jusqu'à 8 communes préparées par lot au lieu de 6.
