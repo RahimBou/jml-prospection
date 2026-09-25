@@ -1531,7 +1531,7 @@ async function api(pathname,url){
     // On limite volontairement à 3 sources locales pour ne pas ralentir la recherche.
     if(ctFailed || items.length<50){
       try{
-        const free=await searchFreeWebListings({...params,web_sources:3});
+        const free=await searchFreeWebListings({...params,web_sources:Math.max(8, Number(params.web_sources)||8)});
         sources.push({source:"Web public local",ok:true,count:free.items?.length||0,details:"Secours gratuit · pages publiques autorisées"});
         items.push(...(free.items||[]));
       }catch(e){
