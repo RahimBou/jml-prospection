@@ -1,4 +1,4 @@
-const APP_VERSION="1.37.13";
+const APP_VERSION="1.37.14";
 
 /* V1.37.3 — garde-fou des boutons : délégation globale + diagnostic JS */
 window.addEventListener("error",e=>{
@@ -6,7 +6,7 @@ window.addEventListener("error",e=>{
   if(box&&e?.message) box.textContent="⚠️ Erreur JavaScript : "+e.message;
 });
 document.addEventListener("click",e=>{
-  const b=e.target.closest("#aiAnalyzeBtn,#aiWhyBtn,#aiPriorityBtn,#aiCallBtn,#aiReportBtn,#aiFollowupBtn,#futureRadarBtn,#futureRadarPrint,#futureRadarAddAll,#futureRadarSelectAll,#futureRadarDeselectAll");
+  const b=e.target.closest("#aiAnalyzeBtn,#aiWhyBtn,#aiPriorityBtn,#aiCallBtn,#aiReportBtn,#aiFollowupBtn,#futureRadarBtn,#futureRadarPrint,#futureRadarAddAll,#futureRadarSelectAll,#futureRadarDeselectAll,#integrationsTestBtn,#publicSearchBtn,#ctSearchBtn,#ctTourBtn");
   if(!b)return;
   const tasks={aiAnalyzeBtn:"analyze",aiWhyBtn:"why",aiPriorityBtn:"priority",aiCallBtn:"call",aiReportBtn:"report",aiFollowupBtn:"followup"};
   if(tasks[b.id]&&typeof aiRun==="function"){e.preventDefault();e.stopImmediatePropagation();aiRun(tasks[b.id]);}
@@ -15,6 +15,10 @@ document.addEventListener("click",e=>{
   else if(b.id==="futureRadarAddAll"&&typeof addFutureRadarCandidates==="function"){e.preventDefault();e.stopImmediatePropagation();addFutureRadarCandidates();}
   else if(b.id==="futureRadarSelectAll"&&typeof futureRadarRender==="function"){e.preventDefault();e.stopImmediatePropagation();const start=futureRadarPage*FUTURE_RADAR_PAGE_SIZE;for(let i=start;i<Math.min(start+FUTURE_RADAR_PAGE_SIZE,futureRadarCandidates.length)&&futureRadarSelectedIndices.size<FUTURE_RADAR_MAX_SELECTED;i++)futureRadarSelectedIndices.add(i);futureRadarRender();}
   else if(b.id==="futureRadarDeselectAll"&&typeof futureRadarRender==="function"){e.preventDefault();e.stopImmediatePropagation();const start=futureRadarPage*FUTURE_RADAR_PAGE_SIZE;for(let i=start;i<Math.min(start+FUTURE_RADAR_PAGE_SIZE,futureRadarCandidates.length);i++)futureRadarSelectedIndices.delete(i);futureRadarRender();}
+  else if(b.id==="integrationsTestBtn"&&typeof testIntegrations==="function"){e.preventDefault();e.stopImmediatePropagation();testIntegrations();}
+  else if(b.id==="publicSearchBtn"&&typeof searchPublicSources==="function"){e.preventDefault();e.stopImmediatePropagation();searchPublicSources();}
+  else if(b.id==="ctSearchBtn"&&typeof ctSearch==="function"){e.preventDefault();e.stopImmediatePropagation();ctSearch();}
+  else if(b.id==="ctTourBtn"&&typeof ctSectorTour==="function"){e.preventDefault();e.stopImmediatePropagation();ctSectorTour();}
 });
 const KEY="jml_prospection_v1";let prospects=load(),pendingImport=[];let prospectPage=1;let prospectTotalPages=1;const DEFAULT_PROSPECT_PAGE_SIZE=8;const $=id=>document.getElementById(id);
 function load(){try{const x=JSON.parse(localStorage.getItem(KEY)||"[]");return Array.isArray(x)?x:[]}catch(e){return[]}}
@@ -893,7 +897,7 @@ async function testIntegrations(){
   }
   finally{$("integrationsTestBtn").disabled=false}
 }
-if($("integrationsTestBtn")) $("integrationsTestBtn").onclick=testIntegrations;
+/* V1.37.14 — bouton piloté par délégation globale */
 
 
 /* V1.19.6 — concordance adresse renforcée */
@@ -1063,8 +1067,8 @@ async function ctFindAddress(index){
 }
 document.addEventListener("click",e=>{const b=e.target.closest("[data-ct-address]");if(b)ctFindAddress(Number(b.dataset.ctAddress));const copy=e.target.closest("[data-copy-address]");if(copy){const value=copy.dataset.copyAddress||"";navigator.clipboard?.writeText(value).then(()=>{const old=copy.textContent;copy.textContent="✅ Copié";setTimeout(()=>copy.textContent=old,1200)}).catch(()=>{})}});
 
-if($("ctSearchBtn"))$("ctSearchBtn").onclick=ctSearch;
-if($("ctTourBtn"))$("ctTourBtn").onclick=ctSectorTour;
+/* V1.37.14 — bouton piloté par délégation globale */
+/* V1.37.14 — bouton piloté par délégation globale */
 if($("ctAddBtn"))$("ctAddBtn").onclick=ctAddSelected;
 
 
