@@ -14,6 +14,7 @@ const DVF_LOCAL_FILE = path.join(ROOT,"data","dvf_ardennes.csv.gz");
 let dvfLocalCache = null;
 const ADDRESS_URL = "https://data.geopf.fr/geocodage/search/";
 const { analyze: analyzeDataQuality } = require("./data-agent");
+const { runAi } = require("./ai-agent");
 
 const MIME = {
   ".html":"text/html; charset=utf-8",
@@ -1051,7 +1052,7 @@ function groupPublicDvfRows(rows){
 }
 
 async function api(pathname,url){
-  if(pathname==="/api/health") return {ok:true,sources:{dpe:"ADEME",dvf:"DVF+ Cerema",geocoding:"Géoplateforme",chercherTrouver:"ChercherTrouver.immo"},server:"jml-prospection",version:"1.21.3"};
+  if(pathname==="/api/health") return {ok:true,sources:{dpe:"ADEME",dvf:"DVF+ Cerema",geocoding:"Géoplateforme",chercherTrouver:"ChercherTrouver.immo"},server:"jml-prospection",version:"1.35.0"};
   if(pathname==="/api/integrations-health"){
     const ct=await fetchChercherTrouverPing();
     return {ok:ct.ok===true,checkedAt:new Date().toISOString(),chercherTrouver:ct};
@@ -1850,11 +1851,37 @@ async function api(pathname,url){
   throw new Error("Route API inconnue");
 }
 
+function readJsonBody(req,maxBytes=90000){
+  return new Promise((resolve,reject)=>{
+    let size=0,body="";
+    req.setEncoding("utf8");
+    req.on("data",chunk=>{
+      size+=Buffer.byteLength(chunk);
+      if(size>maxBytes){reject(new Error("Requête IA trop volumineuse."));req.destroy();return;}
+      body+=chunk;
+    });
+    req.on("end",()=>{
+      try{resolve(body?JSON.parse(body):{})}catch{reject(new Error("JSON invalide"))}
+    });
+    req.on("error",reject);
+  });
+}
+
 async function handle(req,res){
   const url=new URL(req.url,"http://localhost");
   if(req.method==="GET" && url.pathname.startsWith("/api/")){
     try{return send(res,200,await api(url.pathname,url))}
     catch(e){return send(res,502,{ok:false,error:e.message||"Erreur source publique"})}
+  }
+  if(req.method==="POST" && url.pathname==="/api/ai"){
+    try{
+      const body=await readJsonBody(req);
+      const task=String(body?.task||"analyze").trim();
+      const allowed=["analyze","call","report","followup"];
+      if(!allowed.includes(task))return send(res,400,{ok:false,error:"Tâche IA inconnue"});
+      if(!body?.prospect||typeof body.prospect!=="object")return send(res,400,{ok:false,error:"Prospect manquant"});
+      return send(res,200,await runAi({task,prospect:body.prospect,context:String(body?.context||"")}));
+    }catch(e){return send(res,502,{ok:false,error:e.message||"Erreur IA"})}
   }
   if(req.method!=="GET") return send(res,405,{error:"Méthode non autorisée"});
   let file=url.pathname==="/"?"/index.html":url.pathname;
