@@ -1877,8 +1877,12 @@ async function handle(req,res){
     try{
       const body=await readJsonBody(req);
       const task=String(body?.task||"analyze").trim();
-      const allowed=["analyze","call","report","followup"];
+      const allowed=["analyze","why","call","report","followup","priority"];
       if(!allowed.includes(task))return send(res,400,{ok:false,error:"Tâche IA inconnue"});
+      if(task==="priority"){
+        if(!Array.isArray(body?.prospects))return send(res,400,{ok:false,error:"Liste de prospects manquante"});
+        return send(res,200,await runAi({task,prospects:body.prospects}));
+      }
       if(!body?.prospect||typeof body.prospect!=="object")return send(res,400,{ok:false,error:"Prospect manquant"});
       return send(res,200,await runAi({task,prospect:body.prospect,context:String(body?.context||"")}));
     }catch(e){return send(res,502,{ok:false,error:e.message||"Erreur IA"})}
