@@ -89,7 +89,14 @@ body{background:linear-gradient(180deg,#f3efe8 0,#f7f5f1 42%,#f5f2ec 100%)}
 #advancedSearchPanel input,#advancedSearchPanel select{padding:9px}
 #prospectsPanel{box-shadow:0 12px 32px rgba(40,30,20,.08)}
 #prospectsPanel .panel-title{position:sticky;top:46px;z-index:20;background:rgba(255,255,255,.96);padding:10px 0;margin:-4px 0 12px;backdrop-filter:blur(6px)}
-#prospectsPanel .cards{grid-template-columns:repeat(2,minmax(0,1fr))}
+/* V1.37.5 — disposition CRM plus compacte et mieux exploitée */
+#prospectsPanel .cards{grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+#prospectsPanel .prospects-panel-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+#prospectsPanel .prospect-view-label{display:flex;align-items:center;gap:6px;margin:0}
+#prospectsPanel .sort{min-width:150px}
+#prospectsPanel .card{min-width:0;padding:14px}
+#prospectsPanel .card .address{font-size:14px}
+#prospectsPanel .card .price{font-size:22px}
 .card{transition:transform .15s ease,box-shadow .15s ease,border-color .15s ease}
 .card:hover{transform:translateY(-1px);box-shadow:0 7px 18px rgba(40,30,20,.06);border-color:#d9c8aa}
 .card .address{line-height:1.3}
@@ -109,14 +116,15 @@ body{background:linear-gradient(180deg,#f3efe8 0,#f7f5f1 42%,#f5f2ec 100%)}
 #statsLab .stats-history-test{margin-top:16px;padding-top:14px;border-top:1px solid var(--line)}
 #statsLab .stats-foot{padding-bottom:2px}
 
-@media(max-width:1000px){
-  #prospectsPanel .cards{grid-template-columns:1fr}
+@media(max-width:1100px){
+  #prospectsPanel .cards{grid-template-columns:repeat(2,minmax(0,1fr))}
   .future-score{border-left:0;padding-left:0}
 }
 @media(max-width:800px){
   .workspace-nav{padding-left:12px;padding-right:12px}
   .container{padding-left:12px;padding-right:12px}
   #prospectsPanel .panel-title{position:static}
+  #prospectsPanel .cards{grid-template-columns:1fr}
   #advancedSearchPanel .filters{grid-template-columns:1fr}
   #ctAnnoncesPanel .ct-results{grid-template-columns:1fr}
   .future-score{min-width:0}
