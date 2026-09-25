@@ -1,4 +1,4 @@
-const APP_VERSION="1.37.2";
+const APP_VERSION="1.37.6";
 
 /* V1.37.3 — garde-fou des boutons : délégation globale + diagnostic JS */
 window.addEventListener("error",e=>{
@@ -103,37 +103,52 @@ function dashboardTerrain(){
 
 
 async function initRadarTerritory(){
-  const select=$("radarTerritoryCity"),add=$("radarAddSector"),count=$("radarTerritoryCount"),list=$("radarSectorList");
-  if(!select||!add||!list||select.dataset.ready)return;
-  select.dataset.ready="1";
+  const select=$("radarTerritoryCity"),simple=$("radarSimpleCity"),add=$("radarAddSector"),count=$("radarTerritoryCount"),list=$("radarSectorList");
+  if((!select&&!simple)||(!simple&&(!select||!add||!list)))return;
+  if(simple&&!simple.dataset.ready)simple.dataset.ready="1";
+  if(select&&!select.dataset.ready)select.dataset.ready="1";
   try{
     const data=await publicJson("/api/territory?department=08");
     window.radarTerritoryCommunes=data.communes||[];
     if(count)count.textContent=data.communeCount+" communes disponibles";
-    select.innerHTML='<option value="">+ Ajouter une commune comme secteur…</option>'+window.radarTerritoryCommunes.map(c=>'<option value="'+apiEsc(c.city)+'">'+apiEsc(c.city)+(c.population?" · "+Number(c.population).toLocaleString("fr-FR")+" hab.":"")+'</option>').join("");
+    const options='<option value="">Choisir une commune…</option>'+window.radarTerritoryCommunes.map(c=>'<option value="'+apiEsc(c.city)+'">'+apiEsc(c.city)+(c.population?" · "+Number(c.population).toLocaleString("fr-FR")+" hab.":"")+'</option>').join("");
+    if(simple) simple.innerHTML=options;
+    if(select) select.innerHTML='<option value="">+ Ajouter une commune comme secteur…</option>'+window.radarTerritoryCommunes.map(c=>'<option value="'+apiEsc(c.city)+'">'+apiEsc(c.city)+(c.population?" · "+Number(c.population).toLocaleString("fr-FR")+" hab.":"")+'</option>').join("");
   }catch(e){
     if(count)count.textContent="Référentiel Ardennes indisponible";
+    if(simple)simple.innerHTML='<option value="">Référentiel indisponible</option>';
     return;
   }
-  add.onclick=()=>{
-    const city=select.value;
-    if(!city)return;
-    if([...document.querySelectorAll("[data-radar-sector]")].some(x=>(x.dataset.label||"").toLowerCase()===city.toLowerCase())){select.value="";return}
-    const id="custom-"+Date.now();
-    const row=document.createElement("label");
-    row.className="radar-sector-row";
-    row.setAttribute("data-radar-sector-row","");
-    row.innerHTML='<span class="radar-sector-check"><input type="checkbox" data-radar-sector value="'+apiEsc(id)+'" data-label="'+apiEsc(city)+'" checked><strong>'+apiEsc(city)+'</strong></span><select data-radar-radius aria-label="Rayon '+apiEsc(city)+'"><option value="5">5 km</option><option value="10">10 km</option><option value="15" selected>15 km</option><option value="20">20 km</option><option value="25">25 km</option><option value="30">30 km</option><option value="40">40 km</option></select><button type="button" class="radar-remove-sector" title="Retirer">×</button>';
-    list.appendChild(row);
-    select.value="";
-    const remove=row.querySelector(".radar-remove-sector");
-    remove.onclick=()=>row.remove();
-    const total=list.querySelectorAll("[data-radar-sector]").length;
-    $("futureRadarReady").textContent=total+" secteur(s) prêt(s) à être analysé(s)";
-  };
-  list.querySelectorAll(".radar-remove-sector").forEach(btn=>btn.onclick=()=>btn.closest("[data-radar-sector-row]")?.remove());
+  if(add&&list){
+    add.onclick=()=>{
+      const city=select.value;
+      if(!city)return;
+      if([...document.querySelectorAll("[data-radar-sector]")].some(x=>(x.dataset.label||"").toLowerCase()===city.toLowerCase())){select.value="";return}
+      const id="custom-"+Date.now();
+      const row=document.createElement("label");
+      row.className="radar-sector-row";
+      row.setAttribute("data-radar-sector-row","");
+      row.innerHTML='<span class="radar-sector-check"><input type="checkbox" data-radar-sector value="'+apiEsc(id)+'" data-label="'+apiEsc(city)+'" checked><strong>'+apiEsc(city)+'</strong></span><select data-radar-radius aria-label="Rayon '+apiEsc(city)+'"><option value="5">5 km</option><option value="10">10 km</option><option value="15" selected>15 km</option><option value="20">20 km</option><option value="25">25 km</option><option value="30">30 km</option><option value="40">40 km</option></select><button type="button" class="radar-remove-sector" title="Retirer">×</button>';
+      list.appendChild(row); select.value="";
+      row.querySelector(".radar-remove-sector").onclick=()=>row.remove();
+    };
+    list.querySelectorAll(".radar-remove-sector").forEach(btn=>btn.onclick=()=>btn.closest("[data-radar-sector-row]")?.remove());
+  }
 }
 
+
+function initRadarSimpleMode(){
+  const toggle=$("radarAdvancedToggle"),body=$("radarAdvancedBody");
+  if(toggle&&body&&!toggle.dataset.ready){
+    toggle.dataset.ready="1";
+    toggle.onclick=()=>{
+      const open=body.hidden;
+      body.hidden=!open;
+      toggle.setAttribute("aria-expanded",String(open));
+      toggle.textContent=open?"✕ Fermer la recherche multi-secteurs":"⚙️ Recherche multi-secteurs";
+    };
+  }
+}
 function initRadarCommuneInput(){
  const input=$("futureRadarQuery"),status=$("futureRadarReady");
  if(!input||input.dataset.ready)return;
@@ -311,10 +326,16 @@ function futureRadarRender(){
   if(toggle){toggle.disabled=false;toggle.setAttribute("aria-expanded","true");toggle.textContent="✕ Masquer les "+futureRadarCandidates.length+" biens détectés";box.hidden=false;}
 }
 async function runFutureRadar(){
-  const selected=[...document.querySelectorAll("[data-radar-sector]:checked")].map(input=>{
+  const advancedOpen=$("radarAdvancedBody")&&!$("radarAdvancedBody").hidden;
+  let selected=advancedOpen?[...document.querySelectorAll("[data-radar-sector]:checked")].map(input=>{
     const row=input.closest("[data-radar-sector-row]");
     return {id:input.value,label:input.dataset.label||input.value,q:input.dataset.label||input.value,radiusKm:Number(row?.querySelector("[data-radar-radius]")?.value)||15};
-  });
+  }):[];
+  if(!advancedOpen){
+    const simpleCity=($("radarSimpleCity")?.value||"").trim();
+    const simpleRadius=Number($("radarSimpleRadius")?.value)||20;
+    if(simpleCity) selected=[{id:"simple-"+norm(simpleCity),label:simpleCity,q:simpleCity,radiusKm:simpleRadius}];
+  }
   const q=($("futureRadarQuery")?.value||$("publicQuery")?.value||"").trim();
   if(!selected.length&&!q){
     $("futureRadarStatus").textContent="Sélectionne au moins un secteur ou indique une commune.";
