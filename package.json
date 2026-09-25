@@ -1,6 +1,6 @@
 {
   "name": "jml-prospection",
-  "version": "1.40.8",
+  "version": "1.40.9",
   "private": true,
   "description": "Radar de prospection immobilière JML Immobilier",
   "scripts": {
