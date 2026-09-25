@@ -22,7 +22,9 @@ document.addEventListener("click",e=>{
   else if(b.id==="publicSearchBtn"&&typeof searchPublicSources==="function"){e.preventDefault();e.stopImmediatePropagation();searchPublicSources();}
   else if(b.id==="ctSearchBtn"&&typeof ctSearch==="function"){e.preventDefault();e.stopImmediatePropagation();ctSearch();}
   else if(b.id==="ctTourBtn"&&typeof ctSectorTour==="function"){e.preventDefault();e.stopImmediatePropagation();ctSectorTour();}
-  else if(b.id==="ctSelect10Btn"&&typeof ctSelect10==="function"){e.preventDefault();e.stopImmediatePropagation();ctSelect10();}\n  else if(b.id==="ctDeselectBtn"&&typeof ctDeselectAll==="function"){e.preventDefault();e.stopImmediatePropagation();ctDeselectAll();}\n  else if(b.id==="ctPrepareSelectedBtn"&&typeof ctPrepareSelectedTour==="function"){e.preventDefault();e.stopImmediatePropagation();ctPrepareSelectedTour();}
+  else if(b.id==="ctSelect10Btn"&&typeof ctSelect10==="function"){e.preventDefault();e.stopImmediatePropagation();ctSelect10();}
+  else if(b.id==="ctDeselectBtn"&&typeof ctDeselectAll==="function"){e.preventDefault();e.stopImmediatePropagation();ctDeselectAll();}
+  else if(b.id==="ctPrepareSelectedBtn"&&typeof ctPrepareSelectedTour==="function"){e.preventDefault();e.stopImmediatePropagation();ctPrepareSelectedTour();}
 });
 const KEY="jml_prospection_v1";let prospects=load(),pendingImport=[];let prospectPage=1;let prospectTotalPages=1;const DEFAULT_PROSPECT_PAGE_SIZE=8;const $=id=>document.getElementById(id);
 function load(){try{const x=JSON.parse(localStorage.getItem(KEY)||"[]");return Array.isArray(x)?x:[]}catch(e){return[]}}
