@@ -1,3 +1,10 @@
+## V1.37.9 — Correctif chargement Radar et cohérence de version — 25/09/2026
+
+- Le chargement du référentiel communal ne bloque plus l'interface Radar.
+- Ajout d'un référentiel de secours si l'API communale est temporairement indisponible.
+- Correction de la structure du bouton d'actualisation des prospects.
+- Toutes les mentions visibles de version sont alignées sur V1.37.9.
+
 ## V1.37.8 — Actualisation indépendante — 25/09/2026
 
 - Ajout d’un bouton Actualiser indépendant sur les principales sections.
