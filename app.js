@@ -13,7 +13,7 @@ document.addEventListener("click",e=>{
   else if(b.id==="futureRadarBtn"&&typeof runFutureRadar==="function"){e.preventDefault();e.stopImmediatePropagation();runFutureRadar();}
   else if(b.id==="futureRadarPrint"&&typeof printFutureRadarSelection==="function"){e.preventDefault();e.stopImmediatePropagation();printFutureRadarSelection();}
   else if(b.id==="futureRadarAddAll"&&typeof addFutureRadarCandidates==="function"){e.preventDefault();e.stopImmediatePropagation();addFutureRadarCandidates();}
-  else if(b.id==="futureRadarSelectAll"&&typeof futureRadarRender==="function"){e.preventDefault();e.stopImmediatePropagation();const start=futureRadarPage*FUTURE_RADAR_PAGE_SIZE;for(let i=start;i<Math.min(start+FUTURE_RADAR_PAGE_SIZE,futureRadarCandidates.length)&&futureRadarSelectedIndices.size<FUTURE_RADAR_MAX_SELECTED;i++)futureRadarSelectedIndices.add(i);futureRadarRender();}
+  else if(b.id==="futureRadarSelectAll"&&typeof futureRadarRender==="function"){e.preventDefault();e.stopImmediatePropagation();futureRadarSelectCompactTen();}
   else if(b.id==="futureRadarDeselectAll"&&typeof futureRadarRender==="function"){e.preventDefault();e.stopImmediatePropagation();const start=futureRadarPage*FUTURE_RADAR_PAGE_SIZE;for(let i=start;i<Math.min(start+FUTURE_RADAR_PAGE_SIZE,futureRadarCandidates.length);i++)futureRadarSelectedIndices.delete(i);futureRadarRender();}
   else if(b.id==="futureRadarRoute"&&typeof prepareFutureRadarRoute==="function"){e.preventDefault();e.stopImmediatePropagation();prepareFutureRadarRoute();}
   else if(b.id==="integrationsTestBtn"&&typeof testIntegrations==="function"){e.preventDefault();e.stopImmediatePropagation();testIntegrations();}
@@ -282,6 +282,26 @@ function futureRadarType(v=""){
   if(s.includes("maison"))return "Maison";
   return "Autre";
 }
+function futureRadarDistanceKm(a,b){
+  const lat1=Number(a?.latitude),lon1=Number(a?.longitude),lat2=Number(b?.latitude),lon2=Number(b?.longitude);
+  if(![lat1,lon1,lat2,lon2].every(Number.isFinite))return Infinity;
+  const R=6371,rad=Math.PI/180,dLat=(lat2-lat1)*rad,dLon=(lon2-lon1)*rad;
+  const h=Math.sin(dLat/2)**2+Math.cos(lat1*rad)*Math.cos(lat2*rad)*Math.sin(dLon/2)**2;
+  return 2*R*Math.asin(Math.sqrt(h));
+}
+function futureRadarSelectCompactTen(){
+  const pageStart=futureRadarPage*FUTURE_RADAR_PAGE_SIZE;
+  const pageItems=futureRadarCandidates.slice(pageStart,pageStart+FUTURE_RADAR_PAGE_SIZE);
+  if(!pageItems.length)return;
+  // Pour le terrain, on privilégie un groupe géographique compact plutôt que les 10 scores
+  // les plus élevés, qui peuvent être dispersés dans plusieurs communes.
+  const anchorLocal=0;
+  const anchor=pageItems[anchorLocal];
+  const ranked=pageItems.map((p,i)=>({p,i,d:futureRadarDistanceKm(anchor,p)}))
+    .sort((a,b)=>(a.d-b.d)||((Number(b.p.priorityProspectionScore)||0)-(Number(a.p.priorityProspectionScore)||0)));
+  futureRadarSelectedIndices=new Set(ranked.slice(0,FUTURE_RADAR_MAX_SELECTED).map(x=>pageStart+x.i));
+  futureRadarRender();
+}
 function futureRadarRender(){
   const box=$("futureRadarResults"),add=$("futureRadarAddAll"),printBtn=$("futureRadarPrint");
   const selectBtn=$("futureRadarSelectAll"),deselectBtn=$("futureRadarDeselectAll");
@@ -502,8 +522,13 @@ function addFutureRadarCandidate(index){
   alert(result==="created"?"Bien ajouté à la surveillance. Relance proposée dans 7 jours.":"Ce bien est déjà dans le CRM : ses informations ont été fusionnées.");
 }
 function prepareFutureRadarRoute(){
-  const selected=[...futureRadarSelectedIndices].slice(0,FUTURE_RADAR_MAX_SELECTED).map(i=>futureRadarCandidates[i]).filter(Boolean);
+  let selected=[...futureRadarSelectedIndices].slice(0,FUTURE_RADAR_MAX_SELECTED).map(i=>futureRadarCandidates[i]).filter(Boolean);
   if(!selected.length){alert("Sélectionne les biens à inclure dans la tournée.");return;}
+  // Recompacte la tournée autour du bien prioritaire sélectionné pour éviter les grands écarts géographiques.
+  const anchor=selected.slice().sort((a,b)=>(Number(b.priorityProspectionScore||0)-Number(a.priorityProspectionScore||0)))[0];
+  const compact=selected.map(p=>({p,d:futureRadarDistanceKm(anchor,p)})).sort((a,b)=>(a.d-b.d)||((Number(b.p.priorityProspectionScore)||0)-(Number(a.p.priorityProspectionScore)||0)));
+  const finite=compact.filter(x=>Number.isFinite(x.d));
+  if(finite.length>=2)selected=finite.slice(0,FUTURE_RADAR_MAX_SELECTED).map(x=>x.p);
   const addresses=selected.map(p=>[p.address,p.postalCode,p.city].filter(Boolean).join(", ")).filter(Boolean);
   if(!addresses.length){alert("Les adresses sélectionnées sont insuffisantes pour préparer une tournée.");return;}
   const destination=encodeURIComponent(addresses[addresses.length-1]);
