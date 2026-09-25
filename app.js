@@ -1,4 +1,5 @@
-const APP_VERSION = "1.40.8";
+const APP_VERSION = "1.40.9";
+const API_BASE = String(window.JML_API_BASE || (location.hostname === "jml-prospection.onrender.com" ? "https://jml-prospection-web.onrender.com" : "")).replace(/\/$/,"");
 
 /* V1.37.3 — garde-fou des boutons : délégation globale + diagnostic JS */
 window.addEventListener("error",e=>{
@@ -663,7 +664,7 @@ if($("futureRadarResults"))$("futureRadarResults").onclick=e=>{
 };
 let publicDpeResults=[],publicDvfResults=[];
 function apiEsc(v=""){return esc(v)}
-async function publicJson(url){let r;try{r=await fetch(url,{cache:"no-store"});}catch(e){throw new Error("Connexion au serveur JML impossible : "+(e.message||"fetch failed"))}let d;try{d=await r.json()}catch(e){throw new Error("Réponse serveur invalide (HTTP "+r.status+")")}if(!r.ok)throw new Error(d.error||("Erreur serveur HTTP "+r.status));return d}
+async function publicJson(url){const targets=[String(url)];if(API_BASE&&String(url).startsWith("/"))targets.push(API_BASE+String(url));let lastError=null;for(let i=0;i<targets.length;i++){const target=targets[i];let r;try{r=await fetch(target,{cache:"no-store"});}catch(e){lastError=e;if(i<targets.length-1)continue;throw new Error("Connexion au serveur JML impossible : "+(e.message||"fetch failed"))}if(!r.ok&&i<targets.length-1&&(r.status===404||r.status===502||r.status===503)){lastError=new Error("HTTP "+r.status);continue}let d;try{d=await r.json()}catch(e){if(i<targets.length-1){lastError=e;continue}throw new Error("Réponse serveur invalide (HTTP "+r.status+")")}if(!r.ok)throw new Error(d.error||("Erreur serveur HTTP "+r.status));return d}throw new Error("Serveur JML indisponible : "+(lastError?.message||"erreur inconnue"))}
 function publicDpeKey(p){
   return [norm(p.address),norm(p.postalCode),norm(p.city)].join("|");
 }
