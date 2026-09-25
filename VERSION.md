@@ -1,3 +1,9 @@
+## V1.37.10 — Chargement Radar immédiat — 25/09/2026
+
+- Le Radar affiche immédiatement un référentiel communal de secours au lieu de rester sur « Chargement des communes… ».
+- Le référentiel complet remplace automatiquement le secours lorsqu'il répond.
+- Cache navigateur aligné sur V1.37.10.
+
 ## V1.37.9 — Correctif chargement Radar et cohérence de version — 25/09/2026
 
 - Le chargement du référentiel communal ne bloque plus l'interface Radar.
