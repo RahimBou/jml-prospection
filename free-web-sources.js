@@ -86,7 +86,7 @@ function stripHtml(html){
 }
 function meta(html,name){
   const escaped=String(name).replace(/[.*+?^()|[\]\\]/g,"\\$&");
-  const re=new RegExp('<meta[^>]+(?:name|property)=["\\']'+escaped+'["\\'][^>]+content=["\\']([^"\\']*)["\\'][^>]*>',"i");
+  const re=new RegExp("<meta[^>]+(?:name|property)=[\"\']"+escaped+"[\"\'][^>]+content=[\"\']([^\"\']*)[\"\'][^>]*>","i");
   return decodeHtml((html.match(re)||[])[1]||"");
 }
 function extractLinks(html,base){
