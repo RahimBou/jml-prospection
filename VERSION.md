@@ -1,16 +1,8 @@
-## V1.37.12 — Retour à la base stable avant actualisation — 25/09/2026
+## V1.37.12 — Base stable avant actualisation — 25/09/2026
 
-- Retour au dernier état stable identifié avant l'ajout des boutons d'actualisation indépendants.
-- Aucune modification du moteur Radar, DVF/DPE, CRM ou de l'Assistant IA dans cette étape.
-- Version et cache navigateur alignés sur V1.37.12.
-
-## V1.37.7 — Top 10 orienté terrain — 25/09/2026
-
-- Top 10 présenté sous forme de fiches lisibles et hiérarchisées.
-- Ajout du niveau d’action : à prospecter aujourd’hui, priorité, à traiter, à surveiller.
-- Ajout de « Pourquoi maintenant ? » et masquage des détails techniques dans un bloc dépliable.
-- Ajout de « Préparer ma tournée » pour les biens sélectionnés.
-- Aucun appel téléphonique ajouté au parcours.
+- Retour au dernier état identifié juste avant l'ajout des boutons d'actualisation indépendants.
+- Le moteur Radar, DVF/DPE, CRM, Assistant IA et parcours terrain sont conservés.
+- Aucun bouton d'actualisation indépendant n'est ajouté dans cette étape.
 
 ## V1.37.6 — Radar recherche simplifiée — 25/09/2026
 
