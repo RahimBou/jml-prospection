@@ -2,16 +2,10 @@ const DEFAULT_SOURCES = [
   {id:"pap",label:"PAP.fr · particuliers",base:"https://www.pap.fr/",catalog:"https://www.pap.fr/annonce/vente-immobiliere-ardennes-08-g371"},
   {id:"bienici",label:"Bien'ici",base:"https://www.bienici.com/",catalog:"https://www.bienici.com/recherche/achat/charleville-mezieres-08000"},
   {id:"seloger",label:"SeLoger",base:"https://www.seloger.com/",catalog:"https://www.seloger.com/recherche/achat/immobilier/grand-est/charleville-mezieres-08000/ad08fr2552"},
-  {id:"leboncoin",label:"Leboncoin",base:"https://www.leboncoin.fr/",catalog:"https://www.leboncoin.fr/recherche?text=immobilier%20vente%20ardennes"},
-  {id:"bayardhabitat",label:"Bayard Habitat",base:"https://www.bayardhabitat.fr/"},
-  {id:"rimbaudimmo",label:"Rimbaud Immo",base:"https://www.rimbaudimmo.fr/"},
-  {id:"ingimmobilier",label:"ING Immobilier",base:"https://www.agence-ing.fr/"},
-  {id:"illimmobilier",label:"ILL Immobilier",base:"https://www.ill-immobilier.fr/"},
-  {id:"justimmo08",label:"Justimmo08",base:"https://www.justimmo08.fr/"},
-  {id:"toutabitat",label:"Toutabitat",base:"https://www.toutabitat.com/"},
-  {id:"pergent",label:"Pergent Immobilier",base:"https://www.pergent-immobilier.com/"},
-  {id:"fischer",label:"Fischer Immobilier",base:"https://www.fischer-immobilier.fr/"},
-  {id:"bressy",label:"Dany Bressy Immobilier",base:"https://www.bressy-immobilier.com/"}
+  {id:"leboncoin",label:"Leboncoin",base:"https://www.leboncoin.fr/",catalog:"https://www.leboncoin.fr/cl/ventes_immobilieres/cp_charleville-mezieres_08000"},
+  {id:"paruvendu",label:"ParuVendu.fr",base:"https://www.paruvendu.fr/",catalog:"https://www.paruvendu.fr/immobilier/vente/charleville-mezieres-08000/"},
+  {id:"pap",label:"PAP.fr · particuliers",base:"https://www.pap.fr/",catalog:"https://www.pap.fr/annonce/vente-immobiliere-ardennes-08-g371"},
+  {id:"bienici",label:"Bien'ici",base:"https://www.bienici.com/",catalog:"https://www.bienici.com/recherche/achat/charleville-mezieres-08000"}
 ];
 
 const ROBOTS_CACHE = new Map();
