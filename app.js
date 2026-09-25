@@ -497,19 +497,7 @@ function addFutureRadarCandidates(){
 
 /* delegated above: futureRadarSelectAll */
 /* old handler retained below for compatibility */
-$("futureRadarSelectAll").onclick=()=>{
-  const start=futureRadarPage*FUTURE_RADAR_PAGE_SIZE;
-  for(let i=start;i<Math.min(start+FUTURE_RADAR_PAGE_SIZE,futureRadarCandidates.length)&&futureRadarSelectedIndices.size<FUTURE_RADAR_MAX_SELECTED;i++)futureRadarSelectedIndices.add(i);
-  futureRadarRender();
-};
-$("futureRadarDeselectAll").onclick=()=>{
-  const start=futureRadarPage*FUTURE_RADAR_PAGE_SIZE;
-  for(let i=start;i<Math.min(start+FUTURE_RADAR_PAGE_SIZE,futureRadarCandidates.length);i++)futureRadarSelectedIndices.delete(i);
-  futureRadarRender();
-};
-$("futureRadarBtn").onclick=runFutureRadar;
-$("futureRadarPrint").onclick=printFutureRadarSelection;
-$("futureRadarAddAll").onclick=addFutureRadarCandidates;
+/* V1.37.3 : boutons Radar gérés par la délégation globale pour éviter les doubles appels. */
 if($("futureRadarResults"))$("futureRadarResults").onclick=e=>{
   const check=e.target.closest("[data-future-check]");
   if(check){
