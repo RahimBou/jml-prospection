@@ -1,4 +1,4 @@
-const APP_VERSION = "1.40.4";
+const APP_VERSION = "1.40.7";
 
 /* V1.37.3 — garde-fou des boutons : délégation globale + diagnostic JS */
 window.addEventListener("error",e=>{
