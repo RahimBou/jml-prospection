@@ -1,28 +1,8 @@
-## V1.37.11 — Réparation des actualisations — 25/09/2026
+## V1.37.12 — Retour à la base stable avant actualisation — 25/09/2026
 
-- Les boutons d’actualisation ne passent plus par la délégation globale des clics.
-- Chaque bouton utilise maintenant son propre gestionnaire, après l’initialisation complète de l’application.
-- Correction du placement HTML des boutons Actualiser dans les sections IA, Sources publiques et Annonces.
-- Le moteur Radar/CRM existant est conservé.
-
-## V1.37.10 — Chargement Radar immédiat — 25/09/2026
-
-- Le Radar affiche immédiatement un référentiel communal de secours au lieu de rester sur « Chargement des communes… ».
-- Le référentiel complet remplace automatiquement le secours lorsqu'il répond.
-- Cache navigateur aligné sur V1.37.10.
-
-## V1.37.9 — Correctif chargement Radar et cohérence de version — 25/09/2026
-
-- Le chargement du référentiel communal ne bloque plus l'interface Radar.
-- Ajout d'un référentiel de secours si l'API communale est temporairement indisponible.
-- Correction de la structure du bouton d'actualisation des prospects.
-- Toutes les mentions visibles de version sont alignées sur V1.37.9.
-
-## V1.37.8 — Actualisation indépendante — 25/09/2026
-
-- Ajout d’un bouton Actualiser indépendant sur les principales sections.
-- Chaque actualisation relance uniquement le module concerné sans réinitialiser le CRM ni les autres vues.
-- Le Radar peut être relancé séparément sans toucher aux autres parties.
+- Retour au dernier état stable identifié avant l'ajout des boutons d'actualisation indépendants.
+- Aucune modification du moteur Radar, DVF/DPE, CRM ou de l'Assistant IA dans cette étape.
+- Version et cache navigateur alignés sur V1.37.12.
 
 ## V1.37.7 — Top 10 orienté terrain — 25/09/2026
 
