@@ -1284,7 +1284,7 @@ async function api(pathname,url){
         if(r.ok){
           const html=await r.text();
           const candidates=[];
-          for(const m of html.matchAll(/<script[^>]*type=["']application\/ld\+json["'][^>]*>([\\s\\S]*?)<\/script>/gi)){
+          for(const m of html.matchAll(/<script[^>]*type=["']application\/ld\+json["'][^>]*>([\s\\S]*?)<\/script>/gi)){
             try{
               const raw=m[1].trim().replace(/<!--|-->/g,"");
               const data=JSON.parse(raw);
@@ -1299,12 +1299,12 @@ async function api(pathname,url){
               }
             }catch{}
           }
-          const plain=String(html).replace(/<script[\\s\\S]*?<\/script>/gi," ").replace(/<style[\\s\\S]*?<\/style>/gi," ").replace(/<[^>]+>/g," ").replace(/\\s+/g," ");
-          const postalMatch=plain.match(/\\b(08\\d{3})\\b/);
-          const streetMatch=plain.match(/\\b\\d{1,4}\\s+(?:rue|avenue|av\\.|boulevard|bd\\.|chemin|impasse|place|allée|route|faubourg|quai)\\s+[^,.;]{3,80}/i);
+          const plain=String(html).replace(/<script[\s\\S]*?<\/script>/gi," ").replace(/<style[\s\\S]*?<\/style>/gi," ").replace(/<[^>]+>/g," ").replace(/\s+/g," ");
+          const postalMatch=plain.match(/\b(08\d{3})\b/);
+          const streetMatch=plain.match(/\b\d{1,4}\s+(?:rue|avenue|av\\.|boulevard|bd\\.|chemin|impasse|place|allée|route|faubourg|quai)\s+[^,.;]{3,80}/i);
           if(streetMatch)candidates.push(streetMatch[0]);
           if(postalMatch&&listingCity)candidates.push(postalMatch[1]+" "+listingCity);
-          searchAddress=candidates.find(x=>/\\d/.test(x)&&/(08\\d{3}|rue|avenue|boulevard|chemin|impasse|place|route|allée|faubourg|quai)/i.test(x))||"";
+          searchAddress=candidates.find(x=>/\d/.test(x)&&/(08\d{3}|rue|avenue|boulevard|chemin|impasse|place|route|allée|faubourg|quai)/i.test(x))||"";
         }
       }catch{}
     }
@@ -1326,10 +1326,6 @@ async function api(pathname,url){
       return {source:"Page publique + BAN",candidates:[],disclaimer:"Aucune adresse publique suffisamment documentée dans l'annonce. La commune seule ne permet pas d'identifier une adresse."};
     }
 
-    const lat=Number(url.searchParams.get("lat")),lon=Number(url.searchParams.get("lon"));
-    const area=Number(url.searchParams.get("area"))||0,rooms=Number(url.searchParams.get("rooms"))||0;
-    const dpe=String(url.searchParams.get("dpe")||"").trim().toUpperCase();
-    const cityCode=String(url.searchParams.get("cityCode")||"").trim();
     if(!Number.isFinite(lat)||!Number.isFinite(lon))throw new Error("Coordonnées de l'annonce manquantes");
     const reverseUrl=new URL("https://data.geopf.fr/geocodage/reverse");
     reverseUrl.searchParams.set("lat",String(lat));reverseUrl.searchParams.set("lon",String(lon));
