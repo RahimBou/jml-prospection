@@ -1,4 +1,4 @@
-const APP_VERSION="1.37.8";
+const APP_VERSION="1.37.9";
 
 /* V1.37.3 — garde-fou des boutons : délégation globale + diagnostic JS */
 window.addEventListener("error",e=>{
@@ -114,17 +114,45 @@ async function initRadarTerritory(){
   if((!select&&!simple)||(!simple&&(!select||!add||!list)))return;
   if(simple&&!simple.dataset.ready)simple.dataset.ready="1";
   if(select&&!select.dataset.ready)select.dataset.ready="1";
-  try{
-    const data=await publicJson("/api/territory?department=08");
-    window.radarTerritoryCommunes=data.communes||[];
-    if(count)count.textContent=data.communeCount+" communes disponibles";
+
+  const fallback=[
+    {city:"Charleville-Mézières",cityCode:"08105",postalCode:"08000",population:46000},
+    {city:"Sedan",cityCode:"08409",postalCode:"08200",population:16000},
+    {city:"Rethel",cityCode:"08362",postalCode:"08300",population:7500},
+    {city:"Revin",cityCode:"08363",postalCode:"08500",population:6000},
+    {city:"Givet",cityCode:"08190",postalCode:"08600",population:6500},
+    {city:"Vouziers",cityCode:"08490",postalCode:"08400",population:4000}
+  ];
+
+  const applyCommunes=(communes,label)=>{
+    window.radarTerritoryCommunes=Array.isArray(communes)?communes:[];
+    if(count)count.textContent=label||((window.radarTerritoryCommunes.length)+" communes disponibles");
     const options='<option value="">Choisir une commune…</option>'+window.radarTerritoryCommunes.map(c=>'<option value="'+apiEsc(c.city)+'">'+apiEsc(c.city)+(c.population?" · "+Number(c.population).toLocaleString("fr-FR")+" hab.":"")+'</option>').join("");
     if(simple) simple.innerHTML=options;
     if(select) select.innerHTML='<option value="">+ Ajouter une commune comme secteur…</option>'+window.radarTerritoryCommunes.map(c=>'<option value="'+apiEsc(c.city)+'">'+apiEsc(c.city)+(c.population?" · "+Number(c.population).toLocaleString("fr-FR")+" hab.":"")+'</option>').join("");
+  };
+
+  /*
+   * V1.37.9 — le chargement du référentiel communal ne doit plus bloquer
+   * l'interface Radar. Si geo.api.gouv.fr est lent, on affiche immédiatement
+   * un petit référentiel de secours puis on remplace la liste dès que l'API répond.
+   */
+  const territoryPromise=publicJson("/api/territory?department=08");
+  territoryPromise.then(data=>{
+    const communes=Array.isArray(data?.communes)?data.communes:[];
+    if(communes.length)applyCommunes(communes,Number(data.communeCount||communes.length)+" communes disponibles");
+  }).catch(()=>{});
+
+  try{
+    const data=await Promise.race([
+      territoryPromise,
+      new Promise((_,reject)=>setTimeout(()=>reject(new Error("timeout")),8000))
+    ]);
+    const communes=Array.isArray(data?.communes)?data.communes:[];
+    if(communes.length)applyCommunes(communes,Number(data.communeCount||communes.length)+" communes disponibles");
+    else applyCommunes(fallback,"Référentiel complet indisponible · mode secours");
   }catch(e){
-    if(count)count.textContent="Référentiel Ardennes indisponible";
-    if(simple)simple.innerHTML='<option value="">Référentiel indisponible</option>';
-    return;
+    applyCommunes(fallback,"Référentiel complet indisponible · mode secours");
   }
   if(add&&list){
     add.onclick=()=>{
