@@ -287,6 +287,33 @@ body{background:linear-gradient(180deg,#f3efe8 0,#f7f5f1 42%,#f5f2ec 100%)}
 .radar-single-query{opacity:.88}
 @media(max-width:900px){.radar-sector-grid{grid-template-columns:1fr}.radar-zone-heading{display:block}.radar-zone-heading span{display:block;margin-top:3px}}
 
+/* V1.37.7 — Top 10 lisible et orienté terrain */
+.radar-worklist-summary{display:flex;justify-content:space-between;gap:10px;align-items:center;padding:13px 15px;border-radius:12px;background:#eef5f0;border:1px solid #d7e5db;margin-top:12px}
+.radar-worklist-summary strong{font-size:1rem}
+.radar-top-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:8px}
+.future-candidate-card{padding:14px!important}
+.future-candidate-content{width:100%}
+.future-card-head{display:flex;justify-content:space-between;gap:14px;align-items:flex-start}
+.future-card-head>div:first-child{min-width:0}
+.future-rank{display:inline-flex;align-items:center;justify-content:center;min-width:34px;height:24px;margin-right:7px;border-radius:7px;background:#f4f0e9;color:#7d5b20;font-weight:800;font-size:.78rem}
+.future-card-head strong{font-size:15px}
+.future-priority{min-width:142px;padding:8px 10px;border-radius:10px;text-align:right;border:1px solid var(--line,#d9ded9);background:#fafafa}
+.future-priority strong{display:block;font-size:19px;color:#7d5b20}
+.future-priority span{font-size:.72rem;font-weight:700}
+.future-priority.urgent{background:#f7eee8;border-color:#e4cfc3}
+.future-priority.priority{background:#faf5e8;border-color:#e5d6ae}
+.future-priority.active{background:#eef5f0}
+.future-priority.watch{background:#f3f4f3}
+.future-why{display:flex;gap:8px;align-items:flex-start;margin-top:11px;padding:10px 11px;border-left:3px solid var(--gold,#b28a4b);background:#faf7f1;border-radius:0 8px 8px 0}
+.future-why strong{white-space:nowrap}
+.future-key-signals{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px}
+.future-key-signals span{padding:5px 8px;border-radius:999px;background:#f3f5f3;color:#5f6963;font-size:.72rem}
+.future-details{margin-top:9px;font-size:.75rem}
+.future-details summary{cursor:pointer;color:#65706a;font-weight:700}
+.future-detail-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin-top:8px}
+.future-detail-grid span{padding:7px 8px;border-radius:7px;background:#f7f8f7}
+.future-details p{margin:8px 0 0;color:#68736d}
+@media(max-width:700px){.radar-worklist-summary{display:block}.radar-worklist-summary span{display:block;margin-top:4px}.future-card-head{display:block}.future-priority{margin-top:9px;text-align:left;min-width:0}.future-detail-grid{grid-template-columns:1fr 1fr}.future-why{display:block}.future-why span{display:block;margin-top:4px}}
 /* V1.37.6 — Radar simplifié pour la prospection terrain */
 .radar-simple-search{display:grid;grid-template-columns:minmax(0,1fr) 180px;gap:12px;margin:14px 0 10px;padding:16px;border:1px solid var(--line,#d9ded9);border-radius:16px;background:linear-gradient(180deg,#fff,#f7f9f7)}
 .radar-simple-field{display:flex;flex-direction:column;gap:6px}
