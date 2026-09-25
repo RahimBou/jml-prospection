@@ -1184,10 +1184,10 @@ async function ctIncrementalWatch(){
 }
 
 async function ctSearch(){
-  const btn=$("ctSearchBtn");btn.disabled=true;$("ctStatus").textContent="Recherche ChercherTrouver en cours…";
+  const btn=$("ctSearchBtn");btn.disabled=true;$("ctStatus").textContent="Recherche multi-sources en cours…";
   try{
     const {qs,ville,radius}=ctBuildSearchParams(false);
-    const data=await publicJson("/api/annonces?"+qs.toString());
+    const data=await publicJson("/api/annonces-multi?"+qs.toString());
     let raw=Array.isArray(data.items)?data.items:[];
     let center=null;
     if(ville&&radius>0){
@@ -1213,7 +1213,7 @@ async function ctSearch(){
     ctMemoryPollSet(new Date().toISOString());
     const zone=ville?(radius>0?" dans un rayon de "+radius+" km autour de "+ville:" à "+ville):" dans les Ardennes";
     const sourceCounts={};raw.forEach(p=>{const s=String(p.source||"Source inconnue");sourceCounts[s]=(sourceCounts[s]||0)+1});const sourceSummary=Object.entries(sourceCounts).sort((a,b)=>b[1]-a[1]).map(([s,n])=>s+" : "+n).join(" · ");$("ctStatus").textContent=filtered.length+" annonce(s) exploitables"+zone+" · "+(data.items?.length||0)+" reçue(s) · Sources : "+(sourceSummary||"aucune")+" · "+raw.filter(p=>Array.isArray(p.sources)&&p.sources.length>1).length+" multi-portails · 🧠 mémoire : "+memory.total+" fiches / +"+memory.newCount+" nouvelles / "+memory.changedCount+" prix modifiés";
-  }catch(e){$("ctStatus").textContent="Erreur ChercherTrouver : "+e.message;ctRender([])}
+  }catch(e){$("ctStatus").textContent="Erreur veille annonces : "+e.message;ctRender([])}
   finally{btn.disabled=false}
 }
 async function ctLocateAll(){
