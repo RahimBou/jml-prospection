@@ -353,3 +353,25 @@ body{background:linear-gradient(180deg,#f3efe8 0,#f7f5f1 42%,#f5f2ec 100%)}
 @media(max-width:750px){.ai-toolbar,.ai-grid{grid-template-columns:1fr}.ai-actions button{flex:1 1 45%}}
 
 .container>#aiAssistantPanel{order:3}
+
+/* V1.37.0 — mode terrain simplifié, UI uniquement */
+.workspace-nav{position:sticky;top:0;z-index:40;box-shadow:0 2px 12px rgba(0,0,0,.08);backdrop-filter:blur(8px)}
+.workspace-nav a.nav-main{font-weight:800}
+.workspace-nav a.nav-secondary{margin-left:auto;opacity:.8}
+.terrain-guide{border-color:#d8e3dc;background:linear-gradient(180deg,#fbfdfb,#f5f8f6)}
+.terrain-guide-head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:12px}
+.terrain-guide-head>div{display:grid;gap:3px}
+.terrain-guide-head strong{font-size:1.05rem}
+.terrain-guide-head span{font-size:.82rem;color:var(--muted)}
+.terrain-mode{font-size:.68rem;font-weight:900;letter-spacing:.08em;padding:6px 9px;border-radius:999px;background:#183c35;color:#fff;white-space:nowrap}
+.terrain-guide-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.terrain-step{position:relative;display:grid;gap:4px;padding:13px 13px 12px 42px;border:1px solid var(--line);border-radius:12px;background:#fff;text-decoration:none;color:var(--ink);transition:transform .15s ease,box-shadow .15s ease}
+.terrain-step:hover{transform:translateY(-1px);box-shadow:0 5px 16px rgba(0,0,0,.07)}
+.terrain-step>b{position:absolute;left:12px;top:13px;width:23px;height:23px;border-radius:50%;display:grid;place-items:center;background:#183c35;color:#fff;font-size:.75rem}
+.terrain-step strong{font-size:.9rem}
+.terrain-step span{font-size:.76rem;line-height:1.35;color:var(--muted)}
+.terrain-step em{font-style:normal;font-size:.72rem;font-weight:800;margin-top:3px;color:#8a6b32}
+.terrain-guide-note{margin-top:10px;padding:9px 11px;border-radius:9px;background:rgba(255,255,255,.7);font-size:.76rem;color:var(--muted)}
+.terrain-guide-note a{font-weight:800;color:inherit}
+@media(max-width:850px){.terrain-guide-grid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:560px){.workspace-nav{overflow-x:auto;justify-content:flex-start}.workspace-nav a.nav-secondary{margin-left:0}.terrain-guide-head{align-items:flex-start}.terrain-guide-grid{grid-template-columns:1fr}.terrain-mode{display:none}}
