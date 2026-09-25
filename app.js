@@ -990,6 +990,7 @@ async function testIntegrations(){
    Aucun téléphone/e-mail de particulier n'est collecté. */
 const CT_MEMORY_KEY="jmlMarketMemoryV1";
 const CT_LAST_RESULTS_KEY="jmlMarketLastResultsV1";
+const CT_LAST_SEARCH_SIG_KEY="jmlMarketLastSearchSignatureV1";
 let ctMarketFilter="all";
 let ctSelectedIndices=new Set();
 let ctMarketMeta={items:[],counts:{},previousCount:0};
@@ -1006,6 +1007,16 @@ function ctLastResultsRead(){
 function ctLastResultsWrite(items){
   try{localStorage.setItem(CT_LAST_RESULTS_KEY,JSON.stringify((items||[]).map(p=>ctMemoryKey(p)).filter(Boolean).slice(0,5000)));return true}catch{return false}
 }
+function ctSearchSignature(){
+  const ids=["ctDept","ctVille","ctCp","ctRadius","ctType","ctPrixMax","ctSurfaceMin","ctFresh","ctDpe","ctPrivateOnly"];
+  return ids.map(id=>{const el=$(id);return id+"="+(el?.type==="checkbox"?(el.checked?"1":"0"):String(el?.value||"").trim())}).join("&");
+}
+function ctLastSearchSignatureRead(){
+  try{return localStorage.getItem(CT_LAST_SEARCH_SIG_KEY)||""}catch{return""}
+}
+function ctLastSearchSignatureWrite(sig){
+  try{localStorage.setItem(CT_LAST_SEARCH_SIG_KEY,String(sig||""));return true}catch{return false}
+}
 function ctMemoryKey(p){
   const ext=String(p?.reference||p?.external_id||p?.externalId||"").trim();
   const url=String(p?.external_url||p?.sourceUrl||"").trim();
@@ -1016,7 +1027,8 @@ function ctMemoryKey(p){
 function ctMarketClassify(items){
   const rows=ctMemoryRead();
   const memory=new Map(rows.map(x=>[x.key,x]));
-  const previous=new Set(ctLastResultsRead());
+  const sameScope=ctLastSearchSignatureRead()===ctSearchSignature();
+  const previous=new Set(sameScope?ctLastResultsRead():[]);
   const result=[];
   const counts={new:0,known:0,missing:0,drop:0,multi:0,private:0,work:0};
   const currentKeys=new Set();
@@ -1097,7 +1109,7 @@ function ctRenderMarketPanel(){
   const c=ctMarketMeta.counts||{};
   const cards=[["all","📊","Toutes",ctMarketMeta.items?.length||0],["new","🆕","Nouvelles",c.new||0],["known","🧠","Déjà connues",c.known||0],["drop","💶","Baisses de prix",c.drop||0],["multi","🔗","Multi-sources",c.multi||0],["private","👤","Particuliers",c.private||0],["work","🎯","À travailler",c.work||0]];
   const missing=c.missing||0;
-  box.innerHTML='<div class="ct-market-head"><div><strong>📊 Lecture commerciale de la veille</strong><span>Compare la recherche actuelle avec la précédente. « Non retrouvées » signifie seulement absentes de la dernière recherche, pas vendues.</span></div><span class="ct-market-missing">↘ '+missing+' non retrouvée(s)</span></div><div class="ct-market-cards">'+cards.map(x=>'<button type="button" class="ct-market-card '+(ctMarketFilter===x[0]?"active":"")+'" data-ct-market-filter="'+x[0]+'"><b>'+x[1]+'</b><strong>'+x[3]+'</strong><span>'+x[2]+'</span></button>').join("")+'</div><div class="ct-market-filter-row"><span>Vue : <strong>'+apiEsc(cards.find(x=>x[0]===ctMarketFilter)?.[2]||"Toutes")+'</strong></span><span>'+ctMarketMeta.items.length+' résultat(s) analysé(s)</span></div>';
+  box.innerHTML='<div class="ct-market-head"><div><strong>📊 Lecture commerciale de la veille</strong><span>Compare uniquement avec la précédente recherche ayant les mêmes critères. « Non retrouvées » signifie seulement absentes de cette recherche, pas vendues.</span></div><span class="ct-market-missing">↘ '+missing+' non retrouvée(s)</span></div><div class="ct-market-cards">'+cards.map(x=>'<button type="button" class="ct-market-card '+(ctMarketFilter===x[0]?"active":"")+'" data-ct-market-filter="'+x[0]+'"><b>'+x[1]+'</b><strong>'+x[3]+'</strong><span>'+x[2]+'</span></button>').join("")+'</div><div class="ct-market-filter-row"><span>Vue : <strong>'+apiEsc(cards.find(x=>x[0]===ctMarketFilter)?.[2]||"Toutes")+'</strong></span><span>'+ctMarketMeta.items.length+' résultat(s) analysé(s)</span></div>';
 }
 function ctMarketMatches(p){
   if(ctMarketFilter==="all")return true;
@@ -1268,6 +1280,7 @@ async function ctIncrementalWatch(){
     ctRender(market.items);
     const memory=ctRememberResults(filtered);
     ctLastResultsWrite(filtered);
+    ctLastSearchSignatureWrite(ctSearchSignature());
     ctRenderMemoryPanel();
     ctMemoryPollSet(new Date().toISOString());
     const multi=raw.filter(p=>Array.isArray(p.sources)&&p.sources.length>1).length;
