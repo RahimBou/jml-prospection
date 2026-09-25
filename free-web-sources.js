@@ -281,9 +281,10 @@ async function searchFreeWebListings(params={}){
     const title=norm(p.title||"");
     const url=String(p.external_url||"");
     const genericTitle=/^(annonces? immobili[eè]res?|vente de maisons? et villas?|vente de terrains?|vente d['’]appartements?|nos biens|nos annonces|biens immobiliers?|immobilier|acheter un bien|estimation|contact|accueil|recherche)/.test(title);
-    const genericUrl=/\/(annonces?|biens?|immobilier|vente|acheter|recherche|estimation|contact|agence|nos-biens?)([-_a-z0-9]*)?(\/|$)/i.test((()=>{try{return new URL(url).pathname}catch{return url}})());
     const hasSpecificData=Number(p.price)>0||Number(p.surface)>0||Number(p.rooms)>0||Boolean(String(p.address||"").trim());
-    return !(genericTitle||genericUrl)&&hasSpecificData;
+    // Ne pas rejeter une fiche simplement parce que son URL contient /annonce/.
+    // Les portails comme ParuVendu utilisent justement ce schéma pour leurs fiches.
+    return !genericTitle&&hasSpecificData;
   });
   const seen=new Set(),deduped=[];
   for(const p of propertyItems){
