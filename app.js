@@ -85,7 +85,7 @@ function dashboardTerrain(){
 }
 
 
-async async function initRadarTerritory(){
+async function initRadarTerritory(){
   const select=$("radarTerritoryCity"),add=$("radarAddSector"),count=$("radarTerritoryCount"),list=$("radarSectorList");
   if(!select||!add||!list||select.dataset.ready)return;
   select.dataset.ready="1";
