@@ -133,10 +133,11 @@ async function initRadarTerritory(){
   };
 
   /*
-   * V1.37.9 — le chargement du référentiel communal ne doit plus bloquer
+   * V1.37.10 — le chargement du référentiel communal ne doit plus bloquer
    * l'interface Radar. Si geo.api.gouv.fr est lent, on affiche immédiatement
    * un petit référentiel de secours puis on remplace la liste dès que l'API répond.
    */
+  applyCommunes(fallback,"Chargement du référentiel complet…");
   const territoryPromise=publicJson("/api/territory?department=08");
   territoryPromise.then(data=>{
     const communes=Array.isArray(data?.communes)?data.communes:[];
