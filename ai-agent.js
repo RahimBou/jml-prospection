@@ -53,7 +53,7 @@ function localAnalysis(p,task,context=""){
   else if(task==="followup")actions.unshift("Relance : reprendre le dernier élément connu et proposer une prochaine étape simple.");
   return {
     mode:"local",
-    title:task==="call"?"Préparation d'appel":task==="report"?"Compte-rendu de visite":task==="followup"?"Relance":"Analyse du prospect",
+    title:task==="why"?"Pourquoi ce prospect ?":task==="call"?"Préparation d'appel":task==="report"?"Compte-rendu de visite":task==="followup"?"Relance":"Analyse du prospect",
     summary:`Fiche ${p.type||"bien"}${p.city?` · ${p.city}`:""}${p.area?` · ${p.area} m²`:""}. L'analyse reste descriptive et s'appuie uniquement sur les informations enregistrées.`,
     reasons:reasons.slice(0,8),actions:actions.slice(0,6),questions:questions.slice(0,5),objections:objections.slice(0,4),
     warnings:warnings.slice(0,6),context:clean(context,2000),
