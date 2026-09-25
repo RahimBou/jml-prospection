@@ -1242,7 +1242,7 @@ function ctBuildSearchParams(incremental=false){
   const radius=Number($( "ctRadius")?.value)||0;
   qs.set("transaction","vente");qs.set("sort","recent");qs.set("page_size","100");qs.set("dedup","0");
   if(dept)qs.set("dept",dept);
-  if(radius<=0&&ville)qs.set("ville",ville);
+  if(ville)qs.set("ville",ville);
   if(type)qs.set("type",type);if(prix)qs.set("prix_max",prix);if(surface)qs.set("surface_min",surface);if(dpe)qs.set("dpe",dpe);
   const freshDays=Number($( "ctFresh")?.value)||0;
   if(!incremental&&freshDays>0)qs.set("created_since",new Date(Date.now()-freshDays*86400000).toISOString());
@@ -1260,8 +1260,16 @@ async function ctIncrementalWatch(){
       return;
     }
     const {qs,ville,radius}=ctBuildSearchParams(true);
-    const data=await publicJson("/api/annonces-multi?"+qs.toString());
+    let data=await publicJson("/api/annonces-multi?"+qs.toString());
     let raw=Array.isArray(data.items)?data.items:[];
+    // Si la fenêtre récente est vide, élargir automatiquement pour éviter un écran à 0.
+    if(!raw.length && !incremental){
+      const wider=new URLSearchParams(qs);
+      wider.delete("created_since");
+      wider.set("sort","recent");
+      data=await publicJson("/api/annonces-multi?"+wider.toString());
+      raw=Array.isArray(data.items)?data.items:[];
+    }
     if(ville&&radius>0){
       const geo=await publicJson("/api/geocode?q="+encodeURIComponent(ville));
       const center=geo?.results?.[0];
