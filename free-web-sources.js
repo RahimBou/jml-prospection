@@ -5,7 +5,8 @@ const DEFAULT_SOURCES = [
   {id:"leboncoin",label:"Leboncoin",base:"https://www.leboncoin.fr/",catalog:"https://www.leboncoin.fr/cl/ventes_immobilieres/cp_charleville-mezieres_08000"},
   {id:"paruvendu",label:"ParuVendu.fr",base:"https://www.paruvendu.fr/",catalog:"https://www.paruvendu.fr/immobilier/vente/charleville-mezieres-08000/"},
   {id:"pap",label:"PAP.fr · particuliers",base:"https://www.pap.fr/",catalog:"https://www.pap.fr/annonce/vente-immobiliere-ardennes-08-g371"},
-  {id:"bienici",label:"Bien'ici",base:"https://www.bienici.com/",catalog:"https://www.bienici.com/recherche/achat/charleville-mezieres-08000"}
+  {id:"bienici",label:"Bien'ici",base:"https://www.bienici.com/",catalog:"https://www.bienici.com/recherche/achat/charleville-mezieres-08000"},
+  {id:"seloger",label:"SeLoger",base:"https://www.seloger.com/",catalog:"https://www.seloger.com/recherche/achat/immobilier/grand-est/charleville-mezieres-08000/ad08fr2552"}
 ];
 
 const ROBOTS_CACHE = new Map();
