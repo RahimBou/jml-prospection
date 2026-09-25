@@ -449,3 +449,17 @@ body{background:linear-gradient(180deg,#f3efe8 0,#f7f5f1 42%,#f5f2ec 100%)}
 .source-connector-card>div span,.source-connector-card small{font-size:.76rem;color:#65726c}
 .source-connector-card>b{font-size:.76rem}
 .source-connector-card a{font-size:.75rem;color:#4d6b5d;text-decoration:none}
+
+/* V1.40.2 — lecture commerciale de la veille annonces */
+.ct-market-panel{margin:14px 0 18px;padding:14px;border:1px solid rgba(0,0,0,.08);border-radius:14px;background:#fff}
+.ct-market-head{display:flex;justify-content:space-between;gap:14px;align-items:flex-start;margin-bottom:12px}
+.ct-market-head>div{display:flex;flex-direction:column;gap:4px}
+.ct-market-head span{font-size:.88rem;color:#667085}
+.ct-market-missing{white-space:nowrap;font-weight:700}
+.ct-market-cards{display:grid;grid-template-columns:repeat(7,minmax(80px,1fr));gap:8px}
+.ct-market-card{border:1px solid rgba(0,0,0,.08);background:#fafafa;border-radius:11px;padding:10px 7px;text-align:left;cursor:pointer;display:flex;flex-direction:column;gap:2px}
+.ct-market-card:hover,.ct-market-card.active{border-color:#b38a45;background:#fff9ed}
+.ct-market-card b{font-size:1rem}.ct-market-card strong{font-size:1.25rem}.ct-market-card span{font-size:.78rem;color:#667085}
+.ct-market-filter-row{display:flex;justify-content:space-between;margin-top:10px;font-size:.82rem;color:#667085}
+@media(max-width:900px){.ct-market-cards{grid-template-columns:repeat(4,1fr)}}
+@media(max-width:600px){.ct-market-cards{grid-template-columns:repeat(2,1fr)}.ct-market-head{flex-direction:column}.ct-market-filter-row{flex-direction:column;gap:4px}}
