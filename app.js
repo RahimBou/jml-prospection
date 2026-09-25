@@ -251,11 +251,13 @@ function futureRadarRender(){
     return;
   }
   futureRadarPage=Math.max(0,Math.min(futureRadarPage,Math.max(0,Math.ceil(futureRadarCandidates.length/FUTURE_RADAR_PAGE_SIZE)-1)));
-  // À chaque nouveau rendu, on garde uniquement les 10 premiers dossiers comme sélection de travail.
-  if(!futureRadarSelectedIndices.size){
-    for(let j=0;j<Math.min(FUTURE_RADAR_MAX_SELECTED,futureRadarCandidates.length);j++)futureRadarSelectedIndices.add(j);
-  }
-  futureRadarSelectedIndices=new Set([...futureRadarSelectedIndices].filter(i=>i>=0&&i<futureRadarCandidates.length).slice(0,FUTURE_RADAR_MAX_SELECTED));
+  // V1.37.4 : ne sélectionne plus automatiquement les 10 premiers.
+  // La sélection est entièrement contrôlée par l'utilisateur via les cases et les boutons.
+  futureRadarSelectedIndices=new Set(
+    [...futureRadarSelectedIndices]
+      .filter(i=>i>=0&&i<futureRadarCandidates.length)
+      .slice(0,FUTURE_RADAR_MAX_SELECTED)
+  );
   futureRadarPriorityCount=Math.min(10,futureRadarCandidates.length);
 
   const totalPages=Math.max(1,Math.ceil(futureRadarCandidates.length/FUTURE_RADAR_PAGE_SIZE));
