@@ -440,3 +440,12 @@ body{background:linear-gradient(180deg,#f3efe8 0,#f7f5f1 42%,#f5f2ec 100%)}
 /* V1.38.1 — veille incrémentale */
 #ctWatchBtn{border-color:#c7d9ce;background:#f6faf7}
 #ctWatchBtn:hover{border-color:#9db9a8}
+
+
+/* V1.39.0 — source connectors */
+.source-connector-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin-top:12px}
+.source-connector-card{display:flex;flex-direction:column;gap:6px;padding:13px;border:1px solid #dbe4df;border-radius:12px;background:#fff}
+.source-connector-card>div{display:flex;flex-direction:column;gap:2px}
+.source-connector-card>div span,.source-connector-card small{font-size:.76rem;color:#65726c}
+.source-connector-card>b{font-size:.76rem}
+.source-connector-card a{font-size:.75rem;color:#4d6b5d;text-decoration:none}
