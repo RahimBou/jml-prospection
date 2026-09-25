@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: jml-prospection-web
+    name: jml-prospection
     runtime: node
     buildCommand: ""
     startCommand: node server.js
