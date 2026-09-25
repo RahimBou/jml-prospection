@@ -1,3 +1,8 @@
+## V1.37.1 — Correction boutons — 25/09/2026
+
+- Correction d'une erreur de syntaxe `async async function` dans l'initialisation du Radar qui empêchait le chargement du JavaScript.
+- Incrémentation du cache navigateur vers V1.37.1.
+
 ## V1.37.0 — Mode terrain simplifié — 25/09/2026
 
 - Ajout d'un parcours visuel en 4 étapes : Trouver → Trier → Prospecter → Suivre.
