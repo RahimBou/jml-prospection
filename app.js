@@ -6,13 +6,14 @@ window.addEventListener("error",e=>{
   if(box&&e?.message) box.textContent="⚠️ Erreur JavaScript : "+e.message;
 });
 document.addEventListener("click",e=>{
-  const b=e.target.closest("#aiAnalyzeBtn,#aiWhyBtn,#aiPriorityBtn,#aiCallBtn,#aiReportBtn,#aiFollowupBtn,#futureRadarBtn,#futureRadarPrint,#futureRadarAddAll,#futureRadarSelectAll,#futureRadarDeselectAll,#futureRadarRoute,#integrationsTestBtn,#publicSearchBtn,#ctSearchBtn,#ctTourBtn");
+  const b=e.target.closest("#aiAnalyzeBtn,#aiWhyBtn,#aiPriorityBtn,#aiCallBtn,#aiReportBtn,#aiFollowupBtn,#futureRadarBtn,#futureRadarPrint,#futureRadarAddAll,#futureRadarAddPage,#futureRadarSelectAll,#futureRadarDeselectAll,#futureRadarRoute,#integrationsTestBtn,#publicSearchBtn,#ctSearchBtn,#ctTourBtn");
   if(!b)return;
   const tasks={aiAnalyzeBtn:"analyze",aiWhyBtn:"why",aiPriorityBtn:"priority",aiCallBtn:"call",aiReportBtn:"report",aiFollowupBtn:"followup"};
   if(tasks[b.id]&&typeof aiRun==="function"){e.preventDefault();e.stopImmediatePropagation();aiRun(tasks[b.id]);}
   else if(b.id==="futureRadarBtn"&&typeof runFutureRadar==="function"){e.preventDefault();e.stopImmediatePropagation();runFutureRadar();}
   else if(b.id==="futureRadarPrint"&&typeof printFutureRadarSelection==="function"){e.preventDefault();e.stopImmediatePropagation();printFutureRadarSelection();}
   else if(b.id==="futureRadarAddAll"&&typeof addFutureRadarCandidates==="function"){e.preventDefault();e.stopImmediatePropagation();addFutureRadarCandidates();}
+  else if(b.id==="futureRadarAddPage"&&typeof addFutureRadarVisiblePage==="function"){e.preventDefault();e.stopImmediatePropagation();addFutureRadarVisiblePage();}
   else if(b.id==="futureRadarSelectAll"&&typeof futureRadarRender==="function"){e.preventDefault();e.stopImmediatePropagation();futureRadarSelectCompactTen();}
   else if(b.id==="futureRadarDeselectAll"&&typeof futureRadarRender==="function"){e.preventDefault();e.stopImmediatePropagation();const start=futureRadarPage*FUTURE_RADAR_PAGE_SIZE;for(let i=start;i<Math.min(start+FUTURE_RADAR_PAGE_SIZE,futureRadarCandidates.length);i++)futureRadarSelectedIndices.delete(i);futureRadarRender();}
   else if(b.id==="futureRadarRoute"&&typeof prepareFutureRadarRoute==="function"){e.preventDefault();e.stopImmediatePropagation();prepareFutureRadarRoute();}
@@ -303,13 +304,13 @@ function futureRadarSelectCompactTen(){
   futureRadarRender();
 }
 function futureRadarRender(){
-  const box=$("futureRadarResults"),add=$("futureRadarAddAll"),printBtn=$("futureRadarPrint");
+  const box=$("futureRadarResults"),add=$("futureRadarAddAll"),addPage=$("futureRadarAddPage"),printBtn=$("futureRadarPrint");
   const selectBtn=$("futureRadarSelectAll"),deselectBtn=$("futureRadarDeselectAll");
   if(!box)return;
   const toggle=$("futureRadarToggle");
   if(!futureRadarCandidates.length){
     box.innerHTML='<div class="meta">Aucun candidat exploitable trouvé pour cette analyse.</div>';
-    if(add)add.disabled=true;if(printBtn)printBtn.disabled=true;
+    if(add)add.disabled=true;if(addPage)addPage.disabled=true;if(printBtn)printBtn.disabled=true;
     if(selectBtn)selectBtn.disabled=true;if(deselectBtn)deselectBtn.disabled=true;
     if(toggle){toggle.disabled=true;toggle.setAttribute("aria-expanded","false");toggle.textContent="▸ Afficher les biens détectés";box.hidden=true;}
     return;
@@ -380,7 +381,7 @@ function futureRadarRender(){
       '</div>'+
     '</article>';
   }).join("");
-  add.disabled=false;if(printBtn)printBtn.disabled=selectedCount===0;
+  add.disabled=false;if(addPage)addPage.disabled=false;if(printBtn)printBtn.disabled=selectedCount===0;
   if(selectBtn)selectBtn.disabled=false;if(deselectBtn)deselectBtn.disabled=selectedCount===0;
   if(toggle){toggle.disabled=false;toggle.setAttribute("aria-expanded","true");toggle.textContent="✕ Masquer les "+futureRadarCandidates.length+" biens détectés";box.hidden=false;}
 }
@@ -500,6 +501,35 @@ function radarProspectionApproach(p){
   if(score>=50)return "Approche découverte : proposer une estimation confidentielle et comprendre le projet à moyen terme.";
   return "Approche douce : prise de contact informative, sans présenter le propriétaire comme vendeur.";
 }
+
+function addFutureRadarVisiblePage(){
+  const start=futureRadarPage*FUTURE_RADAR_PAGE_SIZE;
+  const visible=futureRadarCandidates.slice(start,start+FUTURE_RADAR_PAGE_SIZE).filter(Boolean);
+  if(!visible.length){alert("Aucun bien à ajouter sur cette page.");return;}
+  let created=0,merged=0;
+  for(const p of visible){
+    const incoming={
+      address:p.address||"",postalCode:p.postalCode||"",city:p.city||"",district:"",
+      type:futureRadarType(p.buildingType),area:num(p.area),land:num(p.terrainArea||p.latestSale?.landArea),
+      rooms:num(p.sameAddressSale?.latest?.rooms||p.latestSale?.rooms),bedrooms:0,price:0,dpe:p.dpe||"",
+      futureRadarScore:num(p.priorityProspectionScore??p.priorityScore??p.score),
+      sellerOpportunityScore:num(p.sellerOpportunityScore),sellerOpportunityLevel:p.sellerOpportunityLevel||"",
+      sellerOpportunityAction:p.sellerOpportunityAction||"",sellerOpportunityComponents:p.sellerOpportunityComponents||null,
+      sellerOpportunityBonus:num(p.sellerOpportunityBonus),marketContextScore:num(p.marketContextScore),
+      commercialSignalScore:num(p.commercialSignalScore),dataQuality:p.dataQuality||null,
+      status:"Pas encore en vente",detectionDate:today(),nextFollow:radarFollowUpDate(7),
+      source:"Radar surveillance · ADEME + DVF",externalId:p.id||"",
+      sourceUrl:"https://data.ademe.fr/datasets/dpe03existant",
+      description:"Potentiel de prospection : "+num(p.sellerOpportunityScore)+"/100 · "+(p.sellerOpportunityLevel||"Surveillance")+" · "+(p.sellerOpportunityAction||"Surveillance faible")+".",
+      notes:"Ajout direct depuis la page Radar. Cible de surveillance, pas prospect vendeur confirmé. DPE même adresse = "+(p.dpeConfirmed?"confirmé":"non confirmé")+" ; vente DVF même adresse = "+(p.sameAddressSaleConfirmed?"confirmée":"non confirmée")+" ; comparables distincts = "+(p.comparableCount||0)+"."
+    };
+    const result=mergeProspect(incoming);result==="created"?created++:merged++;
+  }
+  save();
+  const status=$("futureRadarStatus");
+  if(status)status.textContent="👁️ Surveillance : "+created+" nouveau(x) · "+merged+" déjà présent(s) fusionné(s) · page "+(futureRadarPage+1)+".";
+}
+
 function addFutureRadarCandidate(index){
   const p=futureRadarCandidates[Number(index)];
   if(!p)return;
@@ -589,7 +619,7 @@ function addFutureRadarCandidates(){
     const result=mergeProspect(incoming);
     result==="created"?created++:merged++;
   }
-  if(selected.length){save();alert("Surveillance : "+created+" bien(s) ajouté(s), "+merged+" déjà présent(s) fusionné(s).")}
+  if(selected.length){save();const status=$("futureRadarStatus");if(status)status.textContent="👁️ Surveillance : "+created+" nouveau(x) · "+merged+" déjà présent(s) fusionné(s).";}
 }
 
 /* delegated above: futureRadarSelectAll */
