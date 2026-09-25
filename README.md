@@ -1,3 +1,11 @@
+## V1.35.0 — Assistant IA JML
+- Ajout d'un panneau **Assistant IA JML** directement dans le poste de travail commercial.
+- 4 actions : **Analyser**, **Préparer l'appel**, **Compte-rendu**, **Préparer la relance**.
+- Mode local immédiat sans clé API : règles transparentes et déterministes à partir des données déjà présentes dans le CRM.
+- Connecteur Gemini côté serveur, activé uniquement si `GEMINI_API_KEY` est définie dans Render ; la clé n'est jamais envoyée au navigateur.
+- Le prompt interdit l'inférence d'une intention de vente à partir du DPE, DVF ou d'informations privées.
+- La version 1.35.0 conserve les moteurs DVF/DPE, ChercherTrouver et le CRM existants.
+
 ## V1.32.1 — précision du classement
 - Le score de priorité de prospection conserve désormais ses décimales.
 - L'affichage est au dixième et le tri utilise la valeur précise.
