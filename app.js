@@ -6,7 +6,7 @@ window.addEventListener("error",e=>{
   if(box&&e?.message) box.textContent="⚠️ Erreur JavaScript : "+e.message;
 });
 document.addEventListener("click",e=>{
-  const b=e.target.closest("#aiAnalyzeBtn,#aiWhyBtn,#aiPriorityBtn,#aiCallBtn,#aiReportBtn,#aiFollowupBtn,#futureRadarBtn,#futureRadarPrint,#futureRadarAddAll,#futureRadarSelectAll,#futureRadarDeselectAll,#integrationsTestBtn,#publicSearchBtn,#ctSearchBtn,#ctTourBtn");
+  const b=e.target.closest("#aiAnalyzeBtn,#aiWhyBtn,#aiPriorityBtn,#aiCallBtn,#aiReportBtn,#aiFollowupBtn,#futureRadarBtn,#futureRadarPrint,#futureRadarAddAll,#futureRadarSelectAll,#futureRadarDeselectAll,#futureRadarRoute,#integrationsTestBtn,#publicSearchBtn,#ctSearchBtn,#ctTourBtn");
   if(!b)return;
   const tasks={aiAnalyzeBtn:"analyze",aiWhyBtn:"why",aiPriorityBtn:"priority",aiCallBtn:"call",aiReportBtn:"report",aiFollowupBtn:"followup"};
   if(tasks[b.id]&&typeof aiRun==="function"){e.preventDefault();e.stopImmediatePropagation();aiRun(tasks[b.id]);}
@@ -15,6 +15,7 @@ document.addEventListener("click",e=>{
   else if(b.id==="futureRadarAddAll"&&typeof addFutureRadarCandidates==="function"){e.preventDefault();e.stopImmediatePropagation();addFutureRadarCandidates();}
   else if(b.id==="futureRadarSelectAll"&&typeof futureRadarRender==="function"){e.preventDefault();e.stopImmediatePropagation();const start=futureRadarPage*FUTURE_RADAR_PAGE_SIZE;for(let i=start;i<Math.min(start+FUTURE_RADAR_PAGE_SIZE,futureRadarCandidates.length)&&futureRadarSelectedIndices.size<FUTURE_RADAR_MAX_SELECTED;i++)futureRadarSelectedIndices.add(i);futureRadarRender();}
   else if(b.id==="futureRadarDeselectAll"&&typeof futureRadarRender==="function"){e.preventDefault();e.stopImmediatePropagation();const start=futureRadarPage*FUTURE_RADAR_PAGE_SIZE;for(let i=start;i<Math.min(start+FUTURE_RADAR_PAGE_SIZE,futureRadarCandidates.length);i++)futureRadarSelectedIndices.delete(i);futureRadarRender();}
+  else if(b.id==="futureRadarRoute"&&typeof prepareFutureRadarRoute==="function"){e.preventDefault();e.stopImmediatePropagation();prepareFutureRadarRoute();}
   else if(b.id==="integrationsTestBtn"&&typeof testIntegrations==="function"){e.preventDefault();e.stopImmediatePropagation();testIntegrations();}
   else if(b.id==="publicSearchBtn"&&typeof searchPublicSources==="function"){e.preventDefault();e.stopImmediatePropagation();searchPublicSources();}
   else if(b.id==="ctSearchBtn"&&typeof ctSearch==="function"){e.preventDefault();e.stopImmediatePropagation();ctSearch();}
