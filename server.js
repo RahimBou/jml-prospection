@@ -29,7 +29,7 @@ const MIME = {
 };
 
 function send(res,status,data,type="application/json"){
-  res.writeHead(status,{"Content-Type":type,"Cache-Control":"no-store"});
+  res.writeHead(status,{"Content-Type":type,"Cache-Control":"no-store","Access-Control-Allow-Origin":"*","Access-Control-Allow-Methods":"GET,OPTIONS","Access-Control-Allow-Headers":"Content-Type"});
   res.end(type.startsWith("application/json") ? JSON.stringify(data) : data);
 }
 function cleanLimit(value,max=50){const n=Number(value);return Number.isFinite(n)?Math.max(1,Math.min(max,Math.floor(n))):20}
@@ -1121,7 +1121,7 @@ function groupPublicDvfRows(rows){
 async function api(pathname,url){
   pathname=String(pathname||"").replace(/\/+$/,"")||"/";
   if(pathname==="/api/veille-annonces") pathname="/api/annonces-multi";
-  if(pathname==="/api/health") return {ok:true,sources:{dpe:"ADEME",dvf:"DVF+ Cerema",geocoding:"Géoplateforme",chercherTrouver:"ChercherTrouver.immo"},server:"jml-prospection",version:"1.40.8"};
+  if(pathname==="/api/health") return {ok:true,sources:{dpe:"ADEME",dvf:"DVF+ Cerema",geocoding:"Géoplateforme",chercherTrouver:"ChercherTrouver.immo"},server:"jml-prospection",version:"1.40.9"};
   if(pathname==="/api/integrations-health"){
     const ct=await fetchChercherTrouverPing();
     return {ok:ct.ok===true,checkedAt:new Date().toISOString(),chercherTrouver:ct};
