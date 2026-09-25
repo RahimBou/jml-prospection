@@ -351,3 +351,5 @@ body{background:linear-gradient(180deg,#f3efe8 0,#f7f5f1 42%,#f5f2ec 100%)}
 .ai-remote-text{font-size:12px;line-height:1.55;white-space:normal}
 .ai-warnings{margin-top:10px;padding:8px 10px;border-radius:8px;background:#fff8e9;color:#75571f;font-size:10px}
 @media(max-width:750px){.ai-toolbar,.ai-grid{grid-template-columns:1fr}.ai-actions button{flex:1 1 45%}}
+
+.container>#aiAssistantPanel{order:3}
