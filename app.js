@@ -931,6 +931,90 @@ async function testIntegrations(){
 
 
 /* V1.19.6 — concordance adresse renforcée */
+
+/* V1.38.0 — Mémoire locale de la veille annonces
+   Stocke uniquement les caractéristiques de l'annonce utiles au suivi marché.
+   Aucun téléphone/e-mail de particulier n'est collecté. */
+const CT_MEMORY_KEY="jmlMarketMemoryV1";
+function ctMemoryRead(){
+  try{const x=JSON.parse(localStorage.getItem(CT_MEMORY_KEY)||"[]");return Array.isArray(x)?x:[]}catch{return[]}
+}
+function ctMemoryWrite(rows){
+  try{localStorage.setItem(CT_MEMORY_KEY,JSON.stringify(rows.slice(-5000)));return true}catch{return false}
+}
+function ctMemoryKey(p){
+  const ext=String(p?.reference||p?.external_id||p?.externalId||"").trim();
+  const url=String(p?.external_url||p?.sourceUrl||"").trim();
+  if(ext)return "ref|"+norm(ext);
+  if(url)return "url|"+norm(url);
+  return ["address","postal_code","city","type","surface"].map(k=>norm(p?.[k]||"")).join("|")+"|"+Number(p?.price||0);
+}
+function ctRememberResults(items){
+  const now=now();
+  const rows=ctMemoryRead(),index=new Map(rows.map((x,i)=>[x.key,i]));
+  let newCount=0,changedCount=0;
+  for(const p of (Array.isArray(items)?items:[])){
+    const key=ctMemoryKey(p); if(!key||key==="||||0")continue;
+    const price=Number(p?.price)||0, source=String(p?.source||"ChercherTrouver").trim();
+    const oldIndex=index.get(key);
+    if(oldIndex===undefined){
+      rows.push({
+        key,firstSeenAt:now,lastSeenAt:now,seenCount:1,
+        initialPrice:price,currentPrice:price,priceChanges:[],
+        source,sourceUrl:String(p?.external_url||""),
+        address:String(p?.address||""),postalCode:String(p?.postal_code||""),
+        city:String(p?.city||""),type:String(p?.type||""),
+        area:Number(p?.surface)||0,rooms:Number(p?.rooms)||0,dpe:String(p?.dpe||""),
+        status:"active"
+      });
+      newCount++;
+    }else{
+      const old=rows[oldIndex];
+      if(price>0&&Number(old.currentPrice)>0&&price!==Number(old.currentPrice)){
+        old.priceChanges=Array.isArray(old.priceChanges)?old.priceChanges:[];
+        old.priceChanges.push({date:now,from:Number(old.currentPrice),to:price});
+        old.priceChanges=old.priceChanges.slice(-12);
+        changedCount++;
+      }
+      old.lastSeenAt=now;old.seenCount=(Number(old.seenCount)||0)+1;
+      if(price>0)old.currentPrice=price;
+      if(source)old.source=source;
+      if(p.external_url)old.sourceUrl=String(p.external_url);
+      if(p.address)old.address=String(p.address);
+      if(p.postal_code)old.postalCode=String(p.postal_code);
+      if(p.city)old.city=String(p.city);
+      if(p.type)old.type=String(p.type);
+      if(Number(p.surface)>0)old.area=Number(p.surface);
+      if(Number(p.rooms)>0)old.rooms=Number(p.rooms);
+      if(p.dpe)old.dpe=String(p.dpe);
+      old.status="active";
+    }
+  }
+  ctMemoryWrite(rows);
+  return {total:rows.length,newCount,changedCount};
+}
+function ctMemoryStats(){
+  const rows=ctMemoryRead(),nowMs=Date.now();
+  const new7=rows.filter(x=>Date.parse(x.firstSeenAt)>=nowMs-7*86400000).length;
+  const old7=rows.filter(x=>Date.parse(x.lastSeenAt)>=nowMs-30*86400000&&Date.parse(x.firstSeenAt)<nowMs-7*86400000).length;
+  const drops=rows.filter(x=>Array.isArray(x.priceChanges)&&x.priceChanges.some(c=>Number(c.to)<Number(c.from))).length;
+  return {total:rows.length,new7,old7,drops};
+}
+function ctRenderMemoryPanel(){
+  const box=$("ctMemorySummary");if(!box)return;
+  const s=ctMemoryStats();
+  box.innerHTML='<strong>🧠 Mémoire du marché</strong><span>'+s.total+' annonce(s) mémorisée(s)</span><span>🆕 '+s.new7+' nouvelles sur 7 j</span><span>💶 '+s.drops+' avec baisse suivie</span><button id="ctMemoryExport" class="ghost" type="button">Exporter la mémoire</button><button id="ctMemoryClear" class="ghost" type="button">Effacer la mémoire locale</button>';
+  const ex=$("ctMemoryExport");
+  if(ex)ex.onclick=()=>{
+    const blob=new Blob([JSON.stringify(ctMemoryRead(),null,2)],{type:"application/json"});
+    const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="jml-memoire-marche.json";a.click();setTimeout(()=>URL.revokeObjectURL(a.href),500);
+  };
+  const clear=$("ctMemoryClear");
+  if(clear)clear.onclick=()=>{
+    if(confirm("Effacer la mémoire locale de la veille ?")){localStorage.removeItem(CT_MEMORY_KEY);ctRenderMemoryPanel();$("ctStatus").textContent="Mémoire locale effacée."}
+  };
+}
+
 let ctAnnonces=[];
 function ctEuro(v){const n=Number(v);return n>0?n.toLocaleString("fr-FR")+" €":"—"}
 function ctAnnonceType(v){return String(v||"Autre").trim()||"Autre"}
@@ -1019,8 +1103,10 @@ async function ctSearch(){
       return !isAgency&&!exclusive;
     }):raw;
     ctRender(filtered);
+    const memory=ctRememberResults(raw);
+    ctRenderMemoryPanel();
     const zone=ville?(radius>0?" dans un rayon de "+radius+" km autour de "+ville:" à "+ville):" dans les Ardennes";
-    const sourceCounts={};raw.forEach(p=>{const s=String(p.source||"Source inconnue");sourceCounts[s]=(sourceCounts[s]||0)+1});const sourceSummary=Object.entries(sourceCounts).sort((a,b)=>b[1]-a[1]).map(([s,n])=>s+" : "+n).join(" · ");$("ctStatus").textContent=filtered.length+" annonce(s) exploitables"+zone+" · "+(data.items?.length||0)+" reçue(s) · Sources : "+(sourceSummary||"aucune");
+    const sourceCounts={};raw.forEach(p=>{const s=String(p.source||"Source inconnue");sourceCounts[s]=(sourceCounts[s]||0)+1});const sourceSummary=Object.entries(sourceCounts).sort((a,b)=>b[1]-a[1]).map(([s,n])=>s+" : "+n).join(" · ");$("ctStatus").textContent=filtered.length+" annonce(s) exploitables"+zone+" · "+(data.items?.length||0)+" reçue(s) · Sources : "+(sourceSummary||"aucune")+" · 🧠 mémoire : "+memory.total+" fiches / +"+memory.newCount+" nouvelles / "+memory.changedCount+" prix modifiés";
   }catch(e){$("ctStatus").textContent="Erreur ChercherTrouver : "+e.message;ctRender([])}
   finally{btn.disabled=false}
 }
