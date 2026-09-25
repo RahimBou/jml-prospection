@@ -1511,17 +1511,37 @@ async function api(pathname,url){
     params.page_size=url.searchParams.get("page_size")||"50";
     const tasks=[
       (async()=>fetchChercherTrouver(params))(),
-      (async()=>fetchStreamEstate(params))()
+      String(process.env.STREAM_ESTATE_API_KEY||"").trim()
+        ? (async()=>fetchStreamEstate(params))()
+        : Promise.resolve({source:"Stream Estate",items:[],skipped:true})
     ];
     const results=await Promise.allSettled(tasks);
     const items=[],sources=[];
     results.forEach((r,i)=>{
       const name=i===0?"ChercherTrouver.immo":"Stream Estate";
       if(r.status==="fulfilled"){
-        const normalized=(r.value.items||[]).map(p=>({...p,source:p.source||name,sources:Array.isArray(p.sources)&&p.sources.length?p.sources:[{source:name,reference:p.reference||"",url:p.external_url||""}]}));
-        sources.push({source:name,ok:true,count:normalized.length});items.push(...normalized)
+        const normalized=(r.value.items||[]).map(p=>({...p,source:p.source||name,sources:Array.isArray(p.sources)&&p.sources.length?p.sources:[{source:name,reference:p.reference||"",url:p.external_url||""]}));
+        sources.push({
+          source:name,
+          ok:true,
+          configured:i===0?Boolean(String(process.env.CHERCHERTROUVER_API_KEY||"").trim()):Boolean(String(process.env.STREAM_ESTATE_API_KEY||"").trim()),
+          skipped:Boolean(r.value.skipped),
+          count:normalized.length,
+          total:Number(r.value.total)||normalized.length,
+          error:null
+        });
+        items.push(...normalized)
+      } else {
+        sources.push({
+          source:name,
+          ok:false,
+          configured:i===0?Boolean(String(process.env.CHERCHERTROUVER_API_KEY||"").trim()):Boolean(String(process.env.STREAM_ESTATE_API_KEY||"").trim()),
+          skipped:false,
+          count:0,
+          total:0,
+          error:r.reason?.message||"erreur"
+        });
       }
-      else sources.push({source:name,ok:false,error:r.reason?.message||"erreur",count:0});
     });
 
     // Secours gratuit : si ChercherTrouver est bloqué par quota/clé absente,
