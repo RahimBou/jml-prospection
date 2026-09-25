@@ -994,3 +994,69 @@ if($("ctAddBtn"))$("ctAddBtn").onclick=ctAddSelected;
 
 
 if($("ctLocateBtn"))$("ctLocateBtn").onclick=ctLocateAll;
+
+/* V1.35.0 — Assistant IA JML */
+function aiRefreshProspects(){
+  const select=$("aiProspectSelect");
+  if(!select)return;
+  const current=select.value;
+  const items=prospects.filter(p=>typeof isCommercialProspect==="function"?isCommercialProspect(p):true)
+    .slice().sort((a,b)=>String(a.city||"").localeCompare(String(b.city||""),"fr")||String(a.address||"").localeCompare(String(b.address||""),"fr"));
+  select.innerHTML='<option value="">Choisir un prospect commercial…</option>'+items.map(p=>{
+    const label=[p.address||"Adresse à compléter",p.postalCode,p.city].filter(Boolean).join(" · ");
+    return '<option value="'+esc(p.id||"")+'">'+esc(label)+(p.type?' · '+esc(p.type):"")+'</option>';
+  }).join("");
+  if(items.some(p=>String(p.id)===String(current)))select.value=current;
+}
+function aiGetProspect(){
+  const id=$("aiProspectSelect")?.value;
+  return prospects.find(p=>String(p.id)===String(id))||null;
+}
+function aiSetBusy(b){
+  ["aiAnalyzeBtn","aiCallBtn","aiReportBtn","aiFollowupBtn"].forEach(id=>{if($(id))$(id).disabled=b});
+}
+function aiRender(data){
+  const box=$("aiResult");if(!box)return;
+  if(data?.text){
+    box.innerHTML='<div class="ai-remote"><div class="ai-result-head"><strong>✨ Gemini</strong><span>'+esc(data.model||"")+'</span></div><div class="ai-remote-text">'+esc(data.text).replace(/\n/g,"<br>")+'</div></div>'+
+      (data.warning?'<div class="source-note">⚠️ '+esc(data.warning)+'</div>':"");
+    return;
+  }
+  const l=data?.local||{};
+  box.innerHTML='<div class="ai-local"><div class="ai-result-head"><strong>🧠 JML IA locale</strong><span>Sans appel externe</span></div>'+
+    '<h3>'+esc(l.title||"Analyse")+'</h3><p>'+esc(l.summary||"")+'</p>'+
+    '<div class="ai-grid">'+
+      '<div><strong>Pourquoi c’est utile</strong><ul>'+((l.reasons||[]).map(x=>'<li>'+esc(x)+'</li>').join("")||"<li>Pas assez d'informations.</li>")+'</ul></div>'+
+      '<div><strong>Prochaine action</strong><ul>'+((l.actions||[]).map(x=>'<li>'+esc(x)+'</li>').join("")||"<li>Compléter la fiche.</li>")+'</ul></div>'+
+      '<div><strong>Questions à poser</strong><ul>'+((l.questions||[]).map(x=>'<li>'+esc(x)+'</li>').join("")||"<li>—</li>")+'</ul></div>'+
+      '<div><strong>Objections</strong>'+((l.objections||[]).map(x=>'<div class="ai-objection"><b>'+esc(x.objection)+'</b><span>'+esc(x.response)+'</span></div>').join("")||"<div>—</div>")+'</div>'+
+    '</div>'+
+    ((l.warnings||[]).length?'<div class="ai-warnings">⚠️ '+l.warnings.map(esc).join(" · ")+'</div>':"")+
+    '<div class="source-note">'+esc(l.disclaimer||"")+'</div></div>';
+}
+async function aiRun(task){
+  const p=aiGetProspect();
+  if(!p){$("aiStatus").textContent="Choisis d'abord un prospect commercial.";return}
+  aiSetBusy(true);$("aiStatus").textContent="Assistant IA en cours…";
+  try{
+    const r=await fetch("/api/ai",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({task,prospect:p,context:$("aiContext")?.value||""})});
+    const data=await r.json().catch(()=>({}));
+    if(!r.ok||data.ok===false)throw new Error(data.error||"Service IA indisponible");
+    const provider=data.provider==="Gemini"?"🟢 Gemini":data.provider==="local-fallback"?"🟠 Gemini indisponible · secours local":"🔵 IA locale";
+    $("aiProviderStatus").textContent=provider;
+    $("aiStatus").textContent="Analyse terminée · "+new Date().toLocaleTimeString("fr-FR");
+    aiRender(data);
+  }catch(e){
+    $("aiProviderStatus").textContent="🔴 IA à vérifier";
+    $("aiStatus").textContent="Erreur IA : "+e.message;
+  }finally{aiSetBusy(false)}
+}
+if($("aiAssistantPanel")){
+  $("aiAnalyzeBtn").onclick=()=>aiRun("analyze");
+  $("aiCallBtn").onclick=()=>aiRun("call");
+  $("aiReportBtn").onclick=()=>aiRun("report");
+  $("aiFollowupBtn").onclick=()=>aiRun("followup");
+  aiRefreshProspects();
+  const _jmlOriginalRender=render;
+  render=function(){_jmlOriginalRender();aiRefreshProspects()};
+}
