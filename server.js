@@ -117,6 +117,72 @@ async function fetchDpeCandidates(address,city=""){
   return out;
 }
 
+
+async function fetchStreamEstate(params={}){
+  const apiKey=String(process.env.STREAM_ESTATE_API_KEY||"").trim();
+  if(!apiKey)throw new Error("STREAM_ESTATE_API_KEY non configurée sur Render");
+  const city=String(params.ville||"").trim();
+  let cityCode=String(params.cityCode||"").trim();
+  if(!cityCode&&city){
+    try{const geo=await geocodeAddress(city,5);cityCode=String(geo?.[0]?.cityCode||"").trim()}catch{}
+  }
+  const property={transaction:{type:"SELL"}};
+  const type=String(params.type||"").trim();
+  const typeMap={Appartement:"FLAT",Maison:"HOUSE",Terrain:"LAND",Immeuble:"BUILDING",Garage:"GARAGE","Local commercial":"COMMERCIAL"};
+  if(typeMap[type])property.type={in:[typeMap[type]]};
+  const min=Number(params.prix_min)||0,max=Number(params.prix_max)||0;
+  if(min>0||max>0)property.pricing={displayed:{...(min>0?{gte:min}:{}),...(max>0?{lte:max}:{})}};
+  const surface=Number(params.surface_min)||0;
+  if(surface>0)property.area={displayed:{gte:surface}};
+  if(cityCode)property.locations={countryCode:"FR",in:{uniqueCodes:[cityCode]}};
+  const body={criteria:{property},paginationType:"PAGE",page:1,size:Math.min(100,Math.max(1,Number(params.page_size)||50))};
+  const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),15000);
+  try{
+    const r=await fetch("https://api-v2.stream.estate/properties",{
+      method:"POST",
+      headers:{"Accept":"application/json","Content-Type":"application/json","X-API-KEY":apiKey,"User-Agent":"JML-Prospection/1.38.0"},
+      body:JSON.stringify(body),signal:controller.signal
+    });
+    const text=await r.text();let data;try{data=JSON.parse(text)}catch{data={raw:text}};
+    if(!r.ok)throw new Error("Stream Estate HTTP "+r.status);
+    const rows=Array.isArray(data)?data:Array.isArray(data?.data)?data.data:Array.isArray(data?.properties)?data.properties:[];
+    const items=rows.map((x)=>{
+      const p=x?.property||x?.attributes||x||{}, listings=Array.isArray(x?.listings)?x.listings:[],l=listings[0]||{};
+      const loc=p.location||{},cityObj=loc.city||{};
+      const coords=loc.geometry?.coordinates||[];
+      const area=p.area?.displayed??p.area?.living??p.area??l.area;
+      const rooms=p.unit?.rooms??p.rooms??l.rooms;
+      const price=p.pricing?.displayed??p.pricing?.sale?.netPrice??l.displayedPrice;
+      return {
+        reference:x.id||l.id||"",
+        title:l.title||p.body?.title||"",
+        description:l.description||p.body?.description||"",
+        price:Number(price)||0,surface:Number(area)||0,rooms:Number(rooms)||0,
+        type:type||String(l.propertyType||p.propertyType||""),
+        city:cityObj.name||city,postal_code:Array.isArray(cityObj.postalCodes)?cityObj.postalCodes[0]||"":String(cityObj.postalCodes||""),
+        latitude:Number(coords[1]??loc.latitude),longitude:Number(coords[0]??loc.longitude),
+        external_url:l.url||"",source:(l.source?.slug||"Stream Estate"),
+        seller_type:(x?.publishers?.[0]?.publisherType||""),
+        dpe:p.unit?.diagnostic?.scores?.property1?.rating||"",
+        published_at:l.publishedAt||l.createdAt||"",updated_at:l.updatedAt||p.updatedAt||"",
+        sources:listings.map(z=>({source:z.source?.slug||"",reference:z.id||"",url:z.url||"",price:Number(z.displayedPrice)||0}))
+      };
+    });
+    return {source:"Stream Estate",total:Number(data?.meta?.totalItems)||items.length,pageSize:items.length,hasMore:Boolean(data?.meta?.hasNextPage),nextCursor:data?.meta?.cursor||null,items};
+  }finally{clearTimeout(timer)}
+}
+async function pingStreamEstate(){
+  const apiKey=String(process.env.STREAM_ESTATE_API_KEY||"").trim();
+  if(!apiKey)return {source:"Stream Estate",configured:false,ok:false,error:"Clé API absente"};
+  const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),8000);
+  try{
+    const r=await fetch("https://api-v2.stream.estate/sources?page=1",{headers:{"Accept":"application/json","X-API-KEY":apiKey,"User-Agent":"JML-Prospection/1.38.0"},signal:controller.signal});
+    if(!r.ok)return {source:"Stream Estate",configured:true,ok:false,error:"HTTP "+r.status};
+    return {source:"Stream Estate",configured:true,ok:true};
+  }catch(e){return {source:"Stream Estate",configured:true,ok:false,error:e.message||"inaccessible"}}
+  finally{clearTimeout(timer)}
+}
+
 async function fetchChercherTrouver(params={}){
   const apiKey=String(process.env.CHERCHERTROUVER_API_KEY||"").trim();
   if(!apiKey) throw new Error("CHERCHERTROUVER_API_KEY non configurée sur le serveur Render");
@@ -1360,6 +1426,50 @@ async function api(pathname,url){
         :null
     };
   }
+
+  if(pathname==="/api/sources-health"){
+    const ctKey=Boolean(String(process.env.CHERCHERTROUVER_API_KEY||"").trim());
+    const stream=await pingStreamEstate();
+    return {
+      checkedAt:new Date().toISOString(),
+      sources:[
+        {id:"cherchertrouver",label:"ChercherTrouver.immo",kind:"annonces",configured:ctKey,ok:null,mode:"API agrégée"},
+        {id:"streamestate",label:"Stream Estate",kind:"annonces",configured:stream.configured,ok:stream.ok,error:stream.error||null,mode:"API agrégée"},
+        {id:"moteurimmo",label:"MoteurImmo",kind:"annonces",configured:Boolean(String(process.env.MOTEURIMMO_API_KEY||"").trim()),ok:null,mode:"API à connecter"},
+        {id:"yanport",label:"Yanport",kind:"annonces + marché",configured:Boolean(String(process.env.YANPORT_API_KEY||"").trim()),ok:null,mode:"API à connecter"},
+        {id:"casafari",label:"CASAFARI",kind:"annonces + marché",configured:Boolean(String(process.env.CASAFARI_API_KEY||"").trim()),ok:null,mode:"API à connecter"},
+        {id:"dpe",label:"ADEME DPE",kind:"enrichissement",configured:true,ok:true,mode:"Open data"},
+        {id:"dvf",label:"DVF+ / Cerema",kind:"transactions",configured:true,ok:true,mode:"Open data"},
+        {id:"ban",label:"BAN / Géoplateforme",kind:"geocodage",configured:true,ok:true,mode:"Open data"},
+        {id:"georisques",label:"Géorisques",kind:"risques",configured:true,ok:true,mode:"Open data à enrichir"}
+      ]
+    };
+  }
+  if(pathname==="/api/annonces-multi"){
+    const params={};
+    for(const key of ["q","type","transaction","ville","cp","dept","prix_min","prix_max","surface_min","created_since","updated_since"]){
+      const value=url.searchParams.get(key);if(value)params[key]=value;
+    }
+    params.page_size=url.searchParams.get("page_size")||"50";
+    const tasks=[
+      (async()=>fetchChercherTrouver(params))(),
+      (async()=>fetchStreamEstate(params))()
+    ];
+    const results=await Promise.allSettled(tasks);
+    const items=[],sources=[];
+    results.forEach((r,i)=>{
+      const name=i===0?"ChercherTrouver.immo":"Stream Estate";
+      if(r.status==="fulfilled"){sources.push({source:name,ok:true,count:r.value.items?.length||0});items.push(...(r.value.items||[]))}
+      else sources.push({source:name,ok:false,error:r.reason?.message||"erreur",count:0});
+    });
+    const seen=new Set(),deduped=[];
+    for(const p of items){
+      const key=String(p.reference||p.external_url||"")+"|"+String(p.city||"")+"|"+Number(p.price||0)+"|"+Number(p.surface||0);
+      if(!seen.has(key)){seen.add(key);deduped.push(p)}
+    }
+    return {source:"JML multi-sources",total:deduped.length,items:deduped,sources};
+  }
+
   if(pathname==="/api/annonces"){
     const params={};
     for(const key of ["q","type","transaction","ville","cp","dept","region","prix_min","prix_max","prix_m2_min","prix_m2_max","created_since","updated_since","sort","source","sources","exclude_sources","cursor"]){
