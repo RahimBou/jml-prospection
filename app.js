@@ -700,7 +700,7 @@ $("publicDpeResults").onclick=e=>{
   const p=publicDpeResults[Number(b.dataset.dpeIndex)];if(!p)return;
   openForm({address:p.address||"",postalCode:p.postalCode||"",city:p.city||"",type:"Maison",area:p.area||0,land:0,rooms:0,bedrooms:0,price:0,dpe:p.dpe||"",status:"Nouveau",detectionDate:today(),nextFollow:"",source:"DPE ADEME",externalId:p.dpeNumber||"",sourceUrl:"https://data.ademe.fr/datasets/dpe03existant",description:"Donnée technique publique DPE ADEME. À vérifier sur le terrain avant toute qualification commerciale.",notes:"DPE : "+(p.dpe||"—")+" · GES : "+(p.ges||"—")+" · Date : "+(p.date||"—")});
 };
-prospects.forEach(ensureHistory);render();initCollapsiblePanels();initRadarCommuneInput();initRadarTerritory();
+prospects.forEach(ensureHistory);render();initCollapsiblePanels();initRadarSimpleMode();initRadarCommuneInput();initRadarTerritory();
 /* V1.13.0 — prospection annonce publique + carte + rapprochement DVF/DPE */
 let privateProspectMap=null;
 let privateProspectLayers=null;
