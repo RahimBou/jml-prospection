@@ -1,3 +1,10 @@
+## V1.37.11 — Réparation des actualisations — 25/09/2026
+
+- Les boutons d’actualisation ne passent plus par la délégation globale des clics.
+- Chaque bouton utilise maintenant son propre gestionnaire, après l’initialisation complète de l’application.
+- Correction du placement HTML des boutons Actualiser dans les sections IA, Sources publiques et Annonces.
+- Le moteur Radar/CRM existant est conservé.
+
 ## V1.37.10 — Chargement Radar immédiat — 25/09/2026
 
 - Le Radar affiche immédiatement un référentiel communal de secours au lieu de rester sur « Chargement des communes… ».
