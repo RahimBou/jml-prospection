@@ -1196,9 +1196,15 @@ async function ctSearch(){
       if(!center?.latitude||!center?.longitude)throw new Error("Impossible de géocoder la commune pour appliquer le rayon.");
       raw=raw.map(p=>{
         const lat=Number(p.latitude??p.lat),lon=Number(p.longitude??p.lon);
-        if(!Number.isFinite(lat)||!Number.isFinite(lon)||!lat||!lon)return {...p,_radiusKm:null};
-        return {...p,_radiusKm:ctDistanceKm(center.latitude,center.longitude,lat,lon)};
-      }).filter(p=>p._radiusKm!==null&&p._radiusKm<=radius);
+        if(!Number.isFinite(lat)||!Number.isFinite(lon)||!lat||!lon){
+          // Une annonce sans coordonnées ne doit pas disparaître : on la conserve
+          // et on pourra retrouver son adresse/position avec le bouton dédié.
+          return {...p,_radiusKm:null,_radiusStatus:"non géolocalisée"};
+        }
+        const d=ctDistanceKm(center.latitude,center.longitude,lat,lon);
+        return {...p,_radiusKm:d,_radiusStatus:d<=radius?"dans le rayon":"hors rayon"};
+      }).filter(p=>p._radiusKm===null||p._radiusKm<=radius);
+      raw=raw.map(p=>({...p,source:p.source||p.sources?.[0]?.source||"ChercherTrouver.immo"}));
     }
     const privateOnly=$( "ctPrivateOnly")?.checked===true;
     const filtered=privateOnly?raw.filter(p=>{
@@ -1212,7 +1218,7 @@ async function ctSearch(){
     ctRenderMemoryPanel();
     ctMemoryPollSet(new Date().toISOString());
     const zone=ville?(radius>0?" dans un rayon de "+radius+" km autour de "+ville:" à "+ville):" dans les Ardennes";
-    const sourceCounts={};raw.forEach(p=>{const s=String(p.source||"Source inconnue");sourceCounts[s]=(sourceCounts[s]||0)+1});const sourceSummary=Object.entries(sourceCounts).sort((a,b)=>b[1]-a[1]).map(([s,n])=>s+" : "+n).join(" · ");$("ctStatus").textContent=filtered.length+" annonce(s) exploitables"+zone+" · "+(data.items?.length||0)+" reçue(s) · Sources : "+(sourceSummary||"aucune")+(privateOnly&&raw.length&&!filtered.length?" · ⚠️ toutes écartées par le filtre « Particulier uniquement »":"")+" · "+raw.filter(p=>Array.isArray(p.sources)&&p.sources.length>1).length+" multi-portails · 🧠 mémoire : "+memory.total+" fiches / +"+memory.newCount+" nouvelles / "+memory.changedCount+" prix modifiés";
+    const sourceCounts={};raw.forEach(p=>{const s=String(p.source||p.sources?.[0]?.source||"ChercherTrouver.immo");sourceCounts[s]=(sourceCounts[s]||0)+1});const sourceSummary=Object.entries(sourceCounts).sort((a,b)=>b[1]-a[1]).map(([s,n])=>s+" : "+n).join(" · ");$("ctStatus").textContent=filtered.length+" annonce(s) exploitables"+zone+" · "+(data.items?.length||0)+" reçue(s) · Sources : "+(sourceSummary||"aucune")+(privateOnly&&raw.length&&!filtered.length?" · ⚠️ toutes écartées par le filtre « Particulier uniquement »":"")+" · "+raw.filter(p=>Array.isArray(p.sources)&&p.sources.length>1).length+" multi-portails · 🧠 mémoire : "+memory.total+" fiches / +"+memory.newCount+" nouvelles / "+memory.changedCount+" prix modifiés";
   }catch(e){$("ctStatus").textContent="Erreur veille annonces : "+e.message;ctRender([])}
   finally{btn.disabled=false}
 }
