@@ -15,6 +15,7 @@ let dvfLocalCache = null;
 const ADDRESS_URL = "https://data.geopf.fr/geocodage/search/";
 const { analyze: analyzeDataQuality } = require("./data-agent");
 const { runAi } = require("./ai-agent");
+const { searchFreeWebListings } = require("./free-web-sources");
 
 const MIME = {
   ".html":"text/html; charset=utf-8",
@@ -1462,14 +1463,30 @@ async function api(pathname,url){
       if(r.status==="fulfilled"){sources.push({source:name,ok:true,count:r.value.items?.length||0});items.push(...(r.value.items||[]))}
       else sources.push({source:name,ok:false,error:r.reason?.message||"erreur",count:0});
     });
+
+    // Secours gratuit : si ChercherTrouver est bloqué par quota/clé absente,
+    // utiliser des pages publiques configurées et autorisées.
+    const ctFailed=sources.some(x=>x.source==="ChercherTrouver.immo"&&!x.ok);
+    if(ctFailed && !items.length){
+      try{
+        const free=await searchFreeWebListings({...params,web_sources:5});
+        sources.push({source:"Web public local",ok:true,count:free.items?.length||0,details:"Secours gratuit · pages publiques autorisées"});
+        items.push(...(free.items||[]));
+      }catch(e){
+        sources.push({source:"Web public local",ok:false,count:0,error:e.message||"erreur"});
+      }
+    }
+
     const seen=new Set(),deduped=[];
     for(const p of items){
-      const key=String(p.reference||p.external_url||"")+"|"+String(p.city||"")+"|"+Number(p.price||0)+"|"+Number(p.surface||0);
+      const sourceKey=Array.isArray(p.sources)&&p.sources.length
+        ? p.sources.map(x=>x.url||x.reference||x.source||"").sort().join(",")
+        : "";
+      const key=String(p.dedup_key||p.reference||p.external_url||sourceKey)+"|"+String(p.city||"")+"|"+Number(p.price||0)+"|"+Number(p.surface||0);
       if(!seen.has(key)){seen.add(key);deduped.push(p)}
     }
     return {source:"JML multi-sources",total:deduped.length,items:deduped,sources};
   }
-
   if(pathname==="/api/annonces"){
     const params={};
     for(const key of ["q","type","transaction","ville","cp","dept","region","prix_min","prix_max","prix_m2_min","prix_m2_max","created_since","updated_since","sort","source","sources","exclude_sources","cursor"]){
