@@ -161,6 +161,15 @@ function candidateScore(url,q){
   if(/location|louer|rent/.test(s))score-=5;
   return score;
 }
+function isCataloguePage(item,html,url){
+  const title=norm(item?.title||"");
+  const text=norm((item?.title||"")+" "+(item?.description||"")+" "+String(html||"").slice(0,16000));
+  const genericTitle=/^(annonces? immobili[eè]res?|vente de maisons? et villas?|vente de terrains?|vente d['’]appartements?|nos biens|nos annonces|biens immobiliers?|immobilier|acheter un bien|estimation|contact|accueil|recherche)/.test(title);
+  let genericUrl=false;try{genericUrl=/\/(annonces?|biens?|immobilier|vente|acheter|recherche|estimation|contact|agence|nos-biens?)(\/|$)/i.test(new URL(url).pathname)}catch{}
+  const hasSpecificData=Number(item?.price)>0||Number(item?.surface)>0||Boolean(item?.address)||Number(item?.rooms)>0;
+  const listingWords=(text.match(/maison|appartement|terrain|immeuble|local commercial/g)||[]).length;
+  return Boolean(item)&&(genericTitle||genericUrl)&&!hasSpecificData&&listingWords<5;
+}
 async function discoverSource(source,q){
   const stats={id:source.id,label:source.label,base:source.base,ok:false,count:0,blocked:false,error:null,checked:0};
   try{
@@ -183,8 +192,29 @@ async function discoverSource(source,q){
       if(!(await robotsAllows(u)))continue;
       try{
         const html=await fetchText(u,8000);stats.checked++;
-        const item=extractItem(html,u,source.label);
-        if(item){
+        let item=extractItem(html,u,source.label);
+        if(item&&isCataloguePage(item,html,u)){
+          const childLinks=extractLinks(html,u)
+            .filter(v=>candidateScore(v,q)>0)
+            .sort((a,b)=>candidateScore(b,q)-candidateScore(a,q))
+            .slice(0,10);
+          for(const child of childLinks){
+            if(items.length>=10)break;
+            if(!(await robotsAllows(child)))continue;
+            try{
+              const childHtml=await fetchText(child,8000);stats.checked++;
+              const childItem=extractItem(childHtml,child,source.label);
+              if(childItem&&!isCataloguePage(childItem,childHtml,child)){
+                const cityNeedle=norm(q||"");
+                if(cityNeedle&&childItem.city&&!norm(childItem.city).includes(cityNeedle)&&!norm(child).includes(cityNeedle))continue;
+                items.push(childItem);
+              }
+            }catch{}
+            await sleep(100);
+          }
+          item=null;
+        }
+        if(item&&!isCataloguePage(item,html,u)){
           const cityNeedle=norm(q||"");
           if(cityNeedle&&item.city&&!norm(item.city).includes(cityNeedle)&&!norm(u).includes(cityNeedle))continue;
           items.push(item);
