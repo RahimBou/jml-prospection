@@ -1546,6 +1546,7 @@ async function api(pathname,url){
       }
     });
 
+    // V1.40.7 : route multi-sources active ; secours gratuit si ChercherTrouver est bloqué par quota/clé absente,
     // Secours gratuit : si ChercherTrouver est bloqué par quota/clé absente,
     // utiliser des pages publiques configurées et autorisées.
     const ctFailed=sources.some(x=>x.source==="ChercherTrouver.immo"&&!x.ok);
