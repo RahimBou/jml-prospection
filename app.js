@@ -576,7 +576,7 @@ if($("futureRadarResults"))$("futureRadarResults").onclick=e=>{
     if(check.checked){
       if(futureRadarSelectedIndices.size>=FUTURE_RADAR_MAX_SELECTED){
         check.checked=false;
-        alert("Maximum de 10 biens sélectionnés. Traite ces 10 biens puis passe à la page suivante.");
+        alert("Maximum de 10 biens sélectionnés sur cette page. Passe aux 10 suivants pour sélectionner une nouvelle série.");
         return;
       }
       futureRadarSelectedIndices.add(idx);
@@ -588,8 +588,13 @@ if($("futureRadarResults"))$("futureRadarResults").onclick=e=>{
   const pg=e.target.closest("[data-radar-page]");
   if(pg){
     const totalPages=Math.max(1,Math.ceil(futureRadarCandidates.length/FUTURE_RADAR_PAGE_SIZE));
-    if(pg.dataset.radarPage==="prev")futureRadarPage=Math.max(0,futureRadarPage-1);
-    if(pg.dataset.radarPage==="next")futureRadarPage=Math.min(totalPages-1,futureRadarPage+1);
+    const nextPage=pg.dataset.radarPage==="next"?Math.min(totalPages-1,futureRadarPage+1):Math.max(0,futureRadarPage-1);
+    if(nextPage!==futureRadarPage){
+      futureRadarPage=nextPage;
+      // La sélection est volontairement limitée à la page affichée : en passant aux 10 suivants,
+      // on repart avec une sélection vide et on évite de devoir désélectionner manuellement les 10 précédents.
+      futureRadarSelectedIndices=new Set();
+    }
     futureRadarRender();
     return;
   }
