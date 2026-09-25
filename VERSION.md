@@ -1,3 +1,11 @@
+## V1.37.7 — Top 10 orienté terrain — 25/09/2026
+
+- Top 10 présenté sous forme de fiches lisibles et hiérarchisées.
+- Ajout du niveau d’action : à prospecter aujourd’hui, priorité, à traiter, à surveiller.
+- Ajout de « Pourquoi maintenant ? » et masquage des détails techniques dans un bloc dépliable.
+- Ajout de « Préparer ma tournée » pour les biens sélectionnés.
+- Aucun appel téléphonique ajouté au parcours.
+
 ## V1.37.6 — Radar recherche simplifiée — 25/09/2026
 
 - Recherche principale réduite à Commune + Rayon + Lancer la recherche.
