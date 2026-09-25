@@ -229,8 +229,19 @@ async function searchFreeWebListings(params={}){
   const q=clean(params.ville||params.q||"");
   const maxSources=Math.max(1,Math.min(DEFAULT_SOURCES.length,Number(params.web_sources)||DEFAULT_SOURCES.length));
   const results=await Promise.all(DEFAULT_SOURCES.slice(0,maxSources).map(s=>discoverSource(s,q)));
-  const items=results.flatMap(r=>r.items||[]),seen=new Set(),deduped=[];
-  for(const p of items){
+  const items=results.flatMap(r=>r.items||[]);
+  // Filtre final de sécurité : aucune page catalogue/générique ne doit remonter
+  // même si son HTML/JSON-LD ressemble superficiellement à un bien.
+  const propertyItems=items.filter(p=>{
+    const title=norm(p.title||"");
+    const url=String(p.external_url||"");
+    const genericTitle=/^(annonces? immobili[eè]res?|vente de maisons? et villas?|vente de terrains?|vente d['’]appartements?|nos biens|nos annonces|biens immobiliers?|immobilier|acheter un bien|estimation|contact|accueil|recherche)/.test(title);
+    const genericUrl=/\/(annonces?|biens?|immobilier|vente|acheter|recherche|estimation|contact|agence|nos-biens?)([-_a-z0-9]*)?(\/|$)/i.test((()=>{try{return new URL(url).pathname}catch{return url}})());
+    const hasSpecificData=Number(p.price)>0||Number(p.surface)>0||Number(p.rooms)>0||Boolean(String(p.address||"").trim());
+    return !(genericTitle||genericUrl)&&hasSpecificData;
+  });
+  const seen=new Set(),deduped=[];
+  for(const p of propertyItems){
     const key=(p.external_url||"")+"|"+norm(p.address)+"|"+norm(p.city)+"|"+Number(p.price||0)+"|"+Number(p.surface||0);
     if(seen.has(key))continue;seen.add(key);deduped.push(p);
   }
