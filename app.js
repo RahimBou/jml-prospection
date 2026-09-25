@@ -1284,10 +1284,9 @@ function ctAddressMapLinks(c){
 async function ctFindAddress(index){
   const p=ctAnnonces[index],box=$("ct-address-result-"+index);
   if(!p||!box)return;
-  if(!Number.isFinite(Number(p.latitude))||!Number.isFinite(Number(p.longitude))){box.innerHTML='<div class="meta">Cette annonce ne fournit pas de coordonnées exploitables pour la recherche gratuite.</div>';return}
-  box.innerHTML='<div class="meta">Recherche BAN + DPE en cours…</div>';
+  box.innerHTML='<div class="meta">Recherche gratuite de l’adresse publique + BAN + DPE en cours…</div>';
   try{
-    const qs=new URLSearchParams({lat:String(p.latitude),lon:String(p.longitude),area:String(p.surface||0),rooms:String(p.rooms||0),dpe:String(p.dpe||""),cityCode:String(p.city_code||p.cityCode||"")});
+    const qs=new URLSearchParams({lat:String(p.latitude??""),lon:String(p.longitude??""),area:String(p.surface||0),rooms:String(p.rooms||0),dpe:String(p.dpe||""),cityCode:String(p.city_code||p.cityCode||""),listingUrl:String(p.external_url||p.sourceUrl||""),title:String(p.title||""),city:String(p.city||""),postalCode:String(p.postal_code||p.postalCode||"")});
     const data=await publicJson("/api/address-candidates?"+qs.toString());
     const rows=data.candidates||[];
     box.innerHTML=rows.length?'<div class="ct-address-title">Adresses candidates · concordance technique</div>'+rows.map((c)=>'<div class="ct-address-candidate"><strong>'+apiEsc(c.address)+'</strong><span>'+apiEsc([c.postalCode,c.city].filter(Boolean).join(" "))+' · '+Math.round(c.distanceMeters||0)+' m · <b>'+Math.round(c.score||0)+'/100</b></span><small>'+apiEsc(c.priority==="priorite_geographique"?"🟠 Priorité géographique · DPE discordant":(c.confidence==="forte"?"🟢 Concordance forte":c.confidence==="interessante"?"🟡 Concordance intéressante":c.confidence==="a_verifier"?"🟠 À vérifier":"⚪ Concordance faible"))+'</small><small>'+apiEsc((c.reasons||[]).join(" · "))+'</small>'+(c.bdnb?.length?'<small>🏢 BDNB : bâtiment retrouvé · '+apiEsc(c.bdnb[0].address||"adresse BDNB")+(c.bdnb[0].units?' · '+c.bdnb[0].units+' unité(s)':"")+'</small>':"")+(c.dpe?'<small>DPE candidat : '+apiEsc(c.dpe.dpe||"—")+' · '+(c.dpe.area||"—")+' m² · '+(c.dpe.rooms||"—")+' pièce(s)</small>':"")+ctAddressMapLinks(c)+'</div>').join("")+'<div class="meta">Adresse non confirmée : le résultat sert à orienter le rapprochement public, pas à identifier un propriétaire.</div>':'<div class="meta">Aucune adresse candidate suffisamment documentée.</div>';
