@@ -1,4 +1,4 @@
-const APP_VERSION="1.32.0";
+const APP_VERSION="1.36.1";
 const KEY="jml_prospection_v1";let prospects=load(),pendingImport=[];let prospectPage=1;let prospectTotalPages=1;const DEFAULT_PROSPECT_PAGE_SIZE=8;const $=id=>document.getElementById(id);
 function load(){try{const x=JSON.parse(localStorage.getItem(KEY)||"[]");return Array.isArray(x)?x:[]}catch(e){return[]}}
 function save(){localStorage.setItem(KEY,JSON.stringify(prospects));render();if(typeof statsSync==="function")statsSync()}
@@ -85,7 +85,7 @@ function dashboardTerrain(){
 }
 
 
-async function initRadarTerritory(){
+async async function initRadarTerritory(){
   const select=$("radarTerritoryCity"),add=$("radarAddSector"),count=$("radarTerritoryCount"),list=$("radarSectorList");
   if(!select||!add||!list||select.dataset.ready)return;
   select.dataset.ready="1";
@@ -348,7 +348,7 @@ async function runFutureRadar(){
         (Number(b.priorityProspectionScore??0)-Number(a.priorityProspectionScore??0))||
         (Number(b.sellerOpportunityScore??0)-Number(a.sellerOpportunityScore??0))||
         (Number(b.commercialSignalScore??0)-Number(a.commercialSignalScore??0))
-      ).slice(0,100);
+      );
       const sectors=Array.from(sectorStats.values()).map(x=>apiEsc(x.label)+" <strong>"+x.radiusKm+" km</strong>").join(" · ");
       const dedupInfo=totalDuplicates>0?" · "+totalDuplicates+" doublon(s) DPE écarté(s)":"";
       const errorInfo=failed.length>0?" · "+failed.length+" commune(s) indisponible(s)":"";
@@ -1034,7 +1034,35 @@ function aiRender(data){
     ((l.warnings||[]).length?'<div class="ai-warnings">⚠️ '+l.warnings.map(esc).join(" · ")+'</div>':"")+
     '<div class="source-note">'+esc(l.disclaimer||"")+'</div></div>';
 }
+function aiRenderPriority(rows){
+  const box=$("aiResult");if(!box)return;
+  const list=Array.isArray(rows)?rows:[];
+  box.innerHTML='<div class="ai-local"><div class="ai-result-head"><strong>🎯 Top 10 · Radar JML</strong><span>'+list.length+' dossier(s)</span></div>'+
+    '<p>Classement basé sur les signaux et scores déjà calculés par le moteur JML. Les données restent à vérifier avant toute prospection.</p>'+
+    '<ol class="ai-priority-list">'+list.map((p,i)=>{
+      const score=Number(p.priorityProspectionScore??0), signal=Number(p.commercialSignalScore??0), level=p.priorityProspectionLevel||"—";
+      const label=[p.address,p.postalCode,p.city].filter(Boolean).join(" · ")||"Adresse à compléter";
+      const reasons=Array.isArray(p.priorityProspectionReasons)?p.priorityProspectionReasons.slice(0,2):[];
+      return '<li><strong>#'+(i+1)+' · '+esc(label)+'</strong><span>Priorité '+score.toFixed(1)+'/100 · '+esc(level)+' · signal public '+signal+'/100'+(reasons.length?' · '+esc(reasons.join(" · ")):"")+'</span></li>';
+    }).join("")+'</ol><div class="source-note">Ce classement aide à organiser le travail. Il ne constitue pas une probabilité de vente et n’infère pas l’intention d’un propriétaire.</div></div>';
+}
 async function aiRun(task){
+  if(task==="priority"){
+    const pool=(Array.isArray(futureRadarCandidates)&&futureRadarCandidates.length?futureRadarCandidates:prospects.filter(p=>typeof isCommercialProspect==="function"?isCommercialProspect(p):true));
+    if(!pool.length){$("aiStatus").textContent="Lance d'abord une analyse Radar ou ajoute des prospects commerciaux.";return}
+    aiSetBusy(true);$("aiStatus").textContent="Classement des dossiers en cours…";
+    try{
+      const rows=pool.slice().sort((a,b)=>
+        (Number(b.priorityProspectionScore??0)-Number(a.priorityProspectionScore??0))||
+        (Number(b.sellerOpportunityScore??0)-Number(a.sellerOpportunityScore??0))||
+        (Number(b.commercialSignalScore??0)-Number(a.commercialSignalScore??0))
+      ).slice(0,10);
+      aiRenderPriority(rows);
+      $("aiProviderStatus").textContent="🔵 IA JML · Radar";
+      $("aiStatus").textContent="Top 10 calculé · "+new Date().toLocaleTimeString("fr-FR");
+    }finally{aiSetBusy(false)}
+    return;
+  }
   const p=aiGetProspect();
   if(!p){$("aiStatus").textContent="Choisis d'abord un prospect commercial.";return}
   aiSetBusy(true);$("aiStatus").textContent="Assistant IA en cours…";
