@@ -1269,6 +1269,67 @@ async function api(pathname,url){
     const area=Number(url.searchParams.get("area"))||0,rooms=Number(url.searchParams.get("rooms"))||0;
     const dpe=String(url.searchParams.get("dpe")||"").trim().toUpperCase();
     const cityCode=String(url.searchParams.get("cityCode")||"").trim();
+    const listingUrl=String(url.searchParams.get("listingUrl")||"").trim();
+    const listingTitle=String(url.searchParams.get("title")||"").trim();
+    const listingCity=String(url.searchParams.get("city")||"").trim();
+    const listingPostal=String(url.searchParams.get("postalCode")||"").trim();
+
+    // Si l'annonce n'a pas de GPS, on tente d'abord de lire uniquement les
+    // informations d'adresse publiquement présentes sur la page de l'annonce.
+    let searchAddress="";
+    if((!Number.isFinite(lat)||!Number.isFinite(lon))&&listingUrl){
+      try{
+        const u=new URL(listingUrl);
+        const r=await fetch(u,{headers:{"User-Agent":"JML-Prospection-public/1.0","Accept":"text/html,application/xhtml+xml"},redirect:"follow"});
+        if(r.ok){
+          const html=await r.text();
+          const candidates=[];
+          for(const m of html.matchAll(/<script[^>]*type=["']application\/ld\+json["'][^>]*>([\\s\\S]*?)<\/script>/gi)){
+            try{
+              const raw=m[1].trim().replace(/<!--|-->/g,"");
+              const data=JSON.parse(raw);
+              const nodes=Array.isArray(data)?data:(Array.isArray(data?.["@graph"])?data["@graph"]:[data]);
+              for(const node of nodes){
+                const a=node?.address;
+                if(typeof a==="string")candidates.push(a);
+                else if(a&&typeof a==="object"){
+                  const text=[a.streetAddress,a.postalCode,a.addressLocality].filter(Boolean).join(", ");
+                  if(text)candidates.push(text);
+                }
+              }
+            }catch{}
+          }
+          const plain=String(html).replace(/<script[\\s\\S]*?<\/script>/gi," ").replace(/<style[\\s\\S]*?<\/style>/gi," ").replace(/<[^>]+>/g," ").replace(/\\s+/g," ");
+          const postalMatch=plain.match(/\\b(08\\d{3})\\b/);
+          const streetMatch=plain.match(/\\b\\d{1,4}\\s+(?:rue|avenue|av\\.|boulevard|bd\\.|chemin|impasse|place|allée|route|faubourg|quai)\\s+[^,.;]{3,80}/i);
+          if(streetMatch)candidates.push(streetMatch[0]);
+          if(postalMatch&&listingCity)candidates.push(postalMatch[1]+" "+listingCity);
+          searchAddress=candidates.find(x=>/\\d/.test(x)&&/(08\\d{3}|rue|avenue|boulevard|chemin|impasse|place|route|allée|faubourg|quai)/i.test(x))||"";
+        }
+      }catch{}
+    }
+
+    if(!Number.isFinite(lat)||!Number.isFinite(lon)){
+      if(!searchAddress && listingCity)searchAddress=[listingPostal,listingCity].filter(Boolean).join(" ");
+      if(searchAddress){
+        const geo=await geocodeAddress(searchAddress,8);
+        const candidates=geo.map(g=>({
+          address:g.address,postalCode:g.postalCode,city:g.city,cityCode:g.cityCode,street:g.street,number:g.housenumber,
+          latitude:g.latitude,longitude:g.longitude,banId:g.banId,
+          distanceMeters:0,score:Math.round((g.score||0)*100),geoScore:0,
+          surfaceRatio:null,surfaceCompatible:true,confidence:(g.score||0)>=.75?"interessante":"a_verifier",
+          priority:"a_verifier",reasons:["Adresse/zone extraite de la page publique ou de la commune","Géocodage BAN"],
+          bdnb:[],dpe:null
+        }));
+        return {source:"Page publique + BAN",candidates:candidates.slice(0,5),disclaimer:"Adresse candidate issue uniquement d'informations publiques. Vérification nécessaire avant toute utilisation terrain."};
+      }
+      return {source:"Page publique + BAN",candidates:[],disclaimer:"Aucune adresse publique suffisamment documentée dans l'annonce. La commune seule ne permet pas d'identifier une adresse."};
+    }
+
+    const lat=Number(url.searchParams.get("lat")),lon=Number(url.searchParams.get("lon"));
+    const area=Number(url.searchParams.get("area"))||0,rooms=Number(url.searchParams.get("rooms"))||0;
+    const dpe=String(url.searchParams.get("dpe")||"").trim().toUpperCase();
+    const cityCode=String(url.searchParams.get("cityCode")||"").trim();
     if(!Number.isFinite(lat)||!Number.isFinite(lon))throw new Error("Coordonnées de l'annonce manquantes");
     const reverseUrl=new URL("https://data.geopf.fr/geocodage/reverse");
     reverseUrl.searchParams.set("lat",String(lat));reverseUrl.searchParams.set("lon",String(lon));
