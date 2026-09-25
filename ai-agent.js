@@ -61,7 +61,7 @@ function localAnalysis(p,task,context=""){
   }
 }
 function buildPrompt(p,task,context){
-  const taskLabel={analyze:"analyser la fiche et expliquer les éléments utiles à la prospection",call:"préparer un appel de prospection naturel et court",report:"transformer le compte-rendu fourni en synthèse CRM factuelle avec prochaine action",followup:"préparer une relance personnalisée et non agressive"}[task]||"analyser la fiche";
+  const taskLabel={analyze:"analyser la fiche et expliquer les éléments utiles à la prospection",why:"expliquer pourquoi ce prospect remonte dans le travail à partir des signaux déjà documentés",call:"préparer un appel de prospection naturel et court",report:"transformer le compte-rendu fourni en synthèse CRM factuelle avec prochaine action",followup:"préparer une relance personnalisée et non agressive"}[task]||"analyser la fiche";
   return `Tu es l'assistant commercial de JML Immobilier dans les Ardennes. Tu dois ${taskLabel}. Réponds en français, de manière courte, concrète et professionnelle. N'invente aucune donnée. N'infère jamais qu'un propriétaire veut vendre à partir d'un DPE, d'une transaction DVF, d'un âge de bien, d'une consommation énergétique ou d'une donnée privée. Utilise uniquement les informations fournies. Distingue les faits des hypothèses. Ne fournis pas de coordonnées personnelles ni de méthode pour identifier un particulier.\n\nFICHE BIEN/CRM:\n${JSON.stringify(p,null,2)}\n\nCONTEXTE UTILISATEUR:\n${clean(context,3000)}\n\nPrésente : 1) synthèse, 2) faits utiles, 3) questions à poser, 4) prochaine action, 5) objections possibles et réponses. Pour un appel ou une relance, donne aussi un texte prêt à dire, maximum 120 mots.`
 }
 async function callGemini(prompt){
@@ -81,7 +81,11 @@ async function callGemini(prompt){
     return {text,model};
   }finally{clearTimeout(timer)}
 }
-async function runAi({task="analyze",prospect={},context=""}={}){
+function rankProspects(prospects=[]){
+  return prospects.map((p,i)=>({prospect:compactProspect(p),score:Number(p.priorityProspectionScore)||Number(p.commercialSignalScore)||0,signal:Number(p.commercialSignalScore)||0,quality:Number(p.dataQuality?.score)||0,index:i})).sort((a,b)=>b.score-a.score||b.signal-a.signal||b.quality-a.quality).slice(0,10);
+}
+async function runAi({task="analyze",prospect={},context="",prospects=[]}={}){
+  if(task==="priority") return {ok:true,provider:"local",task,ranked:rankProspects(prospects),generatedAt:new Date().toISOString(),disclaimer:"Classement de travail fondé sur les scores déjà calculés. Il ne constitue pas une probabilité de vente et n'infère pas l'intention d'un propriétaire."};
   const p=compactProspect(prospect),local=localAnalysis(p,task,context),prompt=buildPrompt(p,task,context);
   try{const remote=await callGemini(prompt);if(remote)return{ok:true,provider:"Gemini",model:remote.model,task,local,text:remote.text,generatedAt:new Date().toISOString()}}
   catch(error){return{ok:true,provider:"local-fallback",task,local,warning:`IA distante indisponible : ${error.message}`,generatedAt:new Date().toISOString()}}
