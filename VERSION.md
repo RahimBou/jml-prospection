@@ -1,3 +1,10 @@
+## V1.36.0 — Assistant IA JML renforcé — 25/09/2026
+
+- Ajout de « Pourquoi ce prospect ? ».
+- Ajout de « Prioriser mes 10 prospects ».
+- Conservation du mode IA locale sans clé externe.
+- Interface DVF/sources existante conservée.
+
 # JML Prospection — V1.34.0
 
 ## V1.34.0 — Radar par lots de 10
