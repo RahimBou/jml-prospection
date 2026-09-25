@@ -721,7 +721,7 @@ async function searchPublicSources(){
     renderPublicDpe([]);renderPublicDvf([]);
   }finally{$("publicSearchBtn").disabled=false}
 }
-$("publicSearchBtn").onclick=searchPublicSources;
+/* V1.37.14 — bouton piloté par délégation globale */
 $("publicQuery").addEventListener("keydown",e=>{if(e.key==="Enter")searchPublicSources()});
 async function runDataAgent(){
   const q=$("publicQuery").value.trim();
