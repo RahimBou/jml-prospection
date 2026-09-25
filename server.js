@@ -1505,10 +1505,12 @@ async function api(pathname,url){
   }
   if(pathname==="/api/annonces-multi"){
     const params={};
-    for(const key of ["q","type","transaction","ville","cp","dept","prix_min","prix_max","surface_min","created_since","updated_since"]){
+    for(const key of ["q","type","transaction","ville","cp","dept","prix_min","prix_max","surface_min","created_since","updated_since","sort","dedup"]){
       const value=url.searchParams.get(key);if(value)params[key]=value;
     }
     params.page_size=url.searchParams.get("page_size")||"50";
+    const freshnessSince=params.created_since||"";
+    delete params.created_since;
     const tasks=[
       (async()=>fetchChercherTrouver(params))(),
       String(process.env.STREAM_ESTATE_API_KEY||"").trim()
@@ -1567,7 +1569,23 @@ async function api(pathname,url){
       const key=String(p.dedup_key||p.reference||p.external_url||sourceKey)+"|"+String(p.city||"")+"|"+Number(p.price||0)+"|"+Number(p.surface||0);
       if(!seen.has(key)){seen.add(key);deduped.push(p)}
     }
-    return {source:"JML multi-sources",total:deduped.length,items:deduped,sources};
+    let freshFiltered=deduped;
+    let freshness={requestedSince:freshnessSince||null,kept:deduped.length,discarded:0,unknown:0};
+    if(freshnessSince){
+      const sinceMs=Date.parse(freshnessSince);
+      if(Number.isFinite(sinceMs)){
+        let discarded=0,unknown=0;
+        freshFiltered=deduped.filter(p=>{
+          const rawDate=p.published_at||p.created_at||p.updated_at||"";
+          const ms=Date.parse(rawDate);
+          if(!Number.isFinite(ms)){unknown++;return true}
+          if(ms>=sinceMs)return true;
+          discarded++;return false;
+        });
+        freshness={requestedSince:freshnessSince,kept:freshFiltered.length,discarded,unknown};
+      }
+    }
+    return {source:"JML multi-sources",total:freshFiltered.length,items:freshFiltered,sources,freshness,raw_total:deduped.length};
   }
   if(pathname==="/api/annonces"){
     const params={};
