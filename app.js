@@ -773,7 +773,7 @@ async function runDataAgent(){
 }
 $("dataAgentBtn").onclick=runDataAgent;
 
-publicJson("/api/health").then(()=>{$("sourceApiStatus").textContent="Connectées"}).catch(()=>{$("sourceApiStatus").textContent="Serveur indisponible"});
+publicJson("/api/health").then(()=>{$("sourceApiStatus").textContent="Connectées"}).catch(()=>{$("sourceApiStatus").textContent="Serveur indisponible"});;ctRenderMemoryPanel();
 $("publicDpeResults").onclick=e=>{
   const b=e.target.closest("[data-dpe-index]");if(!b)return;
   const p=publicDpeResults[Number(b.dataset.dpeIndex)];if(!p)return;
@@ -1071,17 +1071,69 @@ async function ctSectorTour(){
   }catch(e){box.innerHTML='<div class="meta">Erreur préparation tournée : '+apiEsc(e.message)+'</div>'}
   finally{btn.disabled=false}
 }
+
+function ctMemoryPollGet(){
+  try{return JSON.parse(localStorage.getItem("jmlMarketLastPollV1")||"null")}catch{return null}
+}
+function ctMemoryPollSet(value){
+  try{localStorage.setItem("jmlMarketLastPollV1",String(value||""))}catch{}
+}
+function ctBuildSearchParams(incremental=false){
+  const qs=new URLSearchParams();
+  const dept=$( "ctDept").value.trim(),ville=$( "ctVille").value.trim(),type=$( "ctType").value,prix=$( "ctPrixMax").value,surface=$( "ctSurfaceMin").value,dpe=$( "ctDpe").value;
+  const radius=Number($( "ctRadius")?.value)||0;
+  qs.set("transaction","vente");qs.set("sort","recent");qs.set("page_size","100");qs.set("dedup","0");
+  if(dept)qs.set("dept",dept);
+  if(radius<=0&&ville)qs.set("ville",ville);
+  if(type)qs.set("type",type);if(prix)qs.set("prix_max",prix);if(surface)qs.set("surface_min",surface);if(dpe)qs.set("dpe",dpe);
+  const freshDays=Number($( "ctFresh")?.value)||0;
+  if(!incremental&&freshDays>0)qs.set("created_since",new Date(Date.now()-freshDays*86400000).toISOString());
+  const last=ctMemoryPollGet();
+  if(incremental&&last)qs.set("updated_since",last);
+  return {qs,ville,radius};
+}
+async function ctIncrementalWatch(){
+  const btn=$("ctWatchBtn");if(!btn)return;
+  btn.disabled=true;$("ctStatus").textContent="⚡ Veille incrémentale : recherche des annonces modifiées depuis la dernière veille…";
+  try{
+    const last=ctMemoryPollGet();
+    if(!last){
+      $("ctStatus").textContent="⚡ Première veille : aucune date de référence. Lance d'abord une recherche normale.";
+      return;
+    }
+    const {qs,ville,radius}=ctBuildSearchParams(true);
+    const data=await publicJson("/api/annonces?"+qs.toString());
+    let raw=Array.isArray(data.items)?data.items:[];
+    if(ville&&radius>0){
+      const geo=await publicJson("/api/geocode?q="+encodeURIComponent(ville));
+      const center=geo?.results?.[0];
+      if(center?.latitude&&center?.longitude){
+        raw=raw.map(p=>{
+          const lat=Number(p.latitude??p.lat),lon=Number(p.longitude??p.lon);
+          return {...p,_radiusKm:(Number.isFinite(lat)&&Number.isFinite(lon)&&lat&&lon)?ctDistanceKm(center.latitude,center.longitude,lat,lon):null};
+        }).filter(p=>p._radiusKm!==null&&p._radiusKm<=radius);
+      }
+    }
+    const privateOnly=$( "ctPrivateOnly")?.checked===true;
+    const filtered=privateOnly?raw.filter(p=>{
+      const seller=norm(p.seller_type||p.sellerType||p.advertiser_type||"");
+      const agency=["pro","professionnel","agence","agency","mandataire","promoteur","notaire"].some(x=>seller===x||seller.includes(x));
+      return !agency&&p.exclusive!==true&&p.exclusive!=="true"&&p.exclusivity!==true&&p.exclusivity!=="true";
+    }):raw;
+    ctRender(filtered);
+    const memory=ctRememberResults(raw);
+    ctRenderMemoryPanel();
+    ctMemoryPollSet(new Date().toISOString());
+    const multi=raw.filter(p=>Array.isArray(p.sources)&&p.sources.length>1).length;
+    $("ctStatus").textContent="⚡ "+filtered.length+" annonce(s) modifiée(s) depuis "+new Date(last).toLocaleString("fr-FR")+" · "+multi+" multi-portails · 🧠 +"+memory.newCount+" nouvelle(s), "+memory.changedCount+" changement(s) de prix";
+  }catch(e){$("ctStatus").textContent="Erreur veille incrémentale : "+e.message}
+  finally{btn.disabled=false}
+}
+
 async function ctSearch(){
   const btn=$("ctSearchBtn");btn.disabled=true;$("ctStatus").textContent="Recherche ChercherTrouver en cours…";
   try{
-    const qs=new URLSearchParams();
-    const dept=$( "ctDept").value.trim(),ville=$( "ctVille").value.trim(),type=$( "ctType").value,prix=$( "ctPrixMax").value,surface=$( "ctSurfaceMin").value,dpe=$( "ctDpe").value,radius=Number($( "ctRadius")?.value)||0;
-    qs.set("transaction","vente");qs.set("sort","recent");qs.set("page_size","100");qs.set("dedup","0");
-    if(dept)qs.set("dept",dept);
-    if(radius<=0&&ville)qs.set("ville",ville);
-    if(type)qs.set("type",type);if(prix)qs.set("prix_max",prix);if(surface)qs.set("surface_min",surface);if(dpe)qs.set("dpe",dpe);
-    const freshDays=Number($( "ctFresh")?.value)||0;
-    if(freshDays>0)qs.set("created_since",new Date(Date.now()-freshDays*86400000).toISOString());
+    const {qs,ville,radius}=ctBuildSearchParams(false);
     const data=await publicJson("/api/annonces?"+qs.toString());
     let raw=Array.isArray(data.items)?data.items:[];
     let center=null;
@@ -1105,8 +1157,9 @@ async function ctSearch(){
     ctRender(filtered);
     const memory=ctRememberResults(raw);
     ctRenderMemoryPanel();
+    ctMemoryPollSet(new Date().toISOString());
     const zone=ville?(radius>0?" dans un rayon de "+radius+" km autour de "+ville:" à "+ville):" dans les Ardennes";
-    const sourceCounts={};raw.forEach(p=>{const s=String(p.source||"Source inconnue");sourceCounts[s]=(sourceCounts[s]||0)+1});const sourceSummary=Object.entries(sourceCounts).sort((a,b)=>b[1]-a[1]).map(([s,n])=>s+" : "+n).join(" · ");$("ctStatus").textContent=filtered.length+" annonce(s) exploitables"+zone+" · "+(data.items?.length||0)+" reçue(s) · Sources : "+(sourceSummary||"aucune")+" · 🧠 mémoire : "+memory.total+" fiches / +"+memory.newCount+" nouvelles / "+memory.changedCount+" prix modifiés";
+    const sourceCounts={};raw.forEach(p=>{const s=String(p.source||"Source inconnue");sourceCounts[s]=(sourceCounts[s]||0)+1});const sourceSummary=Object.entries(sourceCounts).sort((a,b)=>b[1]-a[1]).map(([s,n])=>s+" : "+n).join(" · ");$("ctStatus").textContent=filtered.length+" annonce(s) exploitables"+zone+" · "+(data.items?.length||0)+" reçue(s) · Sources : "+(sourceSummary||"aucune")+" · "+raw.filter(p=>Array.isArray(p.sources)&&p.sources.length>1).length+" multi-portails · 🧠 mémoire : "+memory.total+" fiches / +"+memory.newCount+" nouvelles / "+memory.changedCount+" prix modifiés";
   }catch(e){$("ctStatus").textContent="Erreur ChercherTrouver : "+e.message;ctRender([])}
   finally{btn.disabled=false}
 }
