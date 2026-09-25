@@ -1,4 +1,4 @@
-const APP_VERSION="1.37.6";
+const APP_VERSION="1.37.7";
 
 /* V1.37.3 — garde-fou des boutons : délégation globale + diagnostic JS */
 window.addEventListener("error",e=>{
@@ -288,39 +288,50 @@ function futureRadarRender(){
     return acc;
   },{field:0,contact:0,active:0,coverage:0,watch:0});
   const selectedCount=futureRadarSelectedIndices.size;
-  const summary='<div class="radar-worklist-summary"><strong>🎯 10 dossiers affichés</strong> · page '+(futureRadarPage+1)+'/'+totalPages+' · '+(futureRadarDetectedCount||futureRadarCandidates.length)+' biens détectés · 🔥 '+actionCounts.field+' terrain · 📞 '+actionCounts.contact+' priorité · 👀 '+actionCounts.active+' à traiter · 🗺️ '+actionCounts.coverage+' à préparer · ⚪ '+actionCounts.watch+' faible</div>';
-  const controls='<div class="radar-selection-toolbar"><strong>📋 Sélection : '+selectedCount+'/'+FUTURE_RADAR_MAX_SELECTED+'</strong><button type="button" class="ghost" data-radar-page="prev" '+(futureRadarPage===0?"disabled":"")+'>&larr; 10 précédents</button><button type="button" class="ghost" data-radar-page="next" '+(futureRadarPage>=totalPages-1?"disabled":"")+'>'+ (futureRadarPage>=totalPages-1?"Fin":"10 suivants &rarr;")+'</button><span class="meta">Travail conseillé : 10 biens à la fois.</span></div>';
+  const selectedCount=futureRadarSelectedIndices.size;
+  const priorityCount=Math.min(10,futureRadarCandidates.length);
+  const selectedText=selectedCount?selectedCount+" sélectionné(s)":"Aucune sélection";
+  const summary='<div class="radar-worklist-summary"><strong>🎯 TOP '+priorityCount+' · À PROSPECTER</strong><span>'+apiEsc(selectedText)+' · '+(futureRadarDetectedCount||futureRadarCandidates.length)+' biens détectés</span></div>';
+  const controls='<div class="radar-selection-toolbar"><strong>📋 '+apiEsc(selectedText)+'</strong><button type="button" class="ghost" data-radar-page="prev" '+(futureRadarPage===0?"disabled":"")+'>&larr; 10 précédents</button><button type="button" class="ghost" data-radar-page="next" '+(futureRadarPage>=totalPages-1?"disabled":"")+'>'+ (futureRadarPage>=totalPages-1?"Fin":"10 suivants &rarr;")+'</button><span class="meta">Le score sert à classer les dossiers ; il ne prédit pas une vente.</span></div>';
+  const tourButton=selectedCount?'<button type="button" class="primary" id="futureRadarRoute">🚗 Préparer ma tournée</button>':'';
+  const actionBar='<div class="radar-top-actions">'+tourButton+'<button type="button" class="ghost" data-radar-scroll-top>↑ Retour au début</button></div>';
 
-  box.innerHTML=summary+controls+visible.map((p,localIndex)=>{
+  box.innerHTML=summary+actionBar+controls+visible.map((p,localIndex)=>{
     const i=startIndex+localIndex;
     const ms=p.methodScores||{},ev=p.evidence||{},quality=ev.dataQuality||p.dataQuality||{};
     const sale=p.sameAddressSale||{};
     const dpeConfirmed=p.dpeConfirmed===true;
-    const commercialScore=Number(p.commercialSignalScore||0);
-    const commercialLevel=p.commercialSignalLevel||"Aucun signal commercial public";
-    const commercialSignals=Array.isArray(p.commercialSignals)?p.commercialSignals:[];
-    const dpeText=dpeConfirmed?"🟢 DPE "+(p.dpe||"—")+" confirmé à la même adresse":p.dpeAddressStatus==="uncertain"?"🟠 DPE trouvé · unité non confirmée":"⚪ DPE non confirmé";
-    const saleText=sale.status==="confirmed"?"🟢 Vente DVF à la même adresse · "+sale.count+" mutation(s) · dernière "+(sale.latest?.date?new Date(sale.latest.date).toLocaleDateString("fr-FR"):"—")+" · "+(sale.ageYears!=null?Math.round(sale.ageYears)+" an(s)":"—"):sale.status==="ambiguous"?"🟠 Adresse exacte mais unité ambiguë · vente non confirmée":"⚪ Aucune vente DVF confirmée à la même adresse";
-    const compText=(p.comparableCount||0)>0?"🔵 Comparables DVF distincts à proximité · "+p.comparableCount+" · médiane "+(p.comparableMedianDistance!=null?Math.round(p.comparableMedianDistance)+" m":"—")+" · "+(p.comparableDistanceStatus||((p.comparableRadius!=null)?"rayon "+p.comparableRadius+" m":"distance non disponible")):"⚪ Aucun comparable DVF distinct suffisamment proche";
-    const terrainText=p.terrainArea?"🌳 Terrain documenté : "+Math.round(p.terrainArea)+" m²":"🌳 Terrain non documenté";
-    const reasons=(p.reasons||[]).filter(x=>!/^DPE |^Dernière vente|^Aucune vente|^Adresse DVF|^Comparables locaux|^Médiane locale|^Dispersion des prix/.test(String(x))).slice(0,4);
     const opportunity=Number(p.sellerOpportunityScore??p.marketContextScore??0);
-    const opportunityLevel=p.sellerOpportunityLevel||"Surveillance";
-    const opportunityReasons=Array.isArray(p.sellerOpportunityReasons)?p.sellerOpportunityReasons:[];
-    const components=p.sellerOpportunityComponents||{};
-    const componentLine=["🏠 "+(components.patrimonial?.score??0)+"/30","⚡ "+(components.renovation?.score??0)+"/20","📊 "+(components.market?.score??0)+"/25","🔎 "+(components.quality?.score??0)+"/25"].join(" · ");
-    const actionLabel=p.sellerOpportunityAction||"⚪ Surveillance faible";
-    const surveillanceLabel=commercialScore>0?(p.priorityLevel||"Priorité prospection"):"Potentiel de prospection · "+opportunityLevel.toLowerCase();
     const workPriority=Number(p.priorityProspectionScore??0);
     const workPriorityDisplay=Number.isFinite(workPriority)?workPriority.toFixed(1):"0.0";
     const workPriorityLevel=p.priorityProspectionLevel||"Priorité non calculée";
     const workPriorityAction=p.priorityProspectionAction||"🗺️ Compléter le dossier";
     const workPriorityReasons=Array.isArray(p.priorityProspectionReasons)?p.priorityProspectionReasons:[];
-    const workComponents=p.priorityProspectionComponents||{};
-    const workComponentLine=["🎯 "+(workComponents.potential?.score??0)+"/25","🔎 "+(workComponents.dataQuality?.score??0)+"/20","🧩 "+(workComponents.evidence?.score??0)+"/15","📊 "+(workComponents.market?.score??0)+"/20","🧭 "+(workComponents.readiness?.score??0)+"/20"].join(" · ");
-    return '<article class="future-candidate"><div class="future-candidate-main"><label class="future-check"><input type="checkbox" data-future-check="'+i+'" '+(futureRadarSelectedIndices.has(i)?"checked":"")+'><span></span></label><div><strong>'+apiEsc(p.address||"Adresse non renseignée")+'</strong><div class="meta">'+apiEsc((p.postalCode?p.postalCode+" ":"")+(p.city||""))+" · "+apiEsc(futureRadarType(p.buildingType))+(p.area?" · "+p.area+" m²":"")+'</div><div class="future-reasons"><span class="dpe-match '+(dpeConfirmed?"confirmed":p.dpeAddressStatus==="uncertain"?"uncertain":"none")+'">'+apiEsc(dpeText)+'</span><span class="dpe-match '+(sale.status==="confirmed"?"confirmed":sale.status==="ambiguous"?"uncertain":"none")+'">'+apiEsc(saleText)+'</span><span>'+apiEsc(compText)+'</span><span>'+apiEsc(terrainText)+'</span></div><div class="future-reasons">'+reasons.map(x=>'<span>'+apiEsc(x)+'</span>').join("")+'</div><div class="seller-score-breakdown"><strong>Potentiel du bien</strong> '+opportunity+'/100 · '+apiEsc(opportunityLevel)+' · '+apiEsc(actionLabel)+'</div><div class="meta">'+componentLine+(p.sellerOpportunityBonus?' · Bonus convergence +'+p.sellerOpportunityBonus:"")+(opportunityReasons.length?' · '+apiEsc(opportunityReasons.slice(0,3).join(" · ")):"")+' · <strong>Priorité signal public</strong> '+(p.priorityScore??p.score??0)+'/100 · <strong>Contexte marché</strong> '+(p.marketContextScore??0)+'/100 · Qualité '+(quality.score||0)+'/5 · DPE '+(ms.dpe||0)+'% · vente '+(ms.saleAge||0)+'% · type/surface '+(ms.typeSurface||0)+'% · terrain '+(ms.terrain||0)+'% · proximité '+(ms.proximity||0)+'% · historique '+(ms.history||0)+'%</div><div class="prospection-priority-box"><strong>🎯 Priorité de prospection : '+workPriorityDisplay+'/100</strong><span>'+apiEsc(workPriorityLevel)+' · '+apiEsc(workPriorityAction)+'</span><small>'+apiEsc(workPriorityReasons.join(" · "))+'</small><em>'+workComponentLine+'</em><small>Ce score classe les dossiers à traiter ; il ne représente pas une probabilité de vente.</small></div><div class="commercial-signal-box '+(commercialScore>0?"has-signal":"no-signal")+'"><strong>Signal commercial public : '+commercialScore+'/100</strong><span>'+apiEsc(commercialLevel)+'</span>'+(commercialSignals.length?'<small>'+commercialSignals.map(x=>apiEsc(x.label)).join(" · ")+'</small>':'<small>Aucun signal public de mise en vente détecté. Ce candidat est uniquement à surveiller.</small>')+'</div><div class="future-candidate-actions"><button type="button" class="ghost" data-radar-prospect="'+i+'">＋ Ajouter à la surveillance</button></div></div></div><div class="future-score"><strong>'+opportunity+'/100</strong><small>'+apiEsc(surveillanceLabel)+'</small><em>'+apiEsc(actionLabel)+'</em><em>Signal public : '+(p.commercialSignalScore??0)+'/100 · Marché : '+(p.marketContextScore??0)+'/100</em></div></article>';
+    const opportunityLevel=p.sellerOpportunityLevel||"Surveillance";
+    const opportunityReasons=Array.isArray(p.sellerOpportunityReasons)?p.sellerOpportunityReasons:[];
+    const commercialScore=Number(p.commercialSignalScore||0);
+    const commercialSignals=Array.isArray(p.commercialSignals)?p.commercialSignals:[];
+    const reasons=(p.reasons||[]).filter(x=>!/^DPE |^Dernière vente|^Aucune vente|^Adresse DVF|^Comparables locaux|^Médiane locale|^Dispersion des prix/.test(String(x))).slice(0,3);
+    const dpeText=dpeConfirmed?"DPE "+(p.dpe||"—")+" confirmé à la même adresse":p.dpeAddressStatus==="uncertain"?"DPE trouvé · unité à confirmer":"DPE non confirmé";
+    const saleText=sale.status==="confirmed"?"Vente DVF à la même adresse · "+sale.count+" mutation(s)":sale.status==="ambiguous"?"Adresse proche d'une vente DVF · unité à confirmer":"Aucune vente DVF confirmée à la même adresse";
+    const whyNow=workPriorityReasons.slice(0,2).join(" · ")||opportunityReasons.slice(0,2).join(" · ")||reasons.slice(0,2).join(" · ")||workPriorityAction;
+    const levelClass=workPriority>=85?"urgent":workPriority>=70?"priority":workPriority>=55?"active":"watch";
+    const levelLabel=workPriority>=85?"À prospecter aujourd'hui":workPriority>=70?"Priorité de prospection":workPriority>=55?"À traiter":"À surveiller";
+    const signalText=commercialSignals.length?commercialSignals.slice(0,2).map(x=>x.label).join(" · "):"Aucun signal public détecté";
+    return '<article class="future-candidate future-candidate-card">'+
+      '<div class="future-candidate-main">'+
+        '<label class="future-check"><input type="checkbox" data-future-check="'+i+'" '+(futureRadarSelectedIndices.has(i)?"checked":"")+'><span></span></label>'+
+        '<div class="future-candidate-content">'+
+          '<div class="future-card-head"><div><span class="future-rank">#'+(i+1)+'</span><strong>'+apiEsc(p.address||"Adresse non renseignée")+'</strong><div class="meta">'+apiEsc((p.postalCode?p.postalCode+" ":"")+(p.city||""))+' · '+apiEsc(futureRadarType(p.buildingType))+(p.area?" · "+p.area+" m²":"")+'</div></div>'+
+          '<div class="future-priority '+levelClass+'"><strong>'+workPriorityDisplay+'/100</strong><span>'+apiEsc(levelLabel)+'</span></div></div>'+
+          '<div class="future-why"><strong>💡 Pourquoi maintenant ?</strong><span>'+apiEsc(whyNow)+'</span></div>'+
+          '<div class="future-key-signals"><span class="dpe-match '+(dpeConfirmed?"confirmed":p.dpeAddressStatus==="uncertain"?"uncertain":"none")+'">⚡ '+apiEsc(dpeText)+'</span><span>📊 '+apiEsc(saleText)+'</span><span>📢 '+apiEsc(signalText)+'</span></div>'+
+          '<details class="future-details"><summary>ⓘ Détails de l’analyse</summary><div class="future-detail-grid"><span><b>Potentiel</b> '+opportunity+'/100 · '+apiEsc(opportunityLevel)+'</span><span><b>Qualité données</b> '+(quality.score||0)+'/5</span><span><b>DVF comparables</b> '+(p.comparableCount||0)+'</span><span><b>Terrain</b> '+(p.terrainArea?Math.round(p.terrainArea)+" m²":"non documenté")+'</span><span><b>DPE</b> '+apiEsc(p.dpe||"—")+'</span><span><b>Signal public</b> '+commercialScore+'/100</span></div><p>'+apiEsc(workPriorityReasons.join(" · ")||reasons.join(" · ")||"Données à compléter avant prospection.")+'</p></details>'+
+          '<div class="future-candidate-actions"><button type="button" class="ghost" data-radar-prospect="'+i+'">＋ Ajouter à la surveillance</button></div>'+
+        '</div>'+
+      '</div>'+
+    '</article>';
   }).join("");
-
   add.disabled=false;if(printBtn)printBtn.disabled=selectedCount===0;
   if(selectBtn)selectBtn.disabled=false;if(deselectBtn)deselectBtn.disabled=selectedCount===0;
   if(toggle){toggle.disabled=false;toggle.setAttribute("aria-expanded","true");toggle.textContent="✕ Masquer les "+futureRadarCandidates.length+" biens détectés";box.hidden=false;}
@@ -461,6 +472,16 @@ function addFutureRadarCandidate(index){
   const result=mergeProspect(incoming);
   save();
   alert(result==="created"?"Bien ajouté à la surveillance. Relance proposée dans 7 jours.":"Ce bien est déjà dans le CRM : ses informations ont été fusionnées.");
+}
+function prepareFutureRadarRoute(){
+  const selected=[...futureRadarSelectedIndices].slice(0,FUTURE_RADAR_MAX_SELECTED).map(i=>futureRadarCandidates[i]).filter(Boolean);
+  if(!selected.length){alert("Sélectionne les biens à inclure dans la tournée.");return;}
+  const addresses=selected.map(p=>[p.address,p.postalCode,p.city].filter(Boolean).join(", ")).filter(Boolean);
+  if(!addresses.length){alert("Les adresses sélectionnées sont insuffisantes pour préparer une tournée.");return;}
+  const destination=encodeURIComponent(addresses[addresses.length-1]);
+  const waypoints=addresses.slice(0,-1).map(encodeURIComponent).join("|");
+  const url="https://www.google.com/maps/dir/?api=1&destination="+destination+(waypoints?"&waypoints="+waypoints:"");
+  window.open(url,"_blank","noopener");
 }
 function printFutureRadarSelection(){
   const selected=[...futureRadarSelectedIndices].slice(0,FUTURE_RADAR_MAX_SELECTED)
