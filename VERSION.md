@@ -1,3 +1,9 @@
+## V1.37.14 — Réparation des boutons de recherche — 25/09/2026
+
+- Les boutons ChercherTrouver, Sources publiques, récupération des annonces et tournée sont maintenant pilotés par la délégation globale.
+- Suppression des branchements directs redondants sur ces boutons afin d'éviter les handlers absents ou incohérents.
+- Aucun changement du moteur DVF/DPE.
+
 ## V1.37.13 — Radar communal non bloquant — 25/09/2026
 
 - Le Radar affiche immédiatement les communes principales des Ardennes pendant le chargement du référentiel complet.
