@@ -225,10 +225,48 @@ async function discoverSource(source,q){
     stats.ok=true;stats.count=items.length;return {stats,items};
   }catch(e){stats.error=e.message||"source inaccessible";return {stats,items:[]}}
 }
+async function discoverChercherTrouverPublic(q){
+  const stats={id:"cherchertrouver-public",label:"ChercherTrouver.immo · pages publiques",base:"https://cherchertrouver.immo/",ok:false,count:0,blocked:false,error:null,checked:0};
+  try{
+    const cleanQ=clean(q||"");
+    const slug=norm(cleanQ).replace(/\s+/g,"-");
+    const pageUrl=slug
+      ?"https://cherchertrouver.immo/villes/"+encodeURIComponent(slug)
+      :"https://cherchertrouver.immo/departements/ardennes-08";
+    if(!(await robotsAllows(pageUrl))){stats.blocked=true;stats.error="Collecte désactivée par robots.txt ou robots inaccessible";return {stats,items:[]}}
+    const html=await fetchText(pageUrl,10000);
+    const links=extractLinks(html,pageUrl)
+      .filter(u=>/\/annonces\//i.test(new URL(u).pathname))
+      .slice(0,35);
+    const items=[];
+    for(const u of [...new Set(links)]){
+      if(items.length>=20)break;
+      if(!(await robotsAllows(u)))continue;
+      try{
+        const itemHtml=await fetchText(u,9000);stats.checked++;
+        const item=extractItem(itemHtml,u,"ChercherTrouver.immo · public");
+        const lower=norm((item?.title||"")+" "+(item?.description||"")+" "+stripHtml(itemHtml).slice(0,12000));
+        const rental=/location|louer|loyer|\bpar mois\b|€\/mois/.test(lower);
+        if(item&&!rental&&Number(item.price)>0&&Number(item.surface)>0){
+          item.source="ChercherTrouver.immo · public";
+          item.sources=[{source:"ChercherTrouver.immo · public",reference:item.reference||"",url:u}];
+          items.push(item);
+        }
+      }catch{}
+      await sleep(100);
+    }
+    stats.ok=true;stats.count=items.length;
+    return {stats,items};
+  }catch(e){stats.error=e.message||"source inaccessible";return {stats,items:[]}}
+}
+
 async function searchFreeWebListings(params={}){
   const q=clean(params.ville||params.q||"");
   const maxSources=Math.max(1,Math.min(DEFAULT_SOURCES.length,Number(params.web_sources)||DEFAULT_SOURCES.length));
-  const results=await Promise.all(DEFAULT_SOURCES.slice(0,maxSources).map(s=>discoverSource(s,q)));
+  const results=await Promise.all([
+    discoverChercherTrouverPublic(q),
+    ...DEFAULT_SOURCES.slice(0,maxSources).map(s=>discoverSource(s,q))
+  ]);
   const items=results.flatMap(r=>r.items||[]);
   // Filtre final de sécurité : aucune page catalogue/générique ne doit remonter
   // même si son HTML/JSON-LD ressemble superficiellement à un bien.
