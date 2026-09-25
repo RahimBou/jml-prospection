@@ -1327,6 +1327,7 @@ async function ctSearch(){
     ctRender(market.items);
     const memory=ctRememberResults(filtered);
     ctLastResultsWrite(filtered);
+    ctLastSearchSignatureWrite(ctSearchSignature());
     ctRenderMemoryPanel();
     ctMemoryPollSet(new Date().toISOString());
     const zone=ville?(radius>0?" dans un rayon de "+radius+" km autour de "+ville:" à "+ville):" dans les Ardennes";
