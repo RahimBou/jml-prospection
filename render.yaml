@@ -1,6 +1,19 @@
 services:
+  # Frontend statique public. Les appels /api/* sont proxifiés vers le serveur Node.
   - type: web
     name: jml-prospection
+    runtime: static
+    buildCommand: ""
+    staticPublishPath: .
+    autoDeploy: true
+    routes:
+      - type: rewrite
+        source: /api/*
+        destination: https://jml-prospection-api.onrender.com/api/*
+  
+  # API Node réelle : DVF / DPE / Radar / Annonces.
+  - type: web
+    name: jml-prospection-api
     runtime: node
     buildCommand: ""
     startCommand: node server.js
