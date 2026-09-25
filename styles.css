@@ -428,3 +428,11 @@ body{background:linear-gradient(180deg,#f3efe8 0,#f7f5f1 42%,#f5f2ec 100%)}
 .terrain-guide-note a{font-weight:800;color:inherit}
 @media(max-width:850px){.terrain-guide-grid{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:560px){.workspace-nav{overflow-x:auto;justify-content:flex-start}.workspace-nav a.nav-secondary{margin-left:0}.terrain-guide-head{align-items:flex-start}.terrain-guide-grid{grid-template-columns:1fr}.terrain-mode{display:none}}
+
+
+/* V1.38.0 — mémoire de marché / multi-sources */
+.ct-memory-panel{border-color:#d8e3dc;background:linear-gradient(180deg,#fbfdfb,#f4f8f5)}
+.ct-memory-summary{display:flex;align-items:center;gap:9px;flex-wrap:wrap;padding:11px 13px;border:1px solid #d8e3dc;border-radius:11px;background:#fff}
+.ct-memory-summary strong{margin-right:auto;color:#183c35}
+.ct-memory-summary span{padding:5px 8px;border-radius:999px;background:#f2f5f3;font-size:.76rem;color:#56645d}
+.ct-memory-summary button{font-size:.72rem;padding:6px 8px}
