@@ -287,6 +287,20 @@ body{background:linear-gradient(180deg,#f3efe8 0,#f7f5f1 42%,#f5f2ec 100%)}
 .radar-single-query{opacity:.88}
 @media(max-width:900px){.radar-sector-grid{grid-template-columns:1fr}.radar-zone-heading{display:block}.radar-zone-heading span{display:block;margin-top:3px}}
 
+/* V1.37.6 — Radar simplifié pour la prospection terrain */
+.radar-simple-search{display:grid;grid-template-columns:minmax(0,1fr) 180px;gap:12px;margin:14px 0 10px;padding:16px;border:1px solid var(--line,#d9ded9);border-radius:16px;background:linear-gradient(180deg,#fff,#f7f9f7)}
+.radar-simple-field{display:flex;flex-direction:column;gap:6px}
+.radar-simple-field label{font-weight:700;font-size:.9rem}
+.radar-simple-field select{min-height:44px;font-size:1rem;padding:9px 11px;border-radius:10px;border:1px solid var(--line,#d9ded9);background:#fff}
+.radar-simple-goal{display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:10px 13px;border-radius:10px;background:#faf7f1;color:var(--muted,#68736d);font-size:.82rem}
+.radar-simple-goal strong{color:var(--ink,#26332c)}
+.radar-advanced-toggle{margin-top:10px}
+.radar-advanced-toggle button{font-size:.82rem}
+.radar-advanced-body{margin-top:8px}
+.radar-search-status{display:flex;justify-content:space-between;gap:12px;margin-top:12px;padding:10px 12px;border-left:3px solid var(--gold,#b28a4b);background:#faf7f1;color:var(--muted,#68736d);font-size:.82rem}
+.radar-results-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:9px}
+.radar-results-actions button:disabled{opacity:.5;cursor:not-allowed}
+@media(max-width:650px){.radar-simple-search{grid-template-columns:1fr}.radar-search-status{display:block}.radar-search-status span{display:block}.radar-search-status span+span{margin-top:5px}.radar-results-actions button{flex:1}}
 /* V1.25.0 — Territoire Ardennes */
 .radar-territory-banner{display:flex;justify-content:space-between;gap:14px;align-items:center;margin:12px 0;padding:12px 15px;border-radius:13px;background:#eef5f0;border:1px solid #d7e5db}
 .radar-territory-banner>div{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
