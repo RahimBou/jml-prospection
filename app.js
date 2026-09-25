@@ -1013,7 +1013,7 @@ function aiGetProspect(){
   return prospects.find(p=>String(p.id)===String(id))||null;
 }
 function aiSetBusy(b){
-  ["aiAnalyzeBtn","aiCallBtn","aiReportBtn","aiFollowupBtn"].forEach(id=>{if($(id))$(id).disabled=b});
+  ["aiAnalyzeBtn","aiWhyBtn","aiPriorityBtn","aiCallBtn","aiReportBtn","aiFollowupBtn"].forEach(id=>{if($(id))$(id).disabled=b});
 }
 function aiRender(data){
   const box=$("aiResult");if(!box)return;
@@ -1053,6 +1053,8 @@ async function aiRun(task){
 }
 if($("aiAssistantPanel")){
   $("aiAnalyzeBtn").onclick=()=>aiRun("analyze");
+  $("aiWhyBtn").onclick=()=>aiRun("why");
+  $("aiPriorityBtn").onclick=()=>aiRun("priority");
   $("aiCallBtn").onclick=()=>aiRun("call");
   $("aiReportBtn").onclick=()=>aiRun("report");
   $("aiFollowupBtn").onclick=()=>aiRun("followup");
