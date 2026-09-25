@@ -1,3 +1,9 @@
+## V1.37.8 — Actualisation indépendante — 25/09/2026
+
+- Ajout d’un bouton Actualiser indépendant sur les principales sections.
+- Chaque actualisation relance uniquement le module concerné sans réinitialiser le CRM ni les autres vues.
+- Le Radar peut être relancé séparément sans toucher aux autres parties.
+
 ## V1.37.7 — Top 10 orienté terrain — 25/09/2026
 
 - Top 10 présenté sous forme de fiches lisibles et hiérarchisées.
