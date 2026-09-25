@@ -1003,7 +1003,7 @@ function ctMemoryKey(p){
   return ["address","postal_code","city","type","surface"].map(k=>norm(p?.[k]||"")).join("|")+"|"+Number(p?.price||0);
 }
 function ctRememberResults(items){
-  const now=now();
+  const currentTime=now();
   const rows=ctMemoryRead(),index=new Map(rows.map((x,i)=>[x.key,i]));
   let newCount=0,changedCount=0;
   for(const p of (Array.isArray(items)?items:[])){
@@ -1012,7 +1012,7 @@ function ctRememberResults(items){
     const oldIndex=index.get(key);
     if(oldIndex===undefined){
       rows.push({
-        key,firstSeenAt:now,lastSeenAt:now,seenCount:1,
+        key,firstSeenAt:currentTime,lastSeenAt:currentTime,seenCount:1,
         initialPrice:price,currentPrice:price,priceChanges:[],
         source,sourceUrl:String(p?.external_url||""),
         address:String(p?.address||""),postalCode:String(p?.postal_code||""),
@@ -1025,11 +1025,11 @@ function ctRememberResults(items){
       const old=rows[oldIndex];
       if(price>0&&Number(old.currentPrice)>0&&price!==Number(old.currentPrice)){
         old.priceChanges=Array.isArray(old.priceChanges)?old.priceChanges:[];
-        old.priceChanges.push({date:now,from:Number(old.currentPrice),to:price});
+        old.priceChanges.push({date:currentTime,from:Number(old.currentPrice),to:price});
         old.priceChanges=old.priceChanges.slice(-12);
         changedCount++;
       }
-      old.lastSeenAt=now;old.seenCount=(Number(old.seenCount)||0)+1;
+      old.lastSeenAt=currentTime;old.seenCount=(Number(old.seenCount)||0)+1;
       if(price>0)old.currentPrice=price;
       if(source)old.source=source;
       if(p.external_url)old.sourceUrl=String(p.external_url);
