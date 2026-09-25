@@ -1,4 +1,4 @@
-const APP_VERSION="1.37.11";
+const APP_VERSION="1.37.12";
 
 /* V1.37.3 — garde-fou des boutons : délégation globale + diagnostic JS */
 window.addEventListener("error",e=>{
@@ -6,9 +6,16 @@ window.addEventListener("error",e=>{
   if(box&&e?.message) box.textContent="⚠️ Erreur JavaScript : "+e.message;
 });
 document.addEventListener("click",e=>{
-  const b=e.target.closest("#aiAnalyzeBtn,#aiWhyBtn,#aiPriorityBtn,#aiCallBtn,#aiReportBtn,#aiFollowupBtn,#futureRadarBtn,#futureRadarPrint,#futureRadarAddAll,#futureRadarSelectAll,#futureRadarDeselectAll,");
+  const b=e.target.closest("#aiAnalyzeBtn,#aiWhyBtn,#aiPriorityBtn,#aiCallBtn,#aiReportBtn,#aiFollowupBtn,#futureRadarBtn,#futureRadarPrint,#futureRadarAddAll,#futureRadarSelectAll,#futureRadarDeselectAll,#refreshDashboardBtn,#refreshAiBtn,#refreshSourcesBtn,#refreshAnnoncesBtn,#refreshDataAgentBtn,#refreshRadarBtn,#refreshProspectsBtn");
   if(!b)return;
   const tasks={aiAnalyzeBtn:"analyze",aiWhyBtn:"why",aiPriorityBtn:"priority",aiCallBtn:"call",aiReportBtn:"report",aiFollowupBtn:"followup"};
+  if(b.id==="refreshDashboardBtn"){e.preventDefault();e.stopImmediatePropagation();dashboardTerrain();return;}
+  if(b.id==="refreshProspectsBtn"){e.preventDefault();e.stopImmediatePropagation();render();return;}
+  if(b.id==="refreshAiBtn"){e.preventDefault();e.stopImmediatePropagation();aiRefreshProspects();return;}
+  if(b.id==="refreshRadarBtn"){e.preventDefault();e.stopImmediatePropagation();futureRadarSelectedIndices=new Set();runFutureRadar();return;}
+  if(b.id==="refreshSourcesBtn"){e.preventDefault();e.stopImmediatePropagation();searchPublicSources();return;}
+  if(b.id==="refreshAnnoncesBtn"){e.preventDefault();e.stopImmediatePropagation();ctSearch();return;}
+  if(b.id==="refreshDataAgentBtn"){e.preventDefault();e.stopImmediatePropagation();runDataAgent();return;}
   if(tasks[b.id]&&typeof aiRun==="function"){e.preventDefault();e.stopImmediatePropagation();aiRun(tasks[b.id]);}
   else if(b.id==="futureRadarBtn"&&typeof runFutureRadar==="function"){e.preventDefault();e.stopImmediatePropagation();runFutureRadar();}
   else if(b.id==="futureRadarPrint"&&typeof printFutureRadarSelection==="function"){e.preventDefault();e.stopImmediatePropagation();printFutureRadarSelection();}
@@ -99,8 +106,7 @@ function dashboardTerrain(){
  const byCity={};work.forEach(p=>{const city=String(p.city||"").trim();if(city)byCity[city]=(byCity[city]||0)+1});
  const sectors=Object.entries(byCity).sort((a,b)=>b[1]-a[1]).slice(0,5);
  $("dashboardTerrain").innerHTML='<div class="dashboard-head"><div><h2>🎯 À faire maintenant</h2><p>Vue opérationnelle des prospects commerciaux. Les biens de surveillance restent séparés.</p></div><div class="dashboard-head-actions"><button type="button" class="ghost section-refresh" id="refreshDashboardBtn">↻ Actualiser</button><span class="dashboard-badge">'+priority+' priorité'+(priority>1?'s':'')+' terrain</span><button type="button" class="ghost dashboard-toggle" data-dashboard-toggle aria-expanded="false">▸ Afficher</button></div></div><div class="dashboard-collapsible" hidden><div class="dashboard-actions-grid"><button class="dashboard-action action-hot" data-dashboard-action="priority"><strong>🔥 '+priority+'</strong><span>Priorités terrain</span><small>Indice ≥ 65</small></button><button class="dashboard-action" data-dashboard-action="recent"><strong>🆕 '+recent+'</strong><span>Nouveaux récents</span><small>Détectés ≤ 7 jours</small></button><button class="dashboard-action" data-dashboard-action="address"><strong>📍 '+addressMissing+'</strong><span>Adresses à compléter</span><small>Informations manquantes</small></button><button class="dashboard-action" data-dashboard-action="follow"><strong>📞 '+follow+'</strong><span>Relances en retard</span><small>À traiter maintenant</small></button><button class="dashboard-action" data-dashboard-action="changes"><strong>🔄 '+changes+'</strong><span>Baisses de prix récentes</span><small>Changement public détecté</small></button><button class="dashboard-action" data-dashboard-action="tour"><strong>🚗 '+readyVisit+'</strong><span>Biens prêts terrain</span><small>Adresse + source publique</small></button></div><div class="dashboard-lower"><div class="dashboard-box"><h3>🗺️ Secteurs actifs</h3>'+(sectors.length?sectors.map(([city,n])=>'<button class="sector-row" data-dashboard-city="'+esc(city)+'"><span>'+esc(city)+'</span><strong>'+n+'</strong></button>').join(""):'<div class="meta">Aucun prospect commercial renseigné.</div>')+'</div><div class="dashboard-box"><h3>📊 Activité récente</h3><div class="activity-row"><span>Nouveaux cette semaine</span><strong>'+weekNew+'</strong></div><div class="activity-row"><span>Fiches avec adresse exploitable</span><strong>'+addressReady+'</strong></div><div class="activity-row"><span>Relances enregistrées cette semaine</span><strong>'+weekFollow+'</strong></div><div class="activity-row"><span>Total prospects commerciaux actifs</span><strong>'+work.length+'</strong></div></div></div><div class="dashboard-note">Les biens issus du Radar sans signal commercial ne sont pas comptés comme prospects commerciaux : ils restent disponibles dans « Biens à surveiller ».</div></div>';
-
- const refresh=$("refreshDashboardBtn"); if(refresh) refresh.onclick=()=>dashboardTerrain();}
+}
 
 
 async function initRadarTerritory(){
@@ -108,46 +114,17 @@ async function initRadarTerritory(){
   if((!select&&!simple)||(!simple&&(!select||!add||!list)))return;
   if(simple&&!simple.dataset.ready)simple.dataset.ready="1";
   if(select&&!select.dataset.ready)select.dataset.ready="1";
-
-  const fallback=[
-    {city:"Charleville-Mézières",cityCode:"08105",postalCode:"08000",population:46000},
-    {city:"Sedan",cityCode:"08409",postalCode:"08200",population:16000},
-    {city:"Rethel",cityCode:"08362",postalCode:"08300",population:7500},
-    {city:"Revin",cityCode:"08363",postalCode:"08500",population:6000},
-    {city:"Givet",cityCode:"08190",postalCode:"08600",population:6500},
-    {city:"Vouziers",cityCode:"08490",postalCode:"08400",population:4000}
-  ];
-
-  const applyCommunes=(communes,label)=>{
-    window.radarTerritoryCommunes=Array.isArray(communes)?communes:[];
-    if(count)count.textContent=label||((window.radarTerritoryCommunes.length)+" communes disponibles");
+  try{
+    const data=await publicJson("/api/territory?department=08");
+    window.radarTerritoryCommunes=data.communes||[];
+    if(count)count.textContent=data.communeCount+" communes disponibles";
     const options='<option value="">Choisir une commune…</option>'+window.radarTerritoryCommunes.map(c=>'<option value="'+apiEsc(c.city)+'">'+apiEsc(c.city)+(c.population?" · "+Number(c.population).toLocaleString("fr-FR")+" hab.":"")+'</option>').join("");
     if(simple) simple.innerHTML=options;
     if(select) select.innerHTML='<option value="">+ Ajouter une commune comme secteur…</option>'+window.radarTerritoryCommunes.map(c=>'<option value="'+apiEsc(c.city)+'">'+apiEsc(c.city)+(c.population?" · "+Number(c.population).toLocaleString("fr-FR")+" hab.":"")+'</option>').join("");
-  };
-
-  /*
-   * V1.37.10 — le chargement du référentiel communal ne doit plus bloquer
-   * l'interface Radar. Si geo.api.gouv.fr est lent, on affiche immédiatement
-   * un petit référentiel de secours puis on remplace la liste dès que l'API répond.
-   */
-  applyCommunes(fallback,"Chargement du référentiel complet…");
-  const territoryPromise=publicJson("/api/territory?department=08");
-  territoryPromise.then(data=>{
-    const communes=Array.isArray(data?.communes)?data.communes:[];
-    if(communes.length)applyCommunes(communes,Number(data.communeCount||communes.length)+" communes disponibles");
-  }).catch(()=>{});
-
-  try{
-    const data=await Promise.race([
-      territoryPromise,
-      new Promise((_,reject)=>setTimeout(()=>reject(new Error("timeout")),8000))
-    ]);
-    const communes=Array.isArray(data?.communes)?data.communes:[];
-    if(communes.length)applyCommunes(communes,Number(data.communeCount||communes.length)+" communes disponibles");
-    else applyCommunes(fallback,"Référentiel complet indisponible · mode secours");
   }catch(e){
-    applyCommunes(fallback,"Référentiel complet indisponible · mode secours");
+    if(count)count.textContent="Référentiel Ardennes indisponible";
+    if(simple)simple.innerHTML='<option value="">Référentiel indisponible</option>';
+    return;
   }
   if(add&&list){
     add.onclick=()=>{
@@ -751,21 +728,7 @@ $("publicDpeResults").onclick=e=>{
   const p=publicDpeResults[Number(b.dataset.dpeIndex)];if(!p)return;
   openForm({address:p.address||"",postalCode:p.postalCode||"",city:p.city||"",type:"Maison",area:p.area||0,land:0,rooms:0,bedrooms:0,price:0,dpe:p.dpe||"",status:"Nouveau",detectionDate:today(),nextFollow:"",source:"DPE ADEME",externalId:p.dpeNumber||"",sourceUrl:"https://data.ademe.fr/datasets/dpe03existant",description:"Donnée technique publique DPE ADEME. À vérifier sur le terrain avant toute qualification commerciale.",notes:"DPE : "+(p.dpe||"—")+" · GES : "+(p.ges||"—")+" · Date : "+(p.date||"—")});
 };
-function initRefreshControls(){
-  const bind=(id,fn)=>{
-    const el=$(id);
-    if(!el||el.dataset.refreshReady)return;
-    el.dataset.refreshReady="1";
-    el.onclick=e=>{e.preventDefault();fn();};
-  };
-  bind("refreshProspectsBtn",()=>render());
-  bind("refreshAiBtn",()=>aiRefreshProspects());
-  bind("refreshSourcesBtn",()=>searchPublicSources());
-  bind("refreshAnnoncesBtn",()=>ctSearch());
-  bind("refreshDataAgentBtn",()=>runDataAgent());
-  bind("refreshRadarBtn",()=>{futureRadarSelectedIndices=new Set();runFutureRadar();});
-}
-prospects.forEach(ensureHistory);render();initCollapsiblePanels();initRadarSimpleMode();initRadarCommuneInput();initRadarTerritory();initRefreshControls();
+prospects.forEach(ensureHistory);render();initCollapsiblePanels();initRadarSimpleMode();initRadarCommuneInput();initRadarTerritory();
 /* V1.13.0 — prospection annonce publique + carte + rapprochement DVF/DPE */
 let privateProspectMap=null;
 let privateProspectLayers=null;
