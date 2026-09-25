@@ -1,3 +1,9 @@
+## V1.37.2 — Radar multi-secteurs accéléré — 25/09/2026
+
+- Analyse de zone : jusqu'à 8 communes préparées par lot au lieu de 6.
+- Traitement serveur : 4 communes en parallèle au lieu de 2.
+- Les données, dédoublonnages et critères de classement restent inchangés.
+
 ## V1.37.1 — Correction boutons — 25/09/2026
 
 - Correction d'une erreur de syntaxe `async async function` dans l'initialisation du Radar qui empêchait le chargement du JavaScript.
