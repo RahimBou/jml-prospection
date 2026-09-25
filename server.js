@@ -1460,16 +1460,21 @@ async function api(pathname,url){
     const items=[],sources=[];
     results.forEach((r,i)=>{
       const name=i===0?"ChercherTrouver.immo":"Stream Estate";
-      if(r.status==="fulfilled"){sources.push({source:name,ok:true,count:r.value.items?.length||0});items.push(...(r.value.items||[]))}
+      if(r.status==="fulfilled"){
+        const normalized=(r.value.items||[]).map(p=>({...p,source:p.source||name,sources:Array.isArray(p.sources)&&p.sources.length?p.sources:[{source:name,reference:p.reference||"",url:p.external_url||""}]}));
+        sources.push({source:name,ok:true,count:normalized.length});items.push(...normalized)
+      }
       else sources.push({source:name,ok:false,error:r.reason?.message||"erreur",count:0});
     });
 
     // Secours gratuit : si ChercherTrouver est bloqué par quota/clé absente,
     // utiliser des pages publiques configurées et autorisées.
     const ctFailed=sources.some(x=>x.source==="ChercherTrouver.immo"&&!x.ok);
-    if(ctFailed && !items.length){
+    // Le web public gratuit complète désormais le catalogue, même lorsqu'une API renvoie déjà des résultats.
+    // On limite volontairement à 3 sources locales pour ne pas ralentir la recherche.
+    if(ctFailed || items.length<50){
       try{
-        const free=await searchFreeWebListings({...params,web_sources:5});
+        const free=await searchFreeWebListings({...params,web_sources:3});
         sources.push({source:"Web public local",ok:true,count:free.items?.length||0,details:"Secours gratuit · pages publiques autorisées"});
         items.push(...(free.items||[]));
       }catch(e){
