@@ -1,3 +1,10 @@
+## V1.37.0 — Mode terrain simplifié — 25/09/2026
+
+- Ajout d'un parcours visuel en 4 étapes : Trouver → Trier → Prospecter → Suivre.
+- Navigation principale simplifiée ; Sources et Laboratoire regroupés dans Outils avancés.
+- Navigation sticky pour retrouver rapidement les 4 étapes.
+- Modification UI uniquement : aucune logique métier, API ou donnée Radar/CRM supprimée.
+
 ## V1.36.1 — Réparation générale et simplification — 25/09/2026
 
 - Correction d'une erreur JavaScript dans l'initialisation du territoire Radar (`await` dans une fonction non `async`).
