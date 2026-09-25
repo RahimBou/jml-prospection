@@ -1,4 +1,4 @@
-const APP_VERSION="1.37.1";
+const APP_VERSION="1.37.2";
 const KEY="jml_prospection_v1";let prospects=load(),pendingImport=[];let prospectPage=1;let prospectTotalPages=1;const DEFAULT_PROSPECT_PAGE_SIZE=8;const $=id=>document.getElementById(id);
 function load(){try{const x=JSON.parse(localStorage.getItem(KEY)||"[]");return Array.isArray(x)?x:[]}catch(e){return[]}}
 function save(){localStorage.setItem(KEY,JSON.stringify(prospects));render();if(typeof statsSync==="function")statsSync()}
@@ -317,7 +317,7 @@ async function runFutureRadar(){
       ].join("|");
       while(!complete){
         $("futureRadarStatus").textContent="Analyse progressive · "+processed+(totalCommunes?"/"+totalCommunes:"")+" commune(s)…";
-        const data=await publicJson("/api/radar-zone?sectors="+encodeURIComponent(JSON.stringify(selected))+"&limit=100&years=5&perCommuneLimit=60&communeBatch=6&zoneMode=1&dvfMaxRows=2500&offset="+offset);
+        const data=await publicJson("/api/radar-zone?sectors="+encodeURIComponent(JSON.stringify(selected))+"&limit=100&years=5&perCommuneLimit=60&communeBatch=8&zoneMode=1&dvfMaxRows=2500&offset="+offset);
         totalCommunes=Number(data.totalCommuneCount)||totalCommunes;
         processed+=Number(data.communesAnalyzed)||0;
         totalDvf+=Number(data.dvfCount)||0;
