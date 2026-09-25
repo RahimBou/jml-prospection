@@ -316,7 +316,6 @@ function futureRadarRender(){
     return acc;
   },{field:0,contact:0,active:0,coverage:0,watch:0});
   const selectedCount=futureRadarSelectedIndices.size;
-  const selectedCount=futureRadarSelectedIndices.size;
   const priorityCount=Math.min(10,futureRadarCandidates.length);
   const selectedText=selectedCount?selectedCount+" sélectionné(s)":"Aucune sélection";
   const summary='<div class="radar-worklist-summary"><strong>🎯 TOP '+priorityCount+' · À PROSPECTER</strong><span>'+apiEsc(selectedText)+' · '+(futureRadarDetectedCount||futureRadarCandidates.length)+' biens détectés</span></div>';
