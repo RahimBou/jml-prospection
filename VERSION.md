@@ -1,3 +1,11 @@
+## V1.36.1 — Réparation générale et simplification — 25/09/2026
+
+- Correction d'une erreur JavaScript dans l'initialisation du territoire Radar (`await` dans une fonction non `async`).
+- Forçage du chargement des scripts de la version courante pour éviter les anciennes versions en cache navigateur.
+- Le bouton « Prioriser mes 10 prospects » fonctionne maintenant directement sur les résultats Radar, sans devoir créer les biens dans le CRM.
+- Conservation de tous les résultats Radar analysés pour permettre la pagination par 10.
+- Amélioration de l'affichage du Top 10 et de son explication.
+
 ## V1.36.0 — Assistant IA JML renforcé — 25/09/2026
 
 - Ajout de « Pourquoi ce prospect ? ».
