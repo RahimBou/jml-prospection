@@ -1339,7 +1339,15 @@ async function ctSearch(){
     ctRenderMemoryPanel();
     ctMemoryPollSet(new Date().toISOString());
     const zone=ville?(radius>0?" dans un rayon de "+radius+" km autour de "+ville:" à "+ville):" dans les Ardennes";
-    const sourceCounts={};raw.forEach(p=>{const s=String(p.source||p.sources?.[0]?.source||"ChercherTrouver.immo");sourceCounts[s]=(sourceCounts[s]||0)+1});const sourceSummary=Object.entries(sourceCounts).sort((a,b)=>b[1]-a[1]).map(([s,n])=>s+" : "+n).join(" · ");$("ctStatus").textContent=filtered.length+" annonce(s) exploitables"+zone+" · "+(data.items?.length||0)+" reçue(s) · Sources : "+(sourceSummary||"aucune")+(privateOnly&&raw.length&&!filtered.length?" · ⚠️ toutes écartées par le filtre « Particulier uniquement »":"")+" · "+raw.filter(p=>Array.isArray(p.sources)&&p.sources.length>1).length+" multi-portails · 🧠 mémoire : "+memory.total+" fiches / +"+memory.newCount+" nouvelles / "+memory.changedCount+" prix modifiés";
+    const sourceCounts={};raw.forEach(p=>{const s=String(p.source||p.sources?.[0]?.source||"ChercherTrouver.immo");sourceCounts[s]=(sourceCounts[s]||0)+1});
+    const sourceSummary=Object.entries(sourceCounts).sort((a,b)=>b[1]-a[1]).map(([s,n])=>s+" : "+n).join(" · ");
+    const sourceDiag=(Array.isArray(data.sources)?data.sources:[]).map(s=>{
+      const label=String(s.source||"Source");
+      if(s.ok===false)return label+" ❌ "+String(s.error||"erreur");
+      if(s.skipped)return label+" ⚪ clé absente";
+      return label+" ✓ "+Number(s.count||0);
+    }).join(" · ");
+    $("ctStatus").textContent=filtered.length+" annonce(s) exploitables"+zone+" · "+(data.items?.length||0)+" reçue(s) · Sources : "+(sourceSummary||"aucune")+(sourceDiag?" · État : "+sourceDiag:"")+(privateOnly&&raw.length&&!filtered.length?" · ⚠️ toutes écartées par le filtre « Particulier uniquement »":"")+" · "+raw.filter(p=>Array.isArray(p.sources)&&p.sources.length>1).length+" multi-portails · 🧠 mémoire : "+memory.total+" fiches / +"+memory.newCount+" nouvelles / "+memory.changedCount+" prix modifiés";
   }catch(e){$("ctStatus").textContent="Erreur veille annonces : "+e.message;ctRender([])}
   finally{btn.disabled=false}
 }
