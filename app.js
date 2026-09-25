@@ -1,4 +1,21 @@
 const APP_VERSION="1.37.2";
+
+/* V1.37.3 — garde-fou des boutons : délégation globale + diagnostic JS */
+window.addEventListener("error",e=>{
+  const box=document.getElementById("aiStatus");
+  if(box&&e?.message) box.textContent="⚠️ Erreur JavaScript : "+e.message;
+});
+document.addEventListener("click",e=>{
+  const b=e.target.closest("#aiAnalyzeBtn,#aiWhyBtn,#aiPriorityBtn,#aiCallBtn,#aiReportBtn,#aiFollowupBtn,#futureRadarBtn,#futureRadarPrint,#futureRadarAddAll,#futureRadarSelectAll,#futureRadarDeselectAll");
+  if(!b)return;
+  const tasks={aiAnalyzeBtn:"analyze",aiWhyBtn:"why",aiPriorityBtn:"priority",aiCallBtn:"call",aiReportBtn:"report",aiFollowupBtn:"followup"};
+  if(tasks[b.id]&&typeof aiRun==="function"){e.preventDefault();e.stopImmediatePropagation();aiRun(tasks[b.id]);}
+  else if(b.id==="futureRadarBtn"&&typeof runFutureRadar==="function"){e.preventDefault();e.stopImmediatePropagation();runFutureRadar();}
+  else if(b.id==="futureRadarPrint"&&typeof printFutureRadarSelection==="function"){e.preventDefault();e.stopImmediatePropagation();printFutureRadarSelection();}
+  else if(b.id==="futureRadarAddAll"&&typeof addFutureRadarCandidates==="function"){e.preventDefault();e.stopImmediatePropagation();addFutureRadarCandidates();}
+  else if(b.id==="futureRadarSelectAll"&&typeof futureRadarRender==="function"){e.preventDefault();e.stopImmediatePropagation();const start=futureRadarPage*FUTURE_RADAR_PAGE_SIZE;for(let i=start;i<Math.min(start+FUTURE_RADAR_PAGE_SIZE,futureRadarCandidates.length)&&futureRadarSelectedIndices.size<FUTURE_RADAR_MAX_SELECTED;i++)futureRadarSelectedIndices.add(i);futureRadarRender();}
+  else if(b.id==="futureRadarDeselectAll"&&typeof futureRadarRender==="function"){e.preventDefault();e.stopImmediatePropagation();const start=futureRadarPage*FUTURE_RADAR_PAGE_SIZE;for(let i=start;i<Math.min(start+FUTURE_RADAR_PAGE_SIZE,futureRadarCandidates.length);i++)futureRadarSelectedIndices.delete(i);futureRadarRender();}
+});
 const KEY="jml_prospection_v1";let prospects=load(),pendingImport=[];let prospectPage=1;let prospectTotalPages=1;const DEFAULT_PROSPECT_PAGE_SIZE=8;const $=id=>document.getElementById(id);
 function load(){try{const x=JSON.parse(localStorage.getItem(KEY)||"[]");return Array.isArray(x)?x:[]}catch(e){return[]}}
 function save(){localStorage.setItem(KEY,JSON.stringify(prospects));render();if(typeof statsSync==="function")statsSync()}
@@ -478,6 +495,8 @@ function addFutureRadarCandidates(){
   if(selected.length){save();alert("Surveillance : "+created+" bien(s) ajouté(s), "+merged+" déjà présent(s) fusionné(s).")}
 }
 
+/* delegated above: futureRadarSelectAll */
+/* old handler retained below for compatibility */
 $("futureRadarSelectAll").onclick=()=>{
   const start=futureRadarPage*FUTURE_RADAR_PAGE_SIZE;
   for(let i=start;i<Math.min(start+FUTURE_RADAR_PAGE_SIZE,futureRadarCandidates.length)&&futureRadarSelectedIndices.size<FUTURE_RADAR_MAX_SELECTED;i++)futureRadarSelectedIndices.add(i);
@@ -1080,12 +1099,7 @@ async function aiRun(task){
   }finally{aiSetBusy(false)}
 }
 if($("aiAssistantPanel")){
-  $("aiAnalyzeBtn").onclick=()=>aiRun("analyze");
-  $("aiWhyBtn").onclick=()=>aiRun("why");
-  $("aiPriorityBtn").onclick=()=>aiRun("priority");
-  $("aiCallBtn").onclick=()=>aiRun("call");
-  $("aiReportBtn").onclick=()=>aiRun("report");
-  $("aiFollowupBtn").onclick=()=>aiRun("followup");
+  /* Les boutons IA sont gérés par la délégation globale V1.37.3. */
   aiRefreshProspects();
   const _jmlOriginalRender=render;
   render=function(){_jmlOriginalRender();aiRefreshProspects()};
