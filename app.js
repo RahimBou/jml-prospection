@@ -6,7 +6,7 @@ window.addEventListener("error",e=>{
   if(box&&e?.message) box.textContent="⚠️ Erreur JavaScript : "+e.message;
 });
 document.addEventListener("click",e=>{
-  const b=e.target.closest("#aiAnalyzeBtn,#aiWhyBtn,#aiPriorityBtn,#aiCallBtn,#aiReportBtn,#aiFollowupBtn,#futureRadarBtn,#futureRadarPrint,#futureRadarAddAll,#futureRadarAddPage,#futureRadarSelectAll,#futureRadarDeselectAll,#futureRadarRoute,#integrationsTestBtn,#publicSearchBtn,#ctSearchBtn,#ctTourBtn");
+  const b=e.target.closest("#aiAnalyzeBtn,#aiWhyBtn,#aiPriorityBtn,#aiCallBtn,#aiReportBtn,#aiFollowupBtn,#futureRadarBtn,#futureRadarPrint,#futureRadarAddAll,#futureRadarAddPage,#futureRadarSelectAll,#futureRadarDeselectAll,#futureRadarRoute,#integrationsTestBtn,#sourcesRefreshBtn,#publicSearchBtn,#ctSearchBtn,#ctTourBtn");
   if(!b)return;
   const tasks={aiAnalyzeBtn:"analyze",aiWhyBtn:"why",aiPriorityBtn:"priority",aiCallBtn:"call",aiReportBtn:"report",aiFollowupBtn:"followup"};
   if(tasks[b.id]&&typeof aiRun==="function"){e.preventDefault();e.stopImmediatePropagation();aiRun(tasks[b.id]);}
@@ -18,6 +18,7 @@ document.addEventListener("click",e=>{
   else if(b.id==="futureRadarDeselectAll"&&typeof futureRadarRender==="function"){e.preventDefault();e.stopImmediatePropagation();const start=futureRadarPage*FUTURE_RADAR_PAGE_SIZE;for(let i=start;i<Math.min(start+FUTURE_RADAR_PAGE_SIZE,futureRadarCandidates.length);i++)futureRadarSelectedIndices.delete(i);futureRadarRender();}
   else if(b.id==="futureRadarRoute"&&typeof prepareFutureRadarRoute==="function"){e.preventDefault();e.stopImmediatePropagation();prepareFutureRadarRoute();}
   else if(b.id==="integrationsTestBtn"&&typeof testIntegrations==="function"){e.preventDefault();e.stopImmediatePropagation();testIntegrations();}
+  else if(b.id==="sourcesRefreshBtn"&&typeof refreshSourceConnectors==="function"){e.preventDefault();e.stopImmediatePropagation();refreshSourceConnectors();}
   else if(b.id==="publicSearchBtn"&&typeof searchPublicSources==="function"){e.preventDefault();e.stopImmediatePropagation();searchPublicSources();}
   else if(b.id==="ctSearchBtn"&&typeof ctSearch==="function"){e.preventDefault();e.stopImmediatePropagation();ctSearch();}
   else if(b.id==="ctTourBtn"&&typeof ctSectorTour==="function"){e.preventDefault();e.stopImmediatePropagation();ctSectorTour();}
@@ -803,7 +804,7 @@ async function runDataAgent(){
 }
 $("dataAgentBtn").onclick=runDataAgent;
 
-publicJson("/api/health").then(()=>{$("sourceApiStatus").textContent="Connectées"}).catch(()=>{$("sourceApiStatus").textContent="Serveur indisponible"});;ctRenderMemoryPanel();
+publicJson("/api/health").then(()=>{$("sourceApiStatus").textContent="Connectées"}).catch(()=>{$("sourceApiStatus").textContent="Serveur indisponible"});;refreshSourceConnectors();;ctRenderMemoryPanel();
 $("publicDpeResults").onclick=e=>{
   const b=e.target.closest("[data-dpe-index]");if(!b)return;
   const p=publicDpeResults[Number(b.dataset.dpeIndex)];if(!p)return;
@@ -945,6 +946,28 @@ function renderIntegrationHealth(data){
     ?"ChercherTrouver répond correctement côté serveur, sans appel payant."
     :"La connexion ChercherTrouver nécessite une vérification dans Render.";
 }
+
+async function refreshSourceConnectors(){
+  const box=$("sourcesConnectorGrid");if(!box)return;
+  box.innerHTML='<div class="meta">Vérification des connecteurs…</div>';
+  try{
+    const data=await publicJson("/api/sources-health");
+    const links={
+      cherchertrouver:"https://cherchertrouver.immo/api/docs",
+      streamestate:"https://next.docs.stream.estate/fr/docs/getting-started/quickstart",
+      moteurimmo:"https://moteurimmo.fr/offre-api",
+      yanport:"https://www.yanport.com/solutions/fournisseur-donnees-immobilieres/api",
+      casafari:"https://fr.casafari.com/produits/apis-casafari-donnees-immobilieres/"
+    };
+    box.innerHTML=(data.sources||[]).map(s=>{
+      const status=s.ok===true?"🟢 CONNECTÉ":s.configured?"🟡 CLÉ CONFIGURÉE":"⚪ À CONNECTER";
+      const desc=s.kind==="annonces"?"Catalogue d'annonces":s.kind==="annonces + marché"?"Annonces + données de marché":s.kind==="transactions"?"Transactions immobilières":s.kind==="enrichissement"?"DPE et caractéristiques":"Géocodage / enrichissement";
+      const link=links[s.id]?'<a href="'+links[s.id]+'" target="_blank" rel="noopener">Documentation ↗</a>':"";
+      return '<article class="source-connector-card"><div><strong>'+apiEsc(s.label)+'</strong><span>'+apiEsc(desc)+'</span></div><b>'+status+'</b><small>'+apiEsc(s.error||s.mode||"")+'</small>'+link+'</article>';
+    }).join("");
+  }catch(e){box.innerHTML='<div class="meta">Impossible de vérifier les sources : '+apiEsc(e.message)+'</div>'}
+}
+
 async function testIntegrations(){
   $("integrationsTestBtn").disabled=true;
   $("integrationsStatus").textContent="Test ChercherTrouver en cours…";
