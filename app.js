@@ -1,4 +1,4 @@
-const APP_VERSION="1.37.14";
+const APP_VERSION="1.39.0";
 
 /* V1.37.3 — garde-fou des boutons : délégation globale + diagnostic JS */
 window.addEventListener("error",e=>{
@@ -1155,7 +1155,7 @@ async function ctIncrementalWatch(){
       return;
     }
     const {qs,ville,radius}=ctBuildSearchParams(true);
-    const data=await publicJson("/api/annonces?"+qs.toString());
+    const data=await publicJson("/api/annonces-multi?"+qs.toString());
     let raw=Array.isArray(data.items)?data.items:[];
     if(ville&&radius>0){
       const geo=await publicJson("/api/geocode?q="+encodeURIComponent(ville));
