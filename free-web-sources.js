@@ -1,4 +1,8 @@
 const DEFAULT_SOURCES = [
+  {id:"pap",label:"PAP.fr · particuliers",base:"https://www.pap.fr/",catalog:"https://www.pap.fr/annonce/vente-immobiliere-ardennes-08-g371"},
+  {id:"bienici",label:"Bien'ici",base:"https://www.bienici.com/",catalog:"https://www.bienici.com/recherche/achat/charleville-mezieres-08000"},
+  {id:"seloger",label:"SeLoger",base:"https://www.seloger.com/",catalog:"https://www.seloger.com/recherche/achat/immobilier/grand-est/charleville-mezieres-08000/ad08fr2552"},
+  {id:"leboncoin",label:"Leboncoin",base:"https://www.leboncoin.fr/",catalog:"https://www.leboncoin.fr/recherche?text=immobilier%20vente%20ardennes"},
   {id:"bayardhabitat",label:"Bayard Habitat",base:"https://www.bayardhabitat.fr/"},
   {id:"rimbaudimmo",label:"Rimbaud Immo",base:"https://www.rimbaudimmo.fr/"},
   {id:"ingimmobilier",label:"ING Immobilier",base:"https://www.agence-ing.fr/"},
@@ -174,7 +178,15 @@ async function discoverSource(source,q){
   const stats={id:source.id,label:source.label,base:source.base,ok:false,count:0,blocked:false,error:null,checked:0};
   try{
     if(!(await robotsAllows(source.base))){stats.blocked=true;stats.error="Collecte désactivée par robots.txt ou robots inaccessible";return {stats,items:[]}}
-    const home=await fetchText(source.base),links=extractLinks(home,source.base);
+    const startUrls=[source.base,source.catalog].filter(Boolean);
+    const pages=[];
+    for(const startUrl of [...new Set(startUrls)]){
+      if(!(await robotsAllows(startUrl)))continue;
+      try{pages.push({url:startUrl,html:await fetchText(startUrl,10000)})}catch{}
+    }
+    if(!pages.length){stats.error="Aucune page publique accessible";return {stats,items:[]}}
+    const home=pages[0].html;
+    const links=[...new Set(pages.flatMap(p=>extractLinks(p.html,p.url)))];
     const sitemapMatch=home.match(/<link[^>]+href=["']([^"']*sitemap[^"']*)["'][^>]*>/i);
     if(sitemapMatch?.[1]){
       const sm=absUrl(sitemapMatch[1],source.base);
