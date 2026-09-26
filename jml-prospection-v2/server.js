@@ -4,8 +4,9 @@ const path = require("path");
 const { URL } = require("url");
 const { searchPublicListings, geocodeAddress } = require("./src/sources");
 const { buildMarketSnapshot } = require("./src/market-engine");
+const { buildSectorRadar } = require("./src/sector-radar");
 
-const VERSION = "2.3.4";
+const VERSION = "2.4.0";
 const PORT = Number(process.env.PORT || 10000);
 const ROOT = __dirname;
 const PUBLIC = path.join(ROOT, "public");
@@ -37,7 +38,8 @@ async function api(req, res, url) {
         {id:"web-public",label:"Web public local",status:"available"},
         {id:"ban",label:"BAN / Géoplateforme",status:"available"},
         {id:"dvf",label:"DVF open data",status:"available"},
-        {id:"dpe",label:"DPE open data",status:"available"}
+        {id:"dpe",label:"DPE open data",status:"available"},
+        {id:"sector-radar",label:"Radar des secteurs",status:"available"}
       ]
     });
   }
@@ -46,6 +48,17 @@ async function api(req, res, url) {
   }
   if (url.pathname === "/api/marche") {
     return send(res, 200, await buildMarketSnapshot(Object.fromEntries(url.searchParams.entries())));
+  }
+  if (url.pathname === "/api/secteurs") {
+    const params = Object.fromEntries(url.searchParams.entries());
+    const market = await buildMarketSnapshot(params);
+    const radar = buildSectorRadar({
+      dpe: market.hidden?.length ? market.hidden : [],
+      dvf: market.market?.items || [],
+      current: market.current || [],
+      hidden: market.hidden || []
+    });
+    return send(res, 200, { version: VERSION, scope: market.scope, sector_radar: radar });
   }
   if (url.pathname === "/api/geocode" && req.method === "GET") {
     const q = String(url.searchParams.get("q") || "").trim();
