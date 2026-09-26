@@ -105,6 +105,34 @@ function renderScoreBreakdown(breakdown = {}) {
     ).join(" ");
 }
 
+let selectedAddresses = new Set();
+
+function priorityLevel(score) {
+  const s = Number(score || 0);
+  return s >= 84 ? "A" : s >= 80 ? "B" : "C";
+}
+
+function updateSelectionCount() {
+  $("selectionCount").textContent = selectedAddresses.size + "/10 sélectionné(s)";
+}
+
+function toggleSelection(address, checked) {
+  if (checked && selectedAddresses.size >= 10) {
+    const box = document.querySelector('input[data-select="' + CSS.escape(address) + '"]');
+    if (box) box.checked = false;
+    $("tourMessage").textContent = "Maximum 10 adresses par tournée.";
+    return;
+  }
+  if (checked) selectedAddresses.add(address);
+  else selectedAddresses.delete(address);
+  document.querySelectorAll(".tour-card").forEach(card => {
+    const input = card.querySelector("input[type=checkbox]");
+    card.classList.toggle("selected-card", !!input?.checked);
+  });
+  updateSelectionCount();
+  $("tourMessage").textContent = "";
+}
+
 function renderTop10(items = []) {
   const top = [...items].sort((a, b) =>
     Number(b.score || 0) - Number(a.score || 0) ||
@@ -243,6 +271,75 @@ document.addEventListener("click", event => {
 $("search").addEventListener("click", search);
 $("market").addEventListener("click", market);
 $("health").addEventListener("click", health);
+
+$("selectPriority").addEventListener("click", () => {
+  selectedAddresses.clear();
+  const top = [...(snapshot?.hidden || [])]
+    .sort((a,b) => Number(b.score||0)-Number(a.score||0))
+    .slice(0, 10);
+  top.forEach(x => selectedAddresses.add(x.address));
+  render();
+  $("tourMessage").textContent = "Les 10 priorités du Radar sont sélectionnées.";
+});
+
+$("clearSelection").addEventListener("click", () => {
+  selectedAddresses.clear();
+  render();
+  $("tourMessage").textContent = "";
+});
+
+$("prepareTour").addEventListener("click", async () => {
+  const selected = [...(snapshot?.hidden || [])].filter(x => selectedAddresses.has(x.address)).slice(0, 10);
+  if (!selected.length) {
+    $("tourMessage").textContent = "Sélectionne au moins une adresse.";
+    return;
+  }
+  $("tourMessage").textContent = "Préparation de la tournée et regroupement par secteur…";
+  try {
+    const enriched = [];
+    for (const item of selected) {
+      let lat = Number(item.lat), lon = Number(item.lon);
+      if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+        const geo = await getJSON("/api/geocode?q=" + encodeURIComponent(item.address));
+        const first = geo.items?.[0];
+        lat = Number(first?.lat); lon = Number(first?.lon);
+      }
+      if (Number.isFinite(lat) && Number.isFinite(lon)) enriched.push({...item, lat, lon});
+    }
+    if (!enriched.length) throw new Error("Aucune adresse n’a pu être géolocalisée.");
+    const ordered = [];
+    const remaining = [...enriched];
+    let current = remaining.shift();
+    ordered.push(current);
+    while (remaining.length) {
+      remaining.sort((a,b) => {
+        const da=(a.lat-current.lat)**2+(a.lon-current.lon)**2;
+        const db=(b.lat-current.lat)**2+(b.lon-current.lon)**2;
+        return da-db;
+      });
+      current = remaining.shift();
+      ordered.push(current);
+    }
+    const sectors = new Map();
+    ordered.forEach(x => {
+      const key = Math.round(x.lat*100) + "/" + Math.round(x.lon*100);
+      if (!sectors.has(key)) sectors.set(key, []);
+      sectors.get(key).push(x);
+    });
+    const sectorCount = sectors.size;
+    const stops = ordered.map(x => encodeURIComponent(x.address + ", " + (x.city || "")));
+    const destination = stops[stops.length-1];
+    const waypoints = stops.slice(0,-1).join("|");
+    const mapUrl = "https://www.google.com/maps/dir/?api=1&destination=" + destination +
+      (waypoints ? "&waypoints=" + waypoints : "") + "&travelmode=driving";
+    window.open(mapUrl, "_blank", "noopener");
+    $("tourMessage").innerHTML = '<div class="tour-summary"><b>Tournée préparée :</b> ' +
+      ordered.length + ' adresse(s), regroupées en ' + sectorCount + ' secteur(s).<br>' +
+      ordered.map((x,i) => (i+1) + ". " + escapeHtml(x.address)).join(" · ") + '</div>';
+  } catch (e) {
+    $("tourMessage").textContent = "Erreur tournée : " + e.message;
+  }
+});
 
 getJSON("/api/health")
   .then(data => $("status").textContent = "V" + data.version)
