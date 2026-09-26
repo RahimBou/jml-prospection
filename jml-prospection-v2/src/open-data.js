@@ -116,7 +116,7 @@ function parseDvfCsv(text, codeInsee, maxRows) {
   const items = []; const seen = new Set();
   for (let i = 1; i < lines.length && items.length < maxRows; i++) {
     const row = parseCsvLine(lines[i]);
-    if (clean(get(row, "code_commune")) !== codeInsee) continue;
+    const rowCode = clean(get(row, "code_commune")).replace(/\.0$/, "").padStart(5, "0");\n    if (rowCode !== String(codeInsee).padStart(5, "0")) continue;
     const nature = clean(get(row, "nature_mutation"));
     if (nature && !allowed.has(nature)) continue;
     const id = clean(get(row, "id_mutation")) || String(i);
@@ -195,7 +195,7 @@ async function fetchDvfCerema(codeInsee, years = 5, maxRows = 10000) {
   };
 }
 
-async function fetchDvfFallback(codeInsee, years = 5, maxRows = 10000) {
+async function fetchDvfFallback(codeInsee, years = 5, maxRows = 100000) {
   const dept = codeInsee.slice(0, 2);
   const currentYear = new Date().getUTCFullYear();
   const maxYear = currentYear - 1;
@@ -227,7 +227,7 @@ async function fetchDvfFallback(codeInsee, years = 5, maxRows = 10000) {
   };
 }
 
-async function fetchDvf(codeInsee, years = 5, maxRows = 10000) {
+async function fetchDvf(codeInsee, years = 5, maxRows = 100000) {
   try {
     const result = await fetchDvfCerema(codeInsee, years, maxRows);
     if (result.total > 0) return { ...result, source: "Cerema", fallback: false };
@@ -246,7 +246,7 @@ async function fetchOpenDataSignals(city, options = {}) {
 
   const [dpe, dvf] = await Promise.allSettled([
     fetchDpe(resolved.city, options.dpeLimit || 120, resolved.citycode),
-    fetchDvf(resolved.citycode, options.dvfYears || 5, options.dvfMaxRows || 10000)
+    fetchDvf(resolved.citycode, options.dvfYears || 5, options.dvfMaxRows || 100000)
   ]);
   const dvfValue = dvf.status === "fulfilled" ? dvf.value : { items: [], total: 0, source: "indisponible" };
 
