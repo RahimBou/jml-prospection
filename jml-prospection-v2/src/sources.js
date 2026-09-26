@@ -116,7 +116,16 @@ async function searchSite(home, params) {
 async function searchPublicListings(params = {}) {
   const sites = DEFAULT_SITES.slice(0, Math.max(3, Math.min(9, Number(params.web_sources || 9))));
   const settled = await Promise.allSettled(sites.map(site => searchSite(site, params)));
-  const items = settled.flatMap(x => x.status === "fulfilled" ? x.value : []);
+  const rawItems = settled.flatMap(x => x.status === "fulfilled" ? x.value : []);
+  const cityNeedle = String(params.ville || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  const cityAliases = cityNeedle.includes("charleville")
+    ? ["charleville-mezieres", "charleville", "08000"]
+    : [cityNeedle];
+  const items = rawItems.filter(item => {
+    const text = String(item.title || "") + " " + String(item.city || "");
+    const normalized = text.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    return !cityNeedle || cityAliases.some(alias => normalized.includes(alias));
+  });
   const seen = new Set();
   const unique = items.filter(item => {
     const key = item.external_url || (item.title + "|" + item.price + "|" + item.surface);
@@ -126,7 +135,7 @@ async function searchPublicListings(params = {}) {
   });
   return {
     source: "Web public local",
-    version: "2.0.0",
+    version: "2.1.0",
     total: unique.length,
     items: unique,
     sources: sites.map((site, i) => ({
