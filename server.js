@@ -1675,14 +1675,14 @@ async function api(pathname,url){
     }
     const codes=Array.from(communeMembership.keys());
     const years=Number(url.searchParams.get("years"))||5;
-    const perCommuneLimit=cleanLimit(url.searchParams.get("perCommuneLimit"),60);
+    const perCommuneLimit=cleanLimit(url.searchParams.get("perCommuneLimit"),50);
     const offset=Math.max(0,Number(url.searchParams.get("offset"))||0);
-    const communeBatch=Math.max(1,Math.min(8,Number(url.searchParams.get("communeBatch"))||8));
+    const communeBatch=Math.max(1,Math.min(12,Number(url.searchParams.get("communeBatch"))||12));
     const selectedCodes=codes.slice(offset,offset+communeBatch);
     const aggregate=[],errors=[];
     // Les appels par zone restent courts pour Render, mais quatre communes sont traitées en parallèle afin de réduire le temps total sans saturer le serveur.
-    for(let i=0;i<selectedCodes.length;i+=4){
-      const batch=selectedCodes.slice(i,i+4);
+    for(let i=0;i<selectedCodes.length;i+=6){
+      const batch=selectedCodes.slice(i,i+6);
       const results=await Promise.allSettled(batch.map(code=>api("/api/radar",new URL("http://localhost/api/radar?codeInsee="+encodeURIComponent(code)+"&limit="+perCommuneLimit+"&years="+encodeURIComponent(years)))));
       results.forEach((rr,j)=>rr.status==="fulfilled"?aggregate.push({codeInsee:batch[j],data:rr.value}):errors.push({codeInsee:batch[j],error:rr.reason?.message||"Analyse indisponible"}));
     }
