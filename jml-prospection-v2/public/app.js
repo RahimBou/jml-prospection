@@ -289,12 +289,17 @@ $("clearSelection").addEventListener("click", () => {
 });
 
 $("prepareTour").addEventListener("click", async () => {
-  const selected = [...(snapshot?.hidden || [])].filter(x => selectedAddresses.has(x.address)).slice(0, 10);
+  const selected = [...(snapshot?.hidden || [])]
+    .filter(x => selectedAddresses.has(x.address))
+    .slice(0, 10);
+
   if (!selected.length) {
     $("tourMessage").textContent = "Sélectionne au moins une adresse.";
     return;
   }
-  $("tourMessage").textContent = "Préparation de la tournée et regroupement par secteur…";
+
+  $("tourMessage").textContent = "Regroupement des adresses par secteurs et optimisation du parcours…";
+
   try {
     const enriched = [];
     for (const item of selected) {
@@ -302,40 +307,94 @@ $("prepareTour").addEventListener("click", async () => {
       if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
         const geo = await getJSON("/api/geocode?q=" + encodeURIComponent(item.address));
         const first = geo.items?.[0];
-        lat = Number(first?.lat); lon = Number(first?.lon);
+        lat = Number(first?.lat);
+        lon = Number(first?.lon);
       }
       if (Number.isFinite(lat) && Number.isFinite(lon)) enriched.push({...item, lat, lon});
     }
+
     if (!enriched.length) throw new Error("Aucune adresse n’a pu être géolocalisée.");
-    const ordered = [];
-    const remaining = [...enriched];
-    let current = remaining.shift();
-    ordered.push(current);
-    while (remaining.length) {
-      remaining.sort((a,b) => {
-        const da=(a.lat-current.lat)**2+(a.lon-current.lon)**2;
-        const db=(b.lat-current.lat)**2+(b.lon-current.lon)**2;
-        return da-db;
-      });
-      current = remaining.shift();
-      ordered.push(current);
-    }
+
+    // Regroupement en secteurs d'environ 700 m pour limiter les allers-retours.
+    const CELL_KM = 0.7;
+    const latStep = CELL_KM / 111;
+    const lonStep = CELL_KM / 75;
+    const sectorKey = x =>
+      Math.floor(x.lat / latStep) + "/" + Math.floor(x.lon / lonStep);
+
     const sectors = new Map();
-    ordered.forEach(x => {
-      const key = Math.round(x.lat*100) + "/" + Math.round(x.lon*100);
+    enriched.forEach(x => {
+      const key = sectorKey(x);
       if (!sectors.has(key)) sectors.set(key, []);
       sectors.get(key).push(x);
     });
-    const sectorCount = sectors.size;
-    const stops = ordered.map(x => encodeURIComponent(x.address + ", " + (x.city || "")));
-    const destination = stops[stops.length-1];
-    const waypoints = stops.slice(0,-1).join("|");
-    const mapUrl = "https://www.google.com/maps/dir/?api=1&destination=" + destination +
-      (waypoints ? "&waypoints=" + waypoints : "") + "&travelmode=driving";
+
+    const distance2 = (a, b) => (a.lat - b.lat) ** 2 + (a.lon - b.lon) ** 2;
+
+    const sectorList = [...sectors.values()].map((items, index) => ({
+      id: index + 1,
+      items,
+      lat: items.reduce((s, x) => s + x.lat, 0) / items.length,
+      lon: items.reduce((s, x) => s + x.lon, 0) / items.length
+    }));
+
+    // Ordre des secteurs par proximité, puis ordre des adresses à l'intérieur.
+    const orderedSectors = [];
+    const remainingSectors = [...sectorList];
+    let currentSector = remainingSectors.shift();
+    orderedSectors.push(currentSector);
+
+    while (remainingSectors.length) {
+      remainingSectors.sort((a, b) =>
+        distance2(a, currentSector) - distance2(b, currentSector)
+      );
+      currentSector = remainingSectors.shift();
+      orderedSectors.push(currentSector);
+    }
+
+    const ordered = [];
+    let currentPoint = null;
+
+    orderedSectors.forEach((sector, sectorIndex) => {
+      const remaining = [...sector.items];
+      const sectorOrdered = [];
+
+      while (remaining.length) {
+        if (currentPoint) {
+          remaining.sort((a, b) => distance2(a, currentPoint) - distance2(b, currentPoint));
+        }
+        const next = remaining.shift();
+        sectorOrdered.push(next);
+        currentPoint = next;
+      }
+
+      sector.number = sectorIndex + 1;
+      sector.orderedItems = sectorOrdered;
+      ordered.push(...sectorOrdered);
+    });
+
+    const stops = ordered.map(x =>
+      encodeURIComponent(x.address + ", " + (x.city || ""))
+    );
+    const destination = stops[stops.length - 1];
+    const waypoints = stops.slice(0, -1).join("|");
+    const mapUrl =
+      "https://www.google.com/maps/dir/?api=1&destination=" + destination +
+      (waypoints ? "&waypoints=" + waypoints : "") +
+      "&travelmode=driving";
+
     window.open(mapUrl, "_blank", "noopener");
-    $("tourMessage").innerHTML = '<div class="tour-summary"><b>Tournée préparée :</b> ' +
-      ordered.length + ' adresse(s), regroupées en ' + sectorCount + ' secteur(s).<br>' +
-      ordered.map((x,i) => (i+1) + ". " + escapeHtml(x.address)).join(" · ") + '</div>';
+
+    const sectorSummary = orderedSectors.map(sector =>
+      '<b>Secteur ' + sector.number + '</b> (' + sector.items.length + ' adresse' +
+      (sector.items.length > 1 ? 's' : '') + ') : ' +
+      sector.orderedItems.map(x => escapeHtml(x.address)).join(" → ")
+    ).join("<br>");
+
+    $("tourMessage").innerHTML =
+      '<div class="tour-summary"><b>🗺️ Tournée optimisée</b><br>' +
+      ordered.length + ' adresse(s) · ' + orderedSectors.length + ' secteur(s)<br><br>' +
+      sectorSummary + '</div>';
   } catch (e) {
     $("tourMessage").textContent = "Erreur tournée : " + e.message;
   }
