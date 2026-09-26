@@ -25,15 +25,44 @@ function classify(item) {
   return "maison";
 }
 function scoreDpe(dpe) {
-  return dpe === "G" ? 35 : dpe === "F" ? 28 : dpe === "E" ? 12 : 0;
+  return dpe === "G" ? 34 : dpe === "F" ? 24 : 0;
 }
+
+function scoreGes(ges) {
+  return ges === "G" ? 8 : ges === "F" ? 6 : ges === "E" ? 3 : 0;
+}
+
+function scoreSurface(surface) {
+  const s = Number(surface) || 0;
+  if (s >= 120 && s <= 220) return 10;
+  if (s >= 80 && s < 120) return 7;
+  if (s > 220) return 5;
+  if (s >= 50) return 3;
+  return 0;
+}
+
+function scoreAge(year) {
+  const y = Number(year) || 0;
+  if (!y) return 0;
+  if (y < 1950) return 10;
+  if (y < 1980) return 8;
+  if (y < 2000) return 4;
+  return 1;
+}
+
 function buildHiddenOpportunities(dpeItems, currentItems) {
   const currentAddresses = new Set(currentItems.map(x => String(x.address || "").toLowerCase()).filter(Boolean));
   return dpeItems
     .filter(x => ["F", "G"].includes(x.dpe))
     .filter(x => !currentAddresses.has(x.address.toLowerCase()))
     .map(x => {
-      const score = Math.min(100, 30 + scoreDpe(x.dpe) + (x.surface > 80 ? 8 : 0) + (x.year && x.year < 1980 ? 7 : 0));
+      const score = Math.min(100,
+        10 +
+        scoreDpe(x.dpe) +
+        scoreGes(x.ges) +
+        scoreSurface(x.surface) +
+        scoreAge(x.year)
+      );
       return {
         id: "hidden:" + Buffer.from(x.address).toString("base64url").slice(0, 50),
         title: "Adresse à vérifier sur le terrain",
@@ -47,13 +76,20 @@ function buildHiddenOpportunities(dpeItems, currentItems) {
         property_type: "à qualifier",
         score,
         signal: "DPE " + x.dpe,
-        reason: ["DPE " + x.dpe, x.surface ? x.surface + " m²" : "", x.year ? "construction " + x.year : "", "aucune annonce publique correspondante détectée"].filter(Boolean),
+        reason: [
+          "DPE " + x.dpe,
+          x.ges ? "GES " + x.ges : "",
+          x.surface ? x.surface + " m²" : "",
+          x.year ? "construction " + x.year : "",
+          "aucune annonce publique correspondante détectée"
+        ].filter(Boolean),
         action: "Vérifier l'adresse sur le terrain"
       };
     })
-    .sort((a, b) => b.score - a.score)
+    .sort((a, b) => b.score - a.score || Number(b.surface || 0) - Number(a.surface || 0))
     .slice(0, 50);
 }
+
 function dvfStats(items) {
   const valid = items.filter(x => number(x.price) > 0 && number(x.built_surface) > 0);
   const prices = valid.map(x => x.price / x.built_surface).sort((a, b) => a - b);
