@@ -1,7 +1,7 @@
 const https = require("https");
 const zlib = require("zlib");
 
-const DVF_URL = "https://apidf-preprod.cerema.fr/dvf_opendata/mutations/";
+const DVF_URL = "https://apidf.cerema.fr/dvf_opendata/mutations/";
 const DVF_FALLBACK_BASE = "https://files.data.gouv.fr/geo-dvf/latest/csv";
 const DPE_URL = "https://data.ademe.fr/data-fair/api/v1/datasets/dpe03existant/lines";
 const BAN_URL = "https://data.geopf.fr/geocodage/search/";
