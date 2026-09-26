@@ -95,7 +95,7 @@ function renderHidden(items = []) {
 
   return ordered.map((item, index) => {
     const address = item.address || "";
-    const level = priorityLevel(item.score);
+    const level = priorityLevel(item.score, item.seller_signal);
     const checked = selectedAddresses.has(address) ? " checked" : "";
     return '<article class="card priority tour-card' + (checked ? ' selected-card' : '') + '">' +
       '<div class="select-row">' +
@@ -193,7 +193,10 @@ function archiveSelectedTerrain() {
 }
 
 
-function priorityLevel(score) {
+function priorityLevel(score, sellerSignal) {
+  if (sellerSignal === "fort") return "A";
+  if (sellerSignal === "probable") return "B";
+  if (sellerSignal === "surveiller") return "C";
   const s = Number(score || 0);
   return s >= 84 ? "A" : s >= 80 ? "B" : "C";
 }
