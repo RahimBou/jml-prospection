@@ -3,3 +3,5 @@
 .tour-start label{display:flex;flex-direction:column;gap:5px;font-weight:600;font-size:.9rem}
 .tour-start select,.tour-start input{padding:9px 10px;border:1px solid #bbb;border-radius:8px;background:#fff;min-width:230px}
 @media(max-width:700px){.tour-start{align-items:stretch}.tour-start label,.tour-start input{width:100%}.tour-start select,.tour-start input{min-width:0}}
+
+.prospect-status{display:inline-block;margin-left:7px;padding:4px 8px;border-radius:999px;background:#ead8b9;font-size:.72rem;font-weight:700;vertical-align:middle}
