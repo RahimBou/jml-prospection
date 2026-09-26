@@ -1,6 +1,7 @@
 const $ = id => document.getElementById(id);
 let snapshot = null;
 let activeTab = "current";
+let newListings = [];
 
 async function getJSON(url) {
   const res = await fetch(url, { cache: "no-store" });
@@ -54,6 +55,21 @@ function renderStats(counts = {}, market = {}) {
   ].map(([label, value]) =>
     '<div class="stat"><span>' + label + '</span><b>' + value + '</b></div>'
   ).join("");
+}
+
+function renderNew(items = []) {
+  return items.map(item => {
+    const price = Number(item.price) > 0 ? Number(item.price).toLocaleString("fr-FR") + " €" : "Prix non détecté";
+    const surface = Number(item.surface) > 0 ? Number(item.surface).toLocaleString("fr-FR") + " m²" : "Surface non détectée";
+    const link = item.external_url
+      ? '<p><a target="_blank" rel="noopener" href="' + escapeAttr(item.external_url) + '">Voir la fiche publique</a></p>'
+      : "";
+    return '<article class="card new-card"><div class="new-badge">🆕 NOUVEAU</div><h3>' +
+      escapeHtml(item.title || "Bien immobilier") + '</h3><div class="meta"><b>' + price +
+      '</b> · ' + surface + '</div><div class="meta">' + escapeHtml(item.city || "") +
+      " · " + escapeHtml(item.agency || item.source || "") + '</div>' +
+      '<span class="tag">' + escapeHtml(item.property_type || "immobilier") + '</span>' + link + '</article>';
+  }).join("");
 }
 
 function renderCurrent(items = []) {
@@ -257,6 +273,7 @@ function render() {
   let items = [];
   let title = "";
   if (activeTab === "current") { items = current; title = "🎯 Annonces en ligne"; }
+  if (activeTab === "new") { items = newListings; title = "🆕 Nouvelles annonces depuis la dernière analyse"; }
   if (activeTab === "hidden") { items = hidden; title = "🟠 Adresses à vérifier sur le terrain"; }
   if (activeTab === "disappeared") { items = data.disappeared || []; title = "🟡 Annonces disparues — statut à vérifier"; }
   if (activeTab === "price") { items = data.price_changes || []; title = "🔵 Évolutions de prix"; }
@@ -337,9 +354,10 @@ async function market() {
   try {
     const data = await getJSON("/api/marche?" + params());
     snapshot = data;
+    newListings = data.memory?.new_items || data.new_items || [];
     renderStats(data.counts || {}, data.market || {});
     render();
-    $("status").textContent = "Radar terminé";
+    $("status").textContent = (data.memory?.new_listings || 0) + " nouveau(x) · Radar terminé";
     const sourceStatus = data.source_status || {};
     const statusParts = ["✓ Sources traitées"];
     if (sourceStatus.dvf_source === "data.gouv.fr" || data.market?.dvf_fallback) {
