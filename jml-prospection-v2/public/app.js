@@ -355,6 +355,12 @@ $("clearSelection").addEventListener("click", () => {
   $("tourMessage").textContent = "";
 });
 
+$("tourStart").addEventListener("change", () => {
+  const mode = $("tourStart").value;
+  $("tourStartAddress").style.display = mode === "address" ? "block" : "none";
+  if (mode !== "address") $("tourStartAddress").value = "";
+});
+
 $("prepareTour").addEventListener("click", async () => {
   const selected = [...(snapshot?.hidden || [])]
     .filter(x => selectedAddresses.has(x.address))
@@ -440,17 +446,50 @@ $("prepareTour").addEventListener("click", async () => {
       ordered.push(...sectorOrdered);
     });
 
-    const stops = ordered.map(x =>
-      encodeURIComponent(x.address + ", " + (x.city || ""))
-    );
+    const stopText = x => x.address + ", " + (x.city || "");
+    const stops = ordered.map(x => encodeURIComponent(stopText(x)));
     const destination = stops[stops.length - 1];
     const waypoints = stops.slice(0, -1).join("|");
+
+    // Point de départ : position actuelle (Google Maps), premier prospect,
+    // ou adresse personnalisée géocodée par notre endpoint BAN.
+    const startMode = $("tourStart")?.value || "current";
+    let originParam = "";
+    let originLabel = "ma position actuelle";
+
+    if (startMode === "first") {
+      originParam = "&origin=" + encodeURIComponent(stopText(ordered[0]));
+      originLabel = ordered[0].address;
+    } else if (startMode === "address") {
+      const startAddress = $("tourStartAddress")?.value.trim();
+      if (!startAddress) throw new Error("Saisis une adresse de départ.");
+      const geoStart = await getJSON("/api/geocode?q=" + encodeURIComponent(startAddress));
+      const firstStart = geoStart.items?.[0];
+      if (!firstStart?.lat || !firstStart?.lon) throw new Error("Adresse de départ introuvable.");
+      originParam = "&origin=" + encodeURIComponent(
+        firstStart.label || (startAddress + ", " + (firstStart.city || ""))
+      );
+      originLabel = firstStart.label || startAddress;
+    }
+
     const mapUrl =
-      "https://www.google.com/maps/dir/?api=1&destination=" + destination +
+      "https://www.google.com/maps/dir/?api=1" +
+      originParam +
+      "&destination=" + destination +
       (waypoints ? "&waypoints=" + waypoints : "") +
       "&travelmode=driving";
 
     window.open(mapUrl, "_blank", "noopener");
+
+    // Distance géographique cumulée de la séquence optimisée.
+    // Ce n'est pas une distance routière : Google Maps calcule le trajet routier.
+    const geoDistanceKm = ordered.reduce((sum, item, index) => {
+      if (index === 0) {
+        if (startMode === "first") return 0;
+        return sum;
+      }
+      return sum + haversineKm(ordered[index - 1].lat, ordered[index - 1].lon, item.lat, item.lon);
+    }, 0);
 
     const sectorSummary = orderedSectors.map(sector =>
       '<b>Secteur ' + sector.number + '</b> (' + sector.items.length + ' adresse' +
@@ -460,7 +499,10 @@ $("prepareTour").addEventListener("click", async () => {
 
     $("tourMessage").innerHTML =
       '<div class="tour-summary"><b>🗺️ Tournée optimisée</b><br>' +
-      ordered.length + ' adresse(s) · ' + orderedSectors.length + ' secteur(s)<br><br>' +
+      ordered.length + ' adresse(s) · ' + orderedSectors.length + ' secteur(s) · ' +
+      '≈ ' + geoDistanceKm.toFixed(1).replace(".", ",") + ' km géographiques<br>' +
+      '<span class="tag">Départ : ' + escapeHtml(originLabel) + '</span><br><br>' +
+      '<small>La distance affichée est à vol d’oiseau ; la distance et le temps routiers sont calculés par Google Maps.</small><br><br>' +
       sectorSummary + '</div>';
   } catch (e) {
     $("tourMessage").textContent = "Erreur tournée : " + e.message;
