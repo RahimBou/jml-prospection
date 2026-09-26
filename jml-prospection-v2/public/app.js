@@ -141,6 +141,38 @@ function renderScoreBreakdown(breakdown = {}) {
 
 let selectedAddresses = new Set();
 
+const ARCHIVE_KEY = "jml_terrain_archive_v1";
+
+function getArchivedAddresses() {
+  try {
+    return new Set(JSON.parse(localStorage.getItem(ARCHIVE_KEY) || "[]"));
+  } catch (_) { return new Set(); }
+}
+
+function saveArchivedAddresses(set) {
+  localStorage.setItem(ARCHIVE_KEY, JSON.stringify([...set]));
+}
+
+function activeTerrainItems(items = []) {
+  const archived = getArchivedAddresses();
+  return items.filter(item => !archived.has(item.address || ""));
+}
+
+function archiveSelectedTerrain() {
+  const selected = [...selectedAddresses].filter(Boolean);
+  if (!selected.length) {
+    $("tourMessage").textContent = "Sélectionne les adresses préparées avant de les archiver.";
+    return;
+  }
+  const archived = getArchivedAddresses();
+  selected.forEach(address => archived.add(address));
+  saveArchivedAddresses(archived);
+  selectedAddresses.clear();
+  render();
+  $("tourMessage").textContent = selected.length + " adresse(s) archivées. Les suivantes sont maintenant affichées.";
+}
+
+
 function priorityLevel(score) {
   const s = Number(score || 0);
   return s >= 84 ? "A" : s >= 80 ? "B" : "C";
@@ -168,7 +200,8 @@ function toggleSelection(address, checked) {
 }
 
 function renderTop10(items = []) {
-  const top = [...items].sort((a, b) =>
+  const activeItems = activeTerrainItems(items);
+  const top = [...activeItems].sort((a, b) =>
     Number(b.score || 0) - Number(a.score || 0) ||
     Number(b.score_breakdown?.dvf_history || 0) - Number(a.score_breakdown?.dvf_history || 0)
   ).slice(0, 10);
@@ -218,8 +251,8 @@ function renderTop10(items = []) {
 function render() {
   const data = snapshot || {};
   const current = data.current || [];
-  const hidden = data.hidden || [];
-  renderTop10(hidden);
+  const hidden = activeTerrainItems(data.hidden || []);
+  renderTop10(data.hidden || []);
 
   let items = [];
   let title = "";
@@ -239,9 +272,10 @@ function render() {
 
   if (activeTab === "hidden") {
     const toolbar = '<div class="tour-toolbar terrain-toolbar">' +
-      '<div><b>Prospection terrain</b><span>' + items.length + ' adresse(s) à qualifier · sélection max 10</span></div>' +
+      '<div><b>Prospection terrain</b><span>' + items.length + ' adresse(s) restantes · sélection max 10 · archivées : ' + getArchivedAddresses().size + '</span></div>' +
       '<div class="tour-actions">' +
       '<button id="selectTerrainTop">⚡ Sélectionner les 10 meilleures</button>' +
+      '<button id="archiveTerrain" class="archive-btn">📦 Archiver les 10 préparées</button>' +
       '<button id="clearTerrain" class="secondary">✕ Effacer</button>' +
       '</div></div>';
     $("results").insertAdjacentHTML("afterbegin", toolbar);
@@ -265,6 +299,8 @@ function render() {
       render();
       $("tourMessage").textContent = "";
     });
+
+    $("archiveTerrain").addEventListener("click", archiveSelectedTerrain);
   }
 }
 
@@ -364,7 +400,7 @@ $("health").addEventListener("click", health);
 
 $("selectPriority").addEventListener("click", () => {
   selectedAddresses.clear();
-  const top = [...(snapshot?.hidden || [])]
+  const top = [...activeTerrainItems(snapshot?.hidden || [])]
     .sort((a,b) => Number(b.score||0)-Number(a.score||0))
     .slice(0, 10);
   top.forEach(x => selectedAddresses.add(x.address));
@@ -385,7 +421,7 @@ $("tourStart").addEventListener("change", () => {
 });
 
 $("prepareTour").addEventListener("click", async () => {
-  const selected = [...(snapshot?.hidden || [])]
+  const selected = [...activeTerrainItems(snapshot?.hidden || [])]
     .filter(x => selectedAddresses.has(x.address))
     .slice(0, 10);
 
