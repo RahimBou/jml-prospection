@@ -107,6 +107,7 @@ async function searchSite(home, params) {
       rooms: extractRooms(text),
       address: "",
       city: params.ville || "",
+      location_text: text,
       department: params.dept || "08"
     });
   }
@@ -121,11 +122,24 @@ async function searchPublicListings(params = {}) {
   const cityAliases = cityNeedle.includes("charleville")
     ? ["charleville-mezieres", "charleville", "08000"]
     : [cityNeedle];
+
   const items = rawItems.filter(item => {
-    const text = String(item.title || "") + " " + String(item.city || "");
-    const normalized = text.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-    return !cityNeedle || cityAliases.some(alias => normalized.includes(alias));
+    const title = String(item.title || "");
+    const location = String(item.location_text || "");
+    const full = (title + " " + location).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    const postcodeMatches = full.match(/\b(0[0-9]\d{3})\b/g) || [];
+    const hasWrongPostcode = cityNeedle.includes("charleville")
+      ? postcodeMatches.some(cp => cp !== "08000")
+      : false;
+
+    if (hasWrongPostcode) return false;
+
+    const titleHasCity = cityAliases.some(alias => title.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").includes(alias));
+    const locationHasCity = cityAliases.some(alias => full.includes(alias));
+
+    return !cityNeedle || titleHasCity || locationHasCity;
   });
+
   const seen = new Set();
   const unique = items.filter(item => {
     const key = item.external_url || (item.title + "|" + item.price + "|" + item.surface);
