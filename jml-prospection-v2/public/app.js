@@ -282,6 +282,7 @@ function render() {
   $("count").textContent = items.length + " résultat(s)";
   $("results").innerHTML = items.length
     ? (activeTab === "current" ? renderCurrent(items)
+      : activeTab === "new" ? renderNew(items)
       : activeTab === "hidden" ? renderHidden(items)
       : activeTab === "disappeared" ? renderDisappeared(items)
       : renderPrice(items))
