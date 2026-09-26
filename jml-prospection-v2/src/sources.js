@@ -157,6 +157,12 @@ async function searchPublicListings(params = {}) {
         return false;
       }
 
+      // Un titre du type "20 km / 200 km de Charleville" décrit une distance,
+      // pas un bien situé dans la commune. On l'exclut du flux local.
+      if (/\b\d{1,3}\s*km(?:s)?\b/.test(titleNorm)) {
+        return false;
+      }
+
       // Si le titre nomme clairement une commune voisine, on l'exclut même
       // si la page contient "Charleville" dans son texte commercial.
       if (charlevilleExcluded.some(name => titleNorm.includes(name))) {
@@ -185,7 +191,7 @@ async function searchPublicListings(params = {}) {
   });
   return {
     source: "Web public local",
-    version: "2.2.1",
+    version: "2.2.2",
     total: unique.length,
     items: unique,
     sources: sites.map((site, i) => ({
