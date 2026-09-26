@@ -172,7 +172,7 @@ async function searchPublicListings(params = {}) {
       // Les exclusivités d'agence ne doivent pas entrer dans la prospection
       // multi-sources : elles sont déjà confiées à une agence et ne constituent
       // pas une opportunité de prospection pour nous.
-      if (/\\b(exclusivite|exclusivite agence|bien en exclusivite|exclusivite chez)\\b/.test(titleNorm)) {
+      if (/\b(exclusivite|exclusivite agence|bien en exclusivite|exclusivite chez)\b/.test(full)) {
         return false;
       }
 
@@ -198,7 +198,7 @@ async function searchPublicListings(params = {}) {
   });
   return {
     source: "Web public local",
-    version: "2.2.3",
+    version: "2.2.4",
     total: unique.length,
     items: unique,
     sources: sites.map((site, i) => ({
