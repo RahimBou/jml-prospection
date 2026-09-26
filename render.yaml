@@ -19,3 +19,13 @@ services:
     startCommand: node server.js
     autoDeploy: true
     healthCheckPath: /api/health
+
+  # Nouvelle V2 propre, totalement séparée de la V1.
+  - type: web
+    name: jml-prospection-v2
+    runtime: node
+    rootDir: jml-prospection-v2
+    buildCommand: npm install
+    startCommand: npm start
+    autoDeploy: true
+    healthCheckPath: /api/health
