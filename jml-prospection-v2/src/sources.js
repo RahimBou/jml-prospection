@@ -84,7 +84,7 @@ async function searchSite(home, params) {
   const links = extractLinks(html, home);
   const wanted = links
     .filter(x => isSpecificListing(x.text, x.href, x.text))
-    .slice(0, 30);
+    .slice(0, 15);
 
   const items = [];
   for (const link of wanted) {
