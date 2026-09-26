@@ -107,34 +107,82 @@ function parseCsvLine(line) {
 }
 
 function parseDvfCsv(text, codeInsee, maxRows) {
-  const lines = text.split(/\\r?\\n/).filter(Boolean);
+  const normalized = String(text || "").replace(/^\uFEFF/, "");
+  const lines = normalized.split(/\r?\n/).filter(Boolean);
   if (!lines.length) return [];
-  const headers = parseCsvLine(lines[0]).map(clean);
+
+  const firstLine = lines[0];
+  const commaCount = (firstLine.match(/,/g) || []).length;
+  const semiCount = (firstLine.match(/;/g) || []).length;
+  const delimiter = semiCount > commaCount ? ";" : ",";
+  const headers = parseCsvLineWithDelimiter(firstLine, delimiter).map(clean);
   const index = Object.fromEntries(headers.map((h, i) => [h, i]));
-  const get = (row, name) => row[index[name]] ?? "";
+
+  const get = (row, names) => {
+    for (const name of names) {
+      const idx = index[name];
+      if (idx !== undefined && row[idx] !== undefined && clean(row[idx]) !== "") return row[idx];
+    }
+    return "";
+  };
+
+  const wantedCode = String(codeInsee || "").padStart(5, "0");
   const allowed = new Set(["Vente", "Vente en l'état futur d'achèvement", "Adjudication"]);
-  const items = []; const seen = new Set();
+  const items = [];
+  const seen = new Set();
+
   for (let i = 1; i < lines.length && items.length < maxRows; i++) {
-    const row = parseCsvLine(lines[i]);
-    const rowCode = clean(get(row, "code_commune")).replace(/\.0$/, "").padStart(5, "0");\n    if (rowCode !== String(codeInsee).padStart(5, "0")) continue;
-    const nature = clean(get(row, "nature_mutation"));
+    const row = parseCsvLineWithDelimiter(lines[i], delimiter);
+    const rowCode = clean(get(row, ["code_commune", "code commune"]))
+      .replace(/^0+(\d{4})$/, "$1")
+      .replace(/\.0$/, "")
+      .padStart(5, "0");
+
+    if (rowCode !== wantedCode) continue;
+
+    const nature = clean(get(row, ["nature_mutation", "nature mutation"]));
     if (nature && !allowed.has(nature)) continue;
-    const id = clean(get(row, "id_mutation")) || String(i);
+
+    const id = clean(get(row, ["id_mutation", "id mutation"])) || String(i);
     if (seen.has(id)) continue;
     seen.add(id);
+
     items.push({
-      id, date: clean(get(row, "date_mutation")),
-      year: Number(String(get(row, "date_mutation")).slice(0, 4)) || 0,
-      price: Number(String(get(row, "valeur_fonciere")).replace(",", ".")) || 0,
-      built_surface: Number(String(get(row, "surface_reelle_bati")).replace(",", ".")) || 0,
-      land_surface: Number(String(get(row, "surface_terrain")).replace(",", ".")) || 0,
-      type: clean(get(row, "type_local")), parcel: clean(get(row, "id_parcelle")),
-      address: clean([get(row, "adresse_numero"), get(row, "adresse_nom_voie"), get(row, "code_postal"), get(row, "nom_commune")].filter(Boolean).join(" ")),
-      latitude: Number(get(row, "latitude")) || null, longitude: Number(get(row, "longitude")) || null,
+      id,
+      date: clean(get(row, ["date_mutation", "date mutation"])),
+      year: Number(String(get(row, ["date_mutation", "date mutation"])).slice(0, 4)) || 0,
+      price: Number(String(get(row, ["valeur_fonciere", "valeur fonciere"])).replace(",", ".")) || 0,
+      built_surface: Number(String(get(row, ["surface_reelle_bati", "surface reelle bati"])).replace(",", ".")) || 0,
+      land_surface: Number(String(get(row, ["surface_terrain", "surface terrain"])).replace(",", ".")) || 0,
+      type: clean(get(row, ["type_local", "type local"])),
+      parcel: clean(get(row, ["id_parcelle", "id parcelle"])),
+      address: clean([
+        get(row, ["adresse_numero", "adresse numero"]),
+        get(row, ["adresse_nom_voie", "adresse nom voie"]),
+        get(row, ["code_postal", "code postal"]),
+        get(row, ["nom_commune", "nom commune"])
+      ].filter(Boolean).join(" ")),
+      latitude: Number(String(get(row, ["latitude"])).replace(",", ".")) || null,
+      longitude: Number(String(get(row, ["longitude"])).replace(",", ".")) || null,
       source: "DVF data.gouv.fr"
     });
   }
   return items;
+}
+
+function parseCsvLineWithDelimiter(line, delimiter) {
+  const out = []; let value = ""; let quoted = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (ch === '"') {
+      if (quoted && line[i + 1] === '"') { value += '"'; i++; }
+      else quoted = !quoted;
+    } else if (ch === delimiter && !quoted) {
+      out.push(value); value = "";
+    } else value += ch;
+  }
+  out.push(value);
+  return out;
 }
 
 async function fetchDvfCerema(codeInsee, years = 5, maxRows = 10000) {
@@ -196,27 +244,44 @@ async function fetchDvfCerema(codeInsee, years = 5, maxRows = 10000) {
 }
 
 async function fetchDvfFallback(codeInsee, years = 5, maxRows = 100000) {
-  const dept = codeInsee.slice(0, 2);
+  const normalizedCode = String(codeInsee || "").padStart(5, "0");
+  const dept = normalizedCode.slice(0, 2);
   const currentYear = new Date().getUTCFullYear();
   const maxYear = currentYear - 1;
   const minYear = maxYear - Math.max(1, Math.floor(years)) + 1;
   const yearsToFetch = [];
   for (let y = maxYear; y >= minYear; y--) yearsToFetch.push(y);
 
+  // Priorité au fichier communal officiel : beaucoup plus léger et sans filtrage
+  // d'un gros fichier départemental. On conserve le fichier départemental en
+  // second secours pour les millésimes où le fichier communal n'est pas publié.
   const results = await Promise.allSettled(yearsToFetch.map(async year => {
-    const url = DVF_FALLBACK_BASE + "/" + year + "/departements/" + dept + ".csv.gz";
-    const gz = await fetchBuffer(url, 30000);
-    return parseDvfCsv(zlib.gunzipSync(gz).toString("utf8"), codeInsee, maxRows);
+    const communeUrl = DVF_FALLBACK_BASE + "/" + year + "/communes/" + dept + "/" + normalizedCode + ".csv";
+    try {
+      const csv = await fetchBuffer(communeUrl, 30000);
+      return parseDvfCsv(csv.toString("utf8"), normalizedCode, maxRows);
+    } catch (communeError) {
+      const deptUrl = DVF_FALLBACK_BASE + "/" + year + "/departements/" + dept + ".csv.gz";
+      const gz = await fetchBuffer(deptUrl, 30000);
+      return parseDvfCsv(zlib.gunzipSync(gz).toString("utf8"), normalizedCode, maxRows);
+    }
   }));
 
   const all = results.flatMap(r => r.status === "fulfilled" ? r.value : []);
   const unique = []; const seen = new Set();
+
   for (const item of all) {
     if (seen.has(item.id)) continue;
-    seen.add(item.id); unique.push(item);
+    seen.add(item.id);
+    unique.push(item);
     if (unique.length >= maxRows) break;
   }
-  if (!unique.length) throw new Error("Fallback DVF data.gouv.fr sans transaction");
+
+  if (!unique.length) {
+    const failed = results.filter(r => r.status === "rejected").map(r => r.reason?.message || "erreur").slice(0, 3);
+    throw new Error("Fallback DVF data.gouv.fr sans transaction" + (failed.length ? " (" + failed.join(" | ") + ")" : ""));
+  }
+
   return {
     total: unique.length,
     fetched: unique.length,
