@@ -150,41 +150,93 @@ function scoreDataQuality(item) {
   return score;
 }
 
+function scoreSellerDpe(dpe) {
+  return dpe === "G" ? 14 : dpe === "F" ? 10 : dpe === "E" ? 6 : dpe === "D" ? 3 : dpe === "C" ? 1 : 0;
+}
+
+function scoreLocalActivity(count) {
+  const n = Number(count) || 0;
+  if (n >= 8) return 8;
+  if (n >= 5) return 6;
+  if (n >= 3) return 4;
+  if (n >= 1) return 2;
+  return 0;
+}
+
+function sellerBand(score, signalCount) {
+  const s = Number(score || 0);
+  const n = Number(signalCount || 0);
+  if (s >= 70 && n >= 4) return "fort";
+  if (s >= 55 && n >= 3) return "probable";
+  if (s >= 40 && n >= 2) return "surveiller";
+  return "faible";
+}
+
+function sellerBandLabel(band) {
+  return ({
+    fort: "Signal vendeur fort",
+    probable: "Signal vendeur probable",
+    surveiller: "À surveiller",
+    faible: "Signal faible"
+  })[band] || "À surveiller";
+}
+
 function buildHiddenOpportunities(dpeItems, currentItems, dvfItems = []) {
   const currentAddresses = new Set(
     currentItems.map(x => normalizeAddress(x.address)).filter(Boolean)
   );
 
   return dpeItems
-    .filter(x => ["F", "G"].includes(x.dpe))
+    .filter(x => x.address)
     .filter(x => !currentAddresses.has(normalizeAddress(x.address)))
     .map(x => {
       const dvf = dvfSignal(x, dvfItems);
       const quality = scoreDataQuality(x);
+      const localTransactions = (dvfItems || []).filter(t => {
+        if (x.lat == null || x.lon == null || t.latitude == null || t.longitude == null) return false;
+        return haversineKm(x.lat, x.lon, t.latitude, t.longitude) <= 0.15;
+      }).length;
+
+      const signals = [];
+      if (["F", "G"].includes(x.dpe)) signals.push("DPE énergivore");
+      if (["F", "G"].includes(x.ges)) signals.push("GES élevé");
+      if (dvf.yearsSince != null && dvf.yearsSince >= 3) signals.push("détention DVF déjà longue");
+      if (dvf.yearsSince != null && dvf.yearsSince >= 4) signals.push("cycle de détention avancé");
+      if (localTransactions >= 3) signals.push("activité DVF locale");
+      if (Number(x.year) > 0 && Number(x.year) < 1970) signals.push("construction ancienne");
+      if (quality >= 8) signals.push("données bien confirmées");
+      signals.push("aucune annonce publique détectée");
+
       const rawScore =
-        scoreDpe(x.dpe) +
+        scoreSellerDpe(x.dpe) +
         scoreGes(x.ges) +
         scoreSurface(x.surface) +
-        scoreAge(x.year) +
-        scoreMarketAbsence() +
+        Math.min(12, scoreAge(x.year)) +
+        12 +
         dvf.score +
-        quality;
+        scoreLocalActivity(localTransactions) +
+        Math.min(8, quality);
 
       const score = Math.round(Math.min(100, rawScore));
+      const signalCount = signals.length;
+      const band = sellerBand(score, signalCount);
+
       const reason = [
-        "DPE " + x.dpe,
+        "Indice vendeur basé sur " + signalCount + " signaux indépendants",
+        "DPE " + (x.dpe || "non renseigné"),
         x.ges ? "GES " + x.ges : "",
         x.surface ? x.surface + " m²" : "",
         x.year ? "construction " + x.year : "",
         "aucune annonce publique correspondante détectée",
-        dvf.label
+        dvf.label,
+        localTransactions ? localTransactions + " mutation(s) DVF dans ~150 m" : ""
       ].filter(Boolean);
 
       if (dvf.priceM2) reason.push("dernier DVF ≈ " + dvf.priceM2.toLocaleString("fr-FR") + " €/m²");
 
       return {
         id: "hidden:" + Buffer.from(x.address).toString("base64url").slice(0, 50),
-        title: "Adresse à vérifier sur le terrain",
+        title: sellerBandLabel(band),
         address: x.address,
         city: x.city,
         postcode: x.postcode,
@@ -196,28 +248,32 @@ function buildHiddenOpportunities(dpeItems, currentItems, dvfItems = []) {
         construction_year: x.year,
         property_type: "à qualifier",
         score,
-        signal: "DPE " + x.dpe,
+        seller_signal: band,
+        seller_signal_label: sellerBandLabel(band),
+        signal_count: signalCount,
+        signal_details: signals,
+        local_dvf_transactions: localTransactions,
+        signal: "Indice vendeur",
         score_breakdown: {
-          dpe: scoreDpe(x.dpe),
+          dpe: scoreSellerDpe(x.dpe),
           ges: scoreGes(x.ges),
           surface: scoreSurface(x.surface),
-          age: scoreAge(x.year),
-          market_absence: scoreMarketAbsence(),
+          age: Math.min(12, scoreAge(x.year)),
+          market_absence: 12,
           dvf_history: dvf.score,
-          data_quality: quality
+          local_activity: scoreLocalActivity(localTransactions),
+          data_quality: Math.min(8, quality)
         },
         reason,
         action: "Vérifier l'adresse sur le terrain"
       };
     })
     .sort((a, b) =>
-      b.score - a.score ||
-      Number(b.score_breakdown.dvf_history || 0) - Number(a.score_breakdown.dvf_history || 0) ||
-      Number(b.surface || 0) - Number(a.surface || 0)
-    )
-    .slice(0, 50);
+      Number(b.signal_count || 0) - Number(a.signal_count || 0) ||
+      Number(b.score || 0) - Number(a.score || 0) ||
+      Number(b.score_breakdown?.dvf_history || 0) - Number(a.score_breakdown?.dvf_history || 0)
+    );
 }
-
 
 function dvfStats(items) {
   const valid = items.filter(x => number(x.price) > 0 && number(x.built_surface) > 0);
@@ -248,7 +304,7 @@ async function buildMarketSnapshot(params = {}) {
   const city = params.ville || "Charleville-Mézières";
   const [web, open] = await Promise.allSettled([
     searchPublicListings(params),
-    fetchOpenDataSignals(city, { dpeLimit: 120, dvfYears: 5, dvfMaxRows: 100000 })
+    fetchOpenDataSignals(city, { dpeLimit: 800, dvfYears: 5, dvfMaxRows: 100000 })
   ]);
   const current = web.status === "fulfilled" ? dedupe(web.value.items || []) : [];
   const items = current.map(item => ({ ...item, property_type: item.property_type || classify(item), market_signal: "annonce_publique" }));
@@ -257,7 +313,7 @@ async function buildMarketSnapshot(params = {}) {
   const memory = snapshot(items, { sourceReady: web.status === "fulfilled" });
   const market = dvfStats(openData.dvf?.items || []);
   return {
-    version: "2.1.0",
+    version: "2.3.0",
     generated_at: new Date().toISOString(),
     scope: { department: params.dept || "08", city, radius_km: number(params.radius_km || 10) },
     counts: { current_listings: items.length, hidden_opportunities: hidden.length, disappeared: memory.disappeared.length, price_changes: memory.priceChanges.length, new_listings: memory.newItems.length },
