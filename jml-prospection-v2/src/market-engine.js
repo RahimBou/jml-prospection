@@ -1,6 +1,7 @@
 const { searchPublicListings } = require("./sources");
 const { fetchOpenDataSignals } = require("./open-data");
 const { snapshot } = require("./memory");
+const { buildSectorRadar } = require("./sector-radar");
 
 function number(v) {
   const n = Number(v);
@@ -431,8 +432,14 @@ async function buildMarketSnapshot(params = {}) {
   const hidden = buildHiddenOpportunities(openData.dpe || [], items, openData.dvf?.items || []);
   const memory = snapshot(items, { sourceReady: web.status === "fulfilled" });
   const market = dvfStats(openData.dvf?.items || []);
+  const sectorRadar = buildSectorRadar({
+    dpe: openData.dpe || [],
+    dvf: openData.dvf?.items || [],
+    current: items,
+    hidden
+  });
   return {
-    version: "2.3.4",
+    version: "2.4.0",
     generated_at: new Date().toISOString(),
     scope: { department: params.dept || "08", city, radius_km: number(params.radius_km || 10) },
     counts: { current_listings: items.length, hidden_opportunities: hidden.length, disappeared: memory.disappeared.length, price_changes: memory.priceChanges.length, new_listings: memory.newItems.length },
@@ -444,6 +451,7 @@ async function buildMarketSnapshot(params = {}) {
       dvf_truncated: Boolean(openData.dvf?.truncated),
       dvf_fallback: Boolean(openData.dvf?.fallback)
     },
+    sector_radar: sectorRadar,
     source_status: {
       web_public: web.status === "fulfilled",
       dpe: Boolean(openData.dpe?.length),
