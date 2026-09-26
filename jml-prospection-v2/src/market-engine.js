@@ -1,5 +1,6 @@
 const { searchPublicListings } = require("./sources");
 const { fetchOpenDataSignals } = require("./open-data");
+const { snapshot } = require("./memory");
 
 function number(v) {
   const n = Number(v);
@@ -75,19 +76,21 @@ async function buildMarketSnapshot(params = {}) {
   const items = current.map(item => ({ ...item, property_type: item.property_type || classify(item), market_signal: "annonce_publique" }));
   const openData = open.status === "fulfilled" ? open.value : { dpe: [], dvf: { items: [], total: 0 }, errors: ["Open data indisponible"] };
   const hidden = buildHiddenOpportunities(openData.dpe || [], items);
+  const memory = snapshot(items);
   const market = dvfStats(openData.dvf?.items || []);
   return {
     version: "2.0.0",
     generated_at: new Date().toISOString(),
     scope: { department: params.dept || "08", city, radius_km: number(params.radius_km || 10) },
-    counts: { current_listings: items.length, hidden_opportunities: hidden.length, disappeared: 0, price_changes: 0 },
+    counts: { current_listings: items.length, hidden_opportunities: hidden.length, disappeared: memory.disappeared.length, price_changes: memory.priceChanges.length, new_listings: memory.newItems.length },
     market,
     source_status: { web_public: web.status === "fulfilled", dpe: Boolean(openData.dpe?.length), dvf: Boolean(openData.dvf?.total) },
     errors: [...(web.status === "rejected" ? ["Web public: " + web.reason.message] : []), ...(openData.errors || [])],
     current: items,
     hidden,
-    disappeared: [],
-    price_changes: [],
+    disappeared: memory.disappeared,
+    price_changes: memory.priceChanges,
+    memory: { size: memory.memorySize, new_listings: memory.newItems.length },
     items,
     next_phase: ["Mémoire persistante des annonces", "Croisement adresse DPE / historique DVF", "Détection des annonces disparues", "Détection des baisses de prix", "Classement Top 10 à visiter"]
   };
