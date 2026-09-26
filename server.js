@@ -1524,7 +1524,7 @@ async function api(pathname,url){
     results.forEach((r,i)=>{
       const name=i===0?"ChercherTrouver.immo":"Stream Estate";
       if(r.status==="fulfilled"){
-        const normalized=(r.value.items||[]).map(p=>({...p,source:p.source||name,sources:Array.isArray(p.sources)&&p.sources.length?p.sources:[{source:name,reference:p.reference||"",url:p.external_url||""]}));
+        const normalized=(r.value.items||[]).map(p=>({...p,source:p.source||name,sources:Array.isArray(p.sources)&&p.sources.length?p.sources:[{source:name,reference:p.reference||"",url:p.external_url||""}]}));
         sources.push({
           source:name,
           ok:true,
