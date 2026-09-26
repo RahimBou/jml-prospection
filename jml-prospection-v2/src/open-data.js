@@ -138,22 +138,53 @@ function parseDvfCsv(text, codeInsee, maxRows) {
   return items;
 }
 
-async function fetchDvfCerema(codeInsee, years = 5, maxRows = 1500) {
+async function fetchDvfCerema(codeInsee, years = 5, maxRows = 10000) {
   const currentYear = new Date().getUTCFullYear();
+  const fullYears = Math.max(1, Math.floor(years));
+  const maxYear = currentYear - 1;
+  const minYear = maxYear - fullYears + 1;
   const params = new URLSearchParams({
     code_insee: codeInsee,
-    anneemut_min: String(currentYear - Math.max(1, years)),
-    page_size: "500", page: "1"
+    anneemut_min: String(minYear),
+    anneemut_max: String(maxYear),
+    page_size: "500",
+    page: "1"
   });
-  const items = []; let next = DVF_URL + "?" + params.toString(); let pages = 0;
-  while (next && items.length < maxRows && pages < 4) {
+
+  const items = [];
+  const seen = new Set();
+  let next = DVF_URL + "?" + params.toString();
+  let pages = 0;
+  let apiTotal = null;
+
+  while (next && items.length < maxRows && pages < 30) {
     const data = await fetchJson(next, 20000);
+    if (apiTotal === null) {
+      const candidate = Number(data.count ?? data.total ?? data.total_count);
+      if (Number.isFinite(candidate)) apiTotal = candidate;
+    }
+
     const rows = Array.isArray(data.results) ? data.results : [];
-    items.push(...rows); next = data.next || ""; pages++;
+    for (const row of rows) {
+      const id = clean(row.idmutation || row.idopendata);
+      if (!id || seen.has(id)) continue;
+      seen.add(id);
+      items.push(row);
+      if (items.length >= maxRows) break;
+    }
+
+    next = data.next || "";
+    pages++;
   }
+
+  const truncated = Boolean(next) || (apiTotal !== null && apiTotal > items.length);
+
   return {
-    total: items.length,
-    items: items.slice(0, maxRows).map(row => ({
+    total: apiTotal !== null ? apiTotal : items.length,
+    fetched: items.length,
+    truncated,
+    period: { from: minYear, to: maxYear },
+    items: items.map(row => ({
       id: row.idmutation || row.idopendata, date: row.datemut || "",
       year: Number(row.anneemut) || 0, price: Number(row.valeurfonc) || 0,
       built_surface: Number(row.sbati) || 0, land_surface: Number(row.sterr) || 0,
@@ -165,11 +196,13 @@ async function fetchDvfCerema(codeInsee, years = 5, maxRows = 1500) {
   };
 }
 
-async function fetchDvfFallback(codeInsee, years = 5, maxRows = 1500) {
+async function fetchDvfFallback(codeInsee, years = 5, maxRows = 10000) {
   const dept = codeInsee.slice(0, 2);
   const currentYear = new Date().getUTCFullYear();
+  const maxYear = currentYear - 1;
+  const minYear = maxYear - Math.max(1, Math.floor(years)) + 1;
   const yearsToFetch = [];
-  for (let y = currentYear - 1; y >= currentYear - Math.max(1, years); y--) yearsToFetch.push(y);
+  for (let y = maxYear; y >= minYear; y--) yearsToFetch.push(y);
 
   const results = await Promise.allSettled(yearsToFetch.map(async year => {
     const url = DVF_FALLBACK_BASE + "/" + year + "/departements/" + dept + ".csv.gz";
@@ -185,13 +218,20 @@ async function fetchDvfFallback(codeInsee, years = 5, maxRows = 1500) {
     if (unique.length >= maxRows) break;
   }
   if (!unique.length) throw new Error("Fallback DVF data.gouv.fr sans transaction");
-  return { total: unique.length, items: unique, source: "data.gouv.fr" };
+  return {
+    total: unique.length,
+    fetched: unique.length,
+    truncated: false,
+    period: { from: minYear, to: maxYear },
+    items: unique,
+    source: "data.gouv.fr"
+  };
 }
 
-async function fetchDvf(codeInsee, years = 5, maxRows = 1500) {
+async function fetchDvf(codeInsee, years = 5, maxRows = 10000) {
   try {
     const result = await fetchDvfCerema(codeInsee, years, maxRows);
-    if (result.total > 0) return { ...result, source: "Cerema" };
+    if (result.total > 0) return { ...result, source: "Cerema", fallback: false };
     throw new Error("Cerema a renvoyé 0 transaction");
   } catch (ceremaError) {
     const fallback = await fetchDvfFallback(codeInsee, years, maxRows);
@@ -207,7 +247,7 @@ async function fetchOpenDataSignals(city, options = {}) {
 
   const [dpe, dvf] = await Promise.allSettled([
     fetchDpe(resolved.city, options.dpeLimit || 120, resolved.citycode),
-    fetchDvf(resolved.citycode, options.dvfYears || 5, options.dvfMaxRows || 1500)
+    fetchDvf(resolved.citycode, options.dvfYears || 5, options.dvfMaxRows || 10000)
   ]);
   const dvfValue = dvf.status === "fulfilled" ? dvf.value : { items: [], total: 0, source: "indisponible" };
 
