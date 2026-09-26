@@ -123,10 +123,27 @@ async function searchPublicListings(params = {}) {
     ? ["charleville-mezieres", "charleville", "08000"]
     : [cityNeedle];
 
+  // Pour Charleville-Mézières, les pages d'agences contiennent souvent
+  // "proche Charleville", "extérieur Charleville" ou une liste de communes
+  // dans leur texte SEO. On ne doit pas transformer ces biens voisins en
+  // biens de Charleville-Mézières.
+  const charlevilleExcluded = [
+    "sedan", "givet", "tournes", "rimogne", "signy-labbaye", "signy-labbaye",
+    "nouzonville", "montherme", "bogny-sur-meuse", "renwez", "fagnon",
+    "prix-les-mezieres", "montcy-notre-dame", "warcq", "aiglemont",
+    "saint-laurent", "la-francheville", "villers-semeuse", "les-ayvelles",
+    "vivier-au-court", "floing", "donchery", "ham-les-moines"
+  ];
+
+  const normalizeText = value =>
+    String(value || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+
   const items = rawItems.filter(item => {
     const title = String(item.title || "");
     const location = String(item.location_text || "");
-    const full = (title + " " + location).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    const titleNorm = normalizeText(title);
+    const full = normalizeText(title + " " + location);
+
     const postcodeMatches = full.match(/\b(0[0-9]\d{3})\b/g) || [];
     const hasWrongPostcode = cityNeedle.includes("charleville")
       ? postcodeMatches.some(cp => cp !== "08000")
@@ -134,10 +151,29 @@ async function searchPublicListings(params = {}) {
 
     if (hasWrongPostcode) return false;
 
-    const titleHasCity = cityAliases.some(alias => title.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").includes(alias));
-    const locationHasCity = cityAliases.some(alias => full.includes(alias));
+    if (cityNeedle.includes("charleville")) {
+      // Les mentions de proximité/extérieur sont explicitement hors commune.
+      if (/\b(proche|exterieur|exterieur de|banlieue|alentours|a proximite de)\b/.test(titleNorm)) {
+        return false;
+      }
 
-    return !cityNeedle || titleHasCity || locationHasCity;
+      // Si le titre nomme clairement une commune voisine, on l'exclut même
+      // si la page contient "Charleville" dans son texte commercial.
+      if (charlevilleExcluded.some(name => titleNorm.includes(name))) {
+        return false;
+      }
+
+      // Une adresse/titre Charleville ou un code postal 08000 est une preuve
+      // directe. Sinon, on n'utilise plus le simple texte SEO de la page.
+      const directCity = /\b08000\b/.test(titleNorm) ||
+        /charleville[- ]mezieres/.test(titleNorm) ||
+        /\bcharleville\b/.test(titleNorm);
+
+      return directCity;
+    }
+
+    const titleHasCity = cityAliases.some(alias => titleNorm.includes(alias));
+    return titleHasCity;
   });
 
   const seen = new Set();
@@ -149,7 +185,7 @@ async function searchPublicListings(params = {}) {
   });
   return {
     source: "Web public local",
-    version: "2.1.0",
+    version: "2.2.1",
     total: unique.length,
     items: unique,
     sources: sites.map((site, i) => ({
