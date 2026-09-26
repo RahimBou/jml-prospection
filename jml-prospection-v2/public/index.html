@@ -28,6 +28,16 @@
     <button id="prepareTour">🗺️ Préparer ma tournée</button>
   </div>
 </div>
+<div class="tour-start">
+  <label>📍 Départ
+    <select id="tourStart">
+      <option value="current">Ma position actuelle</option>
+      <option value="first">Premier prospect</option>
+      <option value="address">Adresse personnalisée</option>
+    </select>
+  </label>
+  <input id="tourStartAddress" type="text" placeholder="Adresse de départ…" style="display:none">
+</div>
 <div id="tourMessage" class="message"></div>
 <div id="top10" class="results"><div class="empty">Lance une analyse pour calculer les opportunités.</div></div></section>
 <section class="panel">
