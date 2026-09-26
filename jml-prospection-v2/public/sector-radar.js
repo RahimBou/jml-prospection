@@ -64,8 +64,22 @@
     if (!el) return;
     el.classList.add("loading");
     try {
+      // Le Radar complet vient déjà de calculer sector_radar dans /api/marche.
+      // On réutilise ce résultat pour éviter un second appel lourd DVF + DPE + Web.
+      const cached = window.jmlSnapshot;
+      if (cached?.sector_radar) {
+        render(cached);
+        return;
+      }
+
       const res = await fetch("/api/secteurs?" + params(), { cache: "no-store" });
-      const data = await res.json();
+      const raw = await res.text();
+      let data = {};
+      try {
+        data = raw ? JSON.parse(raw) : {};
+      } catch (_) {
+        throw new Error("Réponse serveur vide ou non JSON");
+      }
       if (!res.ok) throw new Error(data.error || "Erreur Radar secteurs");
       render(data);
     } catch (e) {
