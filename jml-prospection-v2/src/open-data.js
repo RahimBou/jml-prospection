@@ -78,7 +78,8 @@ function mapDpe(row) {
 }
 
 async function fetchDpe(city, limit = 120, codeInsee = "") {
-  const query = codeInsee ? "&q_fields=" + encodeURIComponent("Code_INSEE_(BAN)") + "&q=" + encodeURIComponent(codeInsee) : "&q=" + encodeURIComponent(city);\n  const data = await fetchJson(DPE_URL + "?" + query.slice(1) + "&size=" + Math.min(200, Math.max(20, limit)), 20000);
+  const query = codeInsee ? "&q_fields=" + encodeURIComponent("Code_INSEE_(BAN)") + "&q=" + encodeURIComponent(codeInsee) : "&q=" + encodeURIComponent(city);
+  const data = await fetchJson(DPE_URL + "?" + query.slice(1) + "&size=" + Math.min(200, Math.max(20, limit)), 20000);
   const rows = Array.isArray(data.results) ? data.results : (Array.isArray(data) ? data : []);
   const unique = []; const seen = new Set();
   for (const row of rows) {
@@ -106,7 +107,8 @@ function parseCsvLine(line) {
 }
 
 function parseDvfCsv(text, codeInsee, maxRows) {
-  const lines = text.split(/\r?\n/).filter(Boolean);
+  const lines = text.split(/\r?
+/).filter(Boolean);
   if (!lines.length) return [];
   const headers = parseCsvLine(lines[0]).map(clean);
   const index = Object.fromEntries(headers.map((h, i) => [h, i]));
