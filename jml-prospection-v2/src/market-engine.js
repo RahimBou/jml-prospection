@@ -425,11 +425,20 @@ function dvfStats(items) {
   };
 }
 
+function withTimeout(promise, ms, label) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => setTimeout(() => reject(new Error(label + " — délai dépassé")), ms))
+  ]);
+}
+
 async function buildMarketSnapshot(params = {}) {
   const city = params.ville || "Charleville-Mézières";
+  // Le Radar doit rester utilisable même si une source publique ralentit.
+  // Render peut retourner 502 lorsqu'une requête reste trop longtemps en amont.
   const [web, open] = await Promise.allSettled([
-    searchPublicListings(params),
-    fetchOpenDataSignals(city, { dpeLimit: 800, dvfYears: 5, dvfMaxRows: 100000 })
+    withTimeout(searchPublicListings(params), 35000, "Collecte annonces publiques"),
+    withTimeout(fetchOpenDataSignals(city, { dpeLimit: 800, dvfYears: 5, dvfMaxRows: 100000 }), 45000, "Collecte DVF/DPE")
   ]);
   const current = web.status === "fulfilled" ? dedupe(web.value.items || []) : [];
   const items = current.map(item => ({ ...item, property_type: item.property_type || classify(item), market_signal: "annonce_publique" }));
