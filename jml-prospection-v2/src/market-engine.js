@@ -174,16 +174,11 @@ function scoreLocalActivity(count) {
 
 function scoreHold(yearsSince) {
   const y = Number(yearsSince);
-  if (!Number.isFinite(y)) return 0;
-  // Zone de recherche principale : propriétaire installé depuis assez longtemps
-  // pour qu'un nouveau projet soit plausible, sans survaloriser les ventes très anciennes.
-  if (y >= 15) return 16;
-  if (y >= 12) return 18;
-  if (y >= 9) return 16;
-  if (y >= 6) return 12;
-  if (y >= 4) return 6;
-  if (y >= 2) return 2;
-  return 0;
+  if (!Number.isFinite(y) || y < 2) return 0;
+  // Progression continue pour éviter que plusieurs adresses très proches
+  // reçoivent exactement le même score à cause de seuils trop larges.
+  // Le signal plafonne à 18 : la durée seule ne doit jamais décider.
+  return Math.min(18, Math.round(y * 1.5));
 }
 
 function scoreMatchType(matchType) {
@@ -322,6 +317,16 @@ function buildHiddenOpportunities(dpeItems, currentItems, dvfItems = []) {
         score = Math.min(score, 57);
       }
 
+      // Micro-différenciation fondée sur des éléments déjà observés.
+      // Elle sert à départager les dossiers proches sans transformer le score
+      // en prétendue probabilité de vente.
+      const evidencePrecision =
+        (dvf.matchType === "exact" ? 1 : 0) +
+        (dvf.yearsSince >= 10 ? 1 : dvf.yearsSince >= 6 ? 0.5 : 0) +
+        (localTransactions >= 5 ? 1 : localTransactions >= 3 ? 0.5 : 0) +
+        (quality >= 9 ? 1 : quality >= 7 ? 0.5 : 0) +
+        (["F","G"].includes(x.dpe) && Number(x.year) < 1970 ? 1 : 0);
+      score += Math.min(4, evidencePrecision);
       score = Math.round(Math.min(100, score));
       const band = sellerBand(score);
 
