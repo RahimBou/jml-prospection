@@ -103,7 +103,10 @@ function renderHidden(items = []) {
       '> Sélectionner</label>' +
       '<span class="priority-badge priority-' + level + '">Priorité ' + level + '</span>' +
       '</div>' +
-      '<div class="score">#' + (index + 1) + ' · ' + Number(item.score || 0) + '/100</div>'<div><span class="priority-badge priority-' + (item.seller_signal === "fort" ? "A" : item.seller_signal === "probable" ? "B" : "C") + '">' + escapeHtml(item.seller_signal_label || "Indice vendeur") + '</span> <span class="tag">' + Number(item.signal_count || 0) + ' signaux</span></div>' +' +
+      '<div class="score">#' + (index + 1) + ' · ' + Number(item.score || 0) + '/100</div>' +
+      '<div><span class="priority-badge priority-' + (item.seller_signal === "fort" ? "A" : item.seller_signal === "probable" ? "B" : "C") + '">' +
+      escapeHtml(item.seller_signal_label || "Indice vendeur") + '</span> <span class="tag">' +
+      Number(item.signal_count || 0) + ' signaux</span></div>' +
       '<h3>' + escapeHtml(address || "Adresse non précisée") + ' ' + renderProspectStatus(address) + '</h3>' +
       '<div class="meta">' + escapeHtml(item.city || "") + ' · ' +
       (item.surface || "—") + ' m² · DPE <b>' + escapeHtml(item.dpe || "—") +
