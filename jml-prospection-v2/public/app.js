@@ -103,7 +103,7 @@ function renderHidden(items = []) {
       '> Sélectionner</label>' +
       '<span class="priority-badge priority-' + level + '">Priorité ' + level + '</span>' +
       '</div>' +
-      '<div class="score">#' + (index + 1) + ' · ' + Number(item.score || 0) + '/100</div>' +
+      '<div class="score">#' + (index + 1) + ' · ' + Number(item.score || 0) + '/100</div>'<div><span class="priority-badge priority-' + (item.seller_signal === "fort" ? "A" : item.seller_signal === "probable" ? "B" : "C") + '">' + escapeHtml(item.seller_signal_label || "Indice vendeur") + '</span> <span class="tag">' + Number(item.signal_count || 0) + ' signaux</span></div>' +' +
       '<h3>' + escapeHtml(address || "Adresse non précisée") + ' ' + renderProspectStatus(address) + '</h3>' +
       '<div class="meta">' + escapeHtml(item.city || "") + ' · ' +
       (item.surface || "—") + ' m² · DPE <b>' + escapeHtml(item.dpe || "—") +
@@ -146,6 +146,7 @@ function renderScoreBreakdown(breakdown = {}) {
     ["age", "Âge du bien"],
     ["market_absence", "Absence annonce"],
     ["dvf_history", "Historique DVF"],
+    ["local_activity", "Activité locale"],
     ["data_quality", "Qualité données"]
   ];
   return labels
@@ -274,7 +275,7 @@ function render() {
   let title = "";
   if (activeTab === "current") { items = current; title = "🎯 Annonces en ligne"; }
   if (activeTab === "new") { items = newListings; title = "🆕 Nouvelles annonces depuis la dernière analyse"; }
-  if (activeTab === "hidden") { items = hidden; title = "🟠 Adresses à vérifier sur le terrain"; }
+  if (activeTab === "hidden") { items = hidden; title = "🟠 Vendeurs probables — tous les candidats"; }
   if (activeTab === "disappeared") { items = data.disappeared || []; title = "🟡 Annonces disparues — statut à vérifier"; }
   if (activeTab === "price") { items = data.price_changes || []; title = "🔵 Évolutions de prix"; }
 
@@ -289,7 +290,7 @@ function render() {
     : '<div class="empty">Aucun résultat dans cette catégorie.</div>';
 
   if (activeTab === "hidden") {
-    const toolbar = '<div class="tour-toolbar terrain-toolbar">' +
+    const toolbar = '<div class="seller-method"><b>🧠 Méthode multi-signaux</b><span>Le Radar analyse tous les candidats disponibles et les classe par combinaison de signaux : DVF, DPE, ancienneté, activité locale, absence d’annonce et qualité des données.</span></div><div class="tour-toolbar terrain-toolbar">' +
       '<div><b>Prospection terrain</b><span>' + items.length + ' adresse(s) restantes · sélection max 10 · archivées : ' + getArchivedAddresses().size + '</span></div>' +
       '<div class="tour-actions">' +
       '<button id="selectTerrainTop">⚡ Sélectionner les 10 meilleures</button>' +
@@ -309,7 +310,7 @@ function render() {
         Number(b.score_breakdown?.dvf_history||0)-Number(a.score_breakdown?.dvf_history||0)
       ).slice(0,10).forEach(x => selectedAddresses.add(x.address));
       render();
-      $("tourMessage").textContent = "Les 10 meilleures adresses terrain sont sélectionnées.";
+      $("tourMessage").textContent = "Les 10 meilleures adresses sont sélectionnées pour la tournée.";
     });
 
     $("clearTerrain").addEventListener("click", () => {
@@ -424,7 +425,7 @@ $("selectPriority").addEventListener("click", () => {
     .slice(0, 10);
   top.forEach(x => selectedAddresses.add(x.address));
   render();
-  $("tourMessage").textContent = "Les 10 priorités du Radar sont sélectionnées.";
+  $("tourMessage").textContent = "Les 10 priorités sont sélectionnées pour la tournée.";
 });
 
 $("clearSelection").addEventListener("click", () => {
