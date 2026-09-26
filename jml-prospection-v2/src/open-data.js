@@ -6,23 +6,19 @@ const DVF_FALLBACK_BASE = "https://files.data.gouv.fr/geo-dvf/latest/csv";
 const DPE_URL = "https://data.ademe.fr/data-fair/api/v1/datasets/dpe03existant/lines";
 const BAN_URL = "https://data.geopf.fr/geocodage/search/";
 
-function fetchJson(url, timeout = 15000) {
+function fetchBuffer(url, timeout = 20000) {
   return new Promise((resolve, reject) => {
     const req = https.get(url, {
-      headers: {
-        "User-Agent": "JML-Prospection-V2/2.0 (+public-open-data)",
-        "Accept": "application/json"
-      }
+      headers: { "User-Agent": "JML-Prospection-V2/2.0 (+public-open-data)", "Accept": "*/*" }
     }, res => {
-      let body = "";
-      res.setEncoding("utf8");
-      res.on("data", c => body += c);
+      const chunks = [];
+      res.on("data", c => chunks.push(c));
       res.on("end", () => {
         if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
-          return fetchJson(new URL(res.headers.location, url).toString(), timeout).then(resolve, reject);
+          return fetchBuffer(new URL(res.headers.location, url).toString(), timeout).then(resolve, reject);
         }
         if (res.statusCode >= 400) return reject(new Error("HTTP " + res.statusCode));
-        try { resolve(JSON.parse(body)); } catch { reject(new Error("JSON invalide")); }
+        resolve(Buffer.concat(chunks));
       });
     });
     req.setTimeout(timeout, () => req.destroy(new Error("Timeout")));
@@ -30,8 +26,14 @@ function fetchJson(url, timeout = 15000) {
   });
 }
 
+async function fetchJson(url, timeout = 15000) {
+  const body = await fetchBuffer(url, timeout);
+  try { return JSON.parse(body.toString("utf8")); }
+  catch { throw new Error("JSON invalide"); }
+}
+
 function clean(v) {
-  return String(v ?? "").replace(/\\s+/g, " ").trim();
+  return String(v ?? "").replace(/\s+/g, " ").trim();
 }
 
 function first(obj, keys) {
@@ -45,8 +47,7 @@ function first(obj, keys) {
 async function resolveCity(city) {
   const q = clean(city);
   if (!q) return null;
-  const url = BAN_URL + "?q=" + encodeURIComponent(q) + "&type=municipality&limit=5";
-  const data = await fetchJson(url);
+  const data = await fetchJson(BAN_URL + "?q=" + encodeURIComponent(q) + "&type=municipality&limit=5");
   const feature = Array.isArray(data.features) ? data.features.find(f => f.properties?.city) : null;
   if (!feature) return null;
   const p = feature.properties || {};
@@ -64,13 +65,9 @@ function mapDpe(row) {
   const rue = first(row, ["nom_rue_ban", "nom de la rue (ban)", "nom_voie_ban", "nom_rue"]);
   const city = first(row, ["nom_commune_ban", "nom commune (ban)", "nom_commune"]);
   const cp = first(row, ["code_postal_ban", "code postal (ban)", "code_postal"]);
-  const label = clean([numero, rue, cp, city].filter(Boolean).join(" "));
   return {
-    address: label,
-    city: clean(city),
-    postcode: clean(cp),
-    street: clean(rue),
-    number: clean(numero),
+    address: clean([numero, rue, cp, city].filter(Boolean).join(" ")),
+    city: clean(city), postcode: clean(cp), street: clean(rue), number: clean(numero),
     dpe: clean(first(row, ["etiquette_dpe", "étiquette dpe", "classe_consommation_energie", "classe_dpe"])).toUpperCase(),
     ges: clean(first(row, ["etiquette_ges", "étiquette ges", "classe_emission_ges"])).toUpperCase(),
     surface: Number(first(row, ["surface_habitable_logement", "surface_habitable", "surface_ventilee"])) || 0,
@@ -81,17 +78,15 @@ function mapDpe(row) {
 }
 
 async function fetchDpe(city, limit = 120) {
-  const url = DPE_URL + "?q=" + encodeURIComponent(city) + "&size=" + Math.min(200, Math.max(20, limit));
-  const data = await fetchJson(url, 20000);
+  const data = await fetchJson(DPE_URL + "?q=" + encodeURIComponent(city) + "&size=" + Math.min(200, Math.max(20, limit)), 20000);
   const rows = Array.isArray(data.results) ? data.results : (Array.isArray(data) ? data : []);
-  const items = rows.map(mapDpe).filter(x => x.address && x.city);
-  const unique = [];
-  const seen = new Set();
-  for (const item of items) {
+  const unique = []; const seen = new Set();
+  for (const row of rows) {
+    const item = mapDpe(row);
+    if (!item.address || !item.city) continue;
     const key = item.address.toLowerCase();
     if (seen.has(key)) continue;
-    seen.add(key);
-    unique.push(item);
+    seen.add(key); unique.push(item);
   }
   return unique;
 }
@@ -132,15 +127,98 @@ function parseDvfCsv(text, codeInsee, maxRows) {
       price: Number(String(get(row, "valeur_fonciere")).replace(",", ".")) || 0,
       built_surface: Number(String(get(row, "surface_reelle_bati")).replace(",", ".")) || 0,
       land_surface: Number(String(get(row, "surface_terrain")).replace(",", ".")) || 0,
-      type: clean(get(row, "type_local")),
-      parcel: clean(get(row, "id_parcelle")),
+      type: clean(get(row, "type_local")), parcel: clean(get(row, "id_parcelle")),
       address: clean([get(row, "adresse_numero"), get(row, "adresse_nom_voie"), get(row, "code_postal"), get(row, "nom_commune")].filter(Boolean).join(" ")),
-      latitude: Number(get(row, "latitude")) || null,
-      longitude: Number(get(row, "longitude")) || null,
+      latitude: Number(get(row, "latitude")) || null, longitude: Number(get(row, "longitude")) || null,
       source: "DVF data.gouv.fr"
     });
   }
   return items;
 }
 
+async function fetchDvfCerema(codeInsee, years = 5, maxRows = 1500) {
+  const currentYear = new Date().getUTCFullYear();
+  const params = new URLSearchParams({
+    code_insee: codeInsee,
+    anneemut_min: String(currentYear - Math.max(1, years)),
+    page_size: "500", page: "1"
+  });
+  const items = []; let next = DVF_URL + "?" + params.toString(); let pages = 0;
+  while (next && items.length < maxRows && pages < 4) {
+    const data = await fetchJson(next, 20000);
+    const rows = Array.isArray(data.results) ? data.results : [];
+    items.push(...rows); next = data.next || ""; pages++;
+  }
+  return {
+    total: items.length,
+    items: items.slice(0, maxRows).map(row => ({
+      id: row.idmutation || row.idopendata, date: row.datemut || "",
+      year: Number(row.anneemut) || 0, price: Number(row.valeurfonc) || 0,
+      built_surface: Number(row.sbati) || 0, land_surface: Number(row.sterr) || 0,
+      type: clean(row.libtypbien),
+      parcel: Array.isArray(row.l_idpar) ? row.l_idpar[0] : clean(row.l_idpar),
+      citycode: Array.isArray(row.l_codinsee) ? row.l_codinsee[0] : clean(row.l_codinsee),
+      source: "DVF+ Cerema"
+    }))
+  };
+}
 
+async function fetchDvfFallback(codeInsee, years = 5, maxRows = 1500) {
+  const dept = codeInsee.slice(0, 2);
+  const currentYear = new Date().getUTCFullYear();
+  const yearsToFetch = [];
+  for (let y = currentYear - 1; y >= currentYear - Math.max(1, years); y--) yearsToFetch.push(y);
+
+  const results = await Promise.allSettled(yearsToFetch.map(async year => {
+    const url = DVF_FALLBACK_BASE + "/" + year + "/departements/" + dept + ".csv.gz";
+    const gz = await fetchBuffer(url, 30000);
+    return parseDvfCsv(zlib.gunzipSync(gz).toString("utf8"), codeInsee, maxRows);
+  }));
+
+  const all = results.flatMap(r => r.status === "fulfilled" ? r.value : []);
+  const unique = []; const seen = new Set();
+  for (const item of all) {
+    if (seen.has(item.id)) continue;
+    seen.add(item.id); unique.push(item);
+    if (unique.length >= maxRows) break;
+  }
+  if (!unique.length) throw new Error("Fallback DVF data.gouv.fr sans transaction");
+  return { total: unique.length, items: unique, source: "data.gouv.fr" };
+}
+
+async function fetchDvf(codeInsee, years = 5, maxRows = 1500) {
+  try {
+    const result = await fetchDvfCerema(codeInsee, years, maxRows);
+    if (result.total > 0) return { ...result, source: "Cerema" };
+    throw new Error("Cerema a renvoyé 0 transaction");
+  } catch (ceremaError) {
+    const fallback = await fetchDvfFallback(codeInsee, years, maxRows);
+    return { ...fallback, fallback: true, errors: ["Cerema DVF indisponible: " + ceremaError.message] };
+  }
+}
+
+async function fetchOpenDataSignals(city, options = {}) {
+  const resolved = await resolveCity(city);
+  if (!resolved?.citycode) {
+    return { city: resolved || { city }, dpe: [], dvf: { items: [], total: 0 }, errors: ["Commune introuvable"] };
+  }
+
+  const [dpe, dvf] = await Promise.allSettled([
+    fetchDpe(resolved.city, options.dpeLimit || 120),
+    fetchDvf(resolved.citycode, options.dvfYears || 5, options.dvfMaxRows || 1500)
+  ]);
+  const dvfValue = dvf.status === "fulfilled" ? dvf.value : { items: [], total: 0, source: "indisponible" };
+
+  return {
+    city: resolved,
+    dpe: dpe.status === "fulfilled" ? dpe.value : [],
+    dvf: dvfValue,
+    errors: [
+      ...(dpe.status === "rejected" ? ["DPE: " + dpe.reason.message] : []),
+      ...(dvf.status === "rejected" ? ["DVF: " + dvf.reason.message] : []),
+      ...(dvf.status === "fulfilled" && dvf.value.errors ? dvf.value.errors : [])
+    ]
+  };
+}
+
+module.exports = { resolveCity, fetchDpe, fetchDvf, fetchOpenDataSignals };
