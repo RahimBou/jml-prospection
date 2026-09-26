@@ -14,14 +14,22 @@ function save(memory) {
   fs.writeFileSync(FILE, JSON.stringify(memory, null, 2));
 }
 
-function key(item) {
-  return String(item.external_url || [
-    item.title || "", item.city || "", item.address || "",
-    item.price || "", item.surface || ""
-  ].join("|")).toLowerCase();
+function normalize(value) {
+  return String(value || "").trim().toLowerCase().replace(/\s+/g, " ");
 }
 
-function snapshot(items) {
+function key(item) {
+  if (item.external_url) return "url:" + normalize(item.external_url);
+  return "data:" + [
+    normalize(item.source),
+    normalize(item.title),
+    normalize(item.city),
+    normalize(item.address),
+    Number(item.surface) || 0
+  ].join("|");
+}
+
+function snapshot(items, options = {}) {
   const memory = load();
   const now = new Date().toISOString();
   const currentKeys = new Set();
@@ -71,14 +79,19 @@ function snapshot(items) {
     previous.title = item.title || previous.title;
     previous.address = item.address || previous.address;
     previous.status = "active";
+    delete previous.disappearedAt;
   }
 
   const disappeared = [];
-  for (const [k, previous] of Object.entries(memory)) {
-    if (!currentKeys.has(k) && previous.status === "active") {
-      previous.status = "disappeared";
-      previous.disappearedAt = now;
-      disappeared.push({ ...previous });
+  const safeToDetectDisappearance = Boolean(options.sourceReady) && (items || []).length > 0;
+
+  if (safeToDetectDisappearance) {
+    for (const [k, previous] of Object.entries(memory)) {
+      if (!currentKeys.has(k) && previous.status === "active") {
+        previous.status = "disappeared";
+        previous.disappearedAt = now;
+        disappeared.push({ ...previous });
+      }
     }
   }
 
