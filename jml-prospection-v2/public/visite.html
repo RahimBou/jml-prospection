@@ -1,68 +1,68 @@
 <!doctype html>
 <html lang="fr">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Préparer la visite — JML Prospection</title>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Fiche prospect — JML Prospection</title>
 <style>
-body{font-family:Arial,sans-serif;margin:0;background:#f4f1eb;color:#20251f}
-header{background:#18352c;color:#fff;padding:22px 6%;display:flex;justify-content:space-between;gap:20px;align-items:center}
-main{max-width:1050px;margin:24px auto;padding:0 16px}
-.card{background:#fff;border-radius:16px;padding:22px;margin-bottom:18px;box-shadow:0 5px 20px #00000012}
-h1{margin:0;font-size:1.45rem}h2{margin-top:0}
-.address{font-size:1.25rem;font-weight:700}
-.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
-.data{display:flex;flex-wrap:wrap;gap:8px}.tag{background:#eee9df;padding:7px 10px;border-radius:999px;font-size:.9rem}
-.actions{display:flex;flex-wrap:wrap;gap:10px}
-button,a.btn{border:0;border-radius:10px;padding:12px 16px;background:#18352c;color:#fff;text-decoration:none;cursor:pointer;font-weight:700}
-button.alt,a.alt{background:#b78b4a} textarea{width:100%;min-height:130px;box-sizing:border-box;border:1px solid #ccc;border-radius:10px;padding:12px;font:inherit}
-.check{display:block;margin:12px 0}.muted{color:#666;font-size:.9rem}
-@media(max-width:700px){.grid{grid-template-columns:1fr}header{padding:18px}.address{font-size:1.1rem}}
+:root{--green:#18352c;--gold:#b78b4a;--bg:#f4f1eb;--line:#ddd5c8}*{box-sizing:border-box}
+body{font-family:Arial,sans-serif;margin:0;background:var(--bg);color:#20251f}
+header{background:var(--green);color:#fff;padding:18px 6%;display:flex;justify-content:space-between;align-items:center;gap:16px;position:sticky;top:0;z-index:5}
+main{max-width:1100px;margin:22px auto;padding:0 16px}.card{background:#fff;border-radius:16px;padding:22px;margin-bottom:18px;box-shadow:0 5px 20px #00000012}
+.eyebrow{color:#666;font-size:.88rem}.title{display:flex;justify-content:space-between;gap:15px;align-items:flex-start}.address{font-size:1.3rem;font-weight:800;margin:6px 0}
+.badge{display:inline-block;padding:7px 11px;border-radius:999px;font-weight:700;background:#ead8b9}.status{font-size:.9rem;background:#eee9df;padding:7px 11px;border-radius:999px}
+.data{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}.tag{background:#eee9df;padding:7px 10px;border-radius:999px;font-size:.9rem}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.actions{display:flex;flex-wrap:wrap;gap:10px}
+button,a.btn{border:0;border-radius:10px;padding:12px 16px;background:var(--green);color:#fff;text-decoration:none;cursor:pointer;font-weight:700}
+button.alt,a.alt{background:var(--gold)}button.light{background:#eee9df;color:#222}.status-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}
+.status-btn{background:#f3f1ed!important;color:#222!important;border:2px solid transparent!important}.status-btn.active{border-color:var(--gold)!important;background:#ead8b9!important}
+.check{display:block;margin:13px 0}.check input{transform:scale(1.2);margin-right:9px}
+textarea,input,select{width:100%;border:1px solid var(--line);border-radius:10px;padding:11px;font:inherit;background:#fff}
+textarea{min-height:120px;resize:vertical}.field{margin-bottom:12px}.field label{display:block;font-weight:700;margin-bottom:6px}
+.small{font-size:.85rem;color:#666}.breakdown{display:flex;flex-wrap:wrap;gap:7px}.breakdown span{background:#f0eee9;border-radius:999px;padding:6px 9px;font-size:.82rem}
+.saved{color:#176b45;font-weight:700;min-height:20px}
+@media(max-width:700px){.grid,.status-grid{grid-template-columns:1fr}.title{display:block}header{padding:16px}.address{font-size:1.12rem}}
 </style>
 </head>
 <body>
-<header><strong>JML Prospection V2</strong><span>Préparation de visite</span></header>
-<main>
-<div id="app"></div>
-</main>
+<header><strong>JML Prospection V2</strong><span>Fiche prospect</span></header>
+<main><div id="app"></div></main>
 <script>
 const esc=s=>String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));
-const data=JSON.parse(localStorage.getItem("jml_visit")||"null");
-const app=document.getElementById("app");
-if(!data){
- app.innerHTML='<div class="card"><h2>Adresse introuvable</h2><p>Retourne au Radar et relance « Préparer la visite ».</p><a class="btn" href="/">← Retour au Radar</a></div>';
-}else{
- const address=data.address||"Adresse non précisée";
+const data=JSON.parse(localStorage.getItem("jml_visit")||"null"), app=document.getElementById("app");
+if(!data){app.innerHTML='<div class="card"><h2>Prospect introuvable</h2><p>Retourne au Radar et relance « Préparer la visite ».</p><a class="btn" href="/">← Retour au Radar</a></div>'}
+else{
+ const address=data.address||"Adresse non précisée", key="jml_prospect_"+address;
+ const old=JSON.parse(localStorage.getItem(key)||"null")||{};
+ const bd=data.score_breakdown||{};
+ const level=Number(data.score||0)>=84?"A":Number(data.score||0)>=80?"B":"C";
+ const reason=(data.reason||[]).map(x=>'<span>'+esc(x)+'</span>').join("");
  app.innerHTML=
- '<div class="card"><div class="muted">📍 Visite terrain</div><div class="address">'+esc(address)+'</div>'+
- '<p>'+esc(data.city||"Charleville-Mézières")+'</p>'+
- '<div class="data">'+
- (data.score!=null?'<span class="tag">🎯 Radar '+esc(data.score)+'/100</span>':'')+
- (data.dpe?'<span class="tag">DPE '+esc(data.dpe)+'</span>':'')+
- (data.ges?'<span class="tag">GES '+esc(data.ges)+'</span>':'')+
- (data.surface?'<span class="tag">'+esc(data.surface)+' m²</span>':'')+
- (data.construction_year?'<span class="tag">Construction '+esc(data.construction_year)+'</span>':'')+
- '</div></div>'+
- '<div class="card"><h2>🧭 Préparer le déplacement</h2><div class="actions">'+
- '<a class="btn" target="_blank" href="https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(address+' '+(data.city||""))+'">📍 Ouvrir dans Google Maps</a>'+
- '<a class="btn alt" target="_blank" href="https://www.google.com/maps/dir/?api=1&destination='+encodeURIComponent(address+' '+(data.city||""))+'">🚗 Itinéraire</a></div>'+
- '<p id="geo" class="muted">Géocodage de l’adresse…</p></div>'+
- '<div class="card"><h2>📋 Checklist avant visite</h2>'+
- '<label class="check"><input type="checkbox"> Adresse vérifiée sur place</label>'+
- '<label class="check"><input type="checkbox"> Type de bien confirmé</label>'+
- '<label class="check"><input type="checkbox"> Surface confirmée</label>'+
- '<label class="check"><input type="checkbox"> DPE / GES vérifiés</label>'+
- '<label class="check"><input type="checkbox"> Bien actuellement occupé / vacant vérifié</label>'+
- '<label class="check"><input type="checkbox"> Projet de vente identifié</label>'+
+ '<div class="card"><div class="title"><div><div class="eyebrow">🎯 PROSPECT · PRIORITÉ '+level+'</div><div class="address">'+esc(address)+'</div><div>'+esc(data.city||"")+'</div></div><div class="badge">Radar '+esc(data.score??"—")+'/100</div></div>'+
+ '<div class="data">'+(data.dpe?'<span class="tag">DPE '+esc(data.dpe)+'</span>':'')+(data.ges?'<span class="tag">GES '+esc(data.ges)+'</span>':'')+(data.surface?'<span class="tag">'+esc(data.surface)+' m²</span>':'')+(data.construction_year?'<span class="tag">Construction '+esc(data.construction_year)+'</span>':'')+'</div></div>'+
+ '<div class="card"><h2>📊 Pourquoi ce prospect ?</h2><div class="breakdown">'+
+ (bd.dpe!=null?'<span>DPE +'+bd.dpe+'</span>':'')+(bd.ges!=null?'<span>GES +'+bd.ges+'</span>':'')+(bd.surface!=null?'<span>Surface +'+bd.surface+'</span>':'')+(bd.age!=null?'<span>Âge +'+bd.age+'</span>':'')+(bd.market_absence!=null?'<span>Absence annonce +'+bd.market_absence+'</span>':'')+(bd.dvf_history!=null?'<span>Historique DVF +'+bd.dvf_history+'</span>':'')+(bd.data_quality!=null?'<span>Qualité données +'+bd.data_quality+'</span>':'')+
+ '</div><div class="data">'+reason+'</div>'+
+ (data.last_dvf_price?'<p class="small">Dernier DVF ≈ '+esc(data.last_dvf_price)+' €/m²</p>':'')+'</div>'+
+ '<div class="card"><h2>🚦 Résultat de la prospection</h2><div class="status-grid">'+
+ ["Propriétaire rencontré","Absent","À rappeler","Pas vendeur","Projet de vente identifié","Mandat obtenu"].map(s=>'<button class="status-btn" data-status="'+esc(s)+'">'+esc(s)+'</button>').join("")+
+ '</div><p class="small">Statut actuel : <span id="currentStatus" class="status">À qualifier</span></p></div>'+
+ '<div class="card"><h2>👤 Contact</h2><div class="grid"><div class="field"><label>Nom du propriétaire</label><input id="owner" placeholder="Nom / prénom"></div><div class="field"><label>Téléphone</label><input id="phone" type="tel" placeholder="06…"></div><div class="field"><label>Prochaine action</label><select id="next"><option value="">Choisir…</option><option>Rappeler</option><option>Repasser</option><option>Envoyer une estimation</option><option>Suivre le projet</option><option>Aucune</option></select></div><div class="field"><label>Date de prochaine action</label><input id="nextDate" type="date"></div></div></div>'+
+ '<div class="card"><h2>🧭 Préparer le déplacement</h2><div class="actions"><a class="btn" target="_blank" href="https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(address+' '+(data.city||""))+'">📍 Google Maps</a><a class="btn alt" target="_blank" href="https://www.google.com/maps/dir/?api=1&destination='+encodeURIComponent(address+' '+(data.city||""))+'">🚗 Itinéraire</a></div><p id="geo" class="small">Géocodage de l’adresse…</p></div>'+
+ '<div class="card"><h2>📋 Checklist de visite</h2>'+
+ ["Adresse vérifiée sur place","Type de bien confirmé","Surface confirmée","DPE / GES vérifiés","Bien occupé / vacant vérifié","Projet de vente identifié"].map((s,i)=>'<label class="check"><input type="checkbox" data-check="'+i+'"> '+s+'</label>').join("")+
  '</div>'+
- '<div class="card"><h2>📝 Notes de prospection</h2><textarea id="notes" placeholder="Observations, état du bien, propriétaire, projet, objections…"></textarea><p class="muted">Les notes sont conservées sur cet appareil.</p>'+
- '<div class="actions"><button onclick="save()">💾 Enregistrer</button><a class="btn alt" href="/">← Retour au Radar</a></div></div>';
- const key="jml_notes_"+address;
- document.getElementById("notes").value=localStorage.getItem(key)||"";
- window.save=()=>{localStorage.setItem(key,document.getElementById("notes").value);alert("Notes enregistrées.");};
- fetch("/api/geocode?q="+encodeURIComponent(address)).then(r=>r.json()).then(g=>{
-   const x=g.items?.[0]; document.getElementById("geo").textContent=x?.lat&&x?.lon?"📍 Coordonnées : "+x.lat+", "+x.lon:"⚠️ Adresse non géolocalisée";
- }).catch(()=>document.getElementById("geo").textContent="⚠️ Géocodage indisponible");
+ '<div class="card"><h2>📝 Compte-rendu</h2><div class="field"><label>Observations terrain</label><textarea id="notes" placeholder="État du bien, travaux, environnement, propriétaire, projet…"></textarea></div><div class="field"><label>Objections / besoins</label><textarea id="objections" placeholder="Prix, délai, concurrence, hésitations…"></textarea></div><div class="field"><label>Estimation / prix évoqué</label><input id="price" type="number" min="0" placeholder="€"></div><div class="actions"><button id="save">💾 Enregistrer la fiche</button><a class="btn alt" href="/">← Retour au Radar</a></div><p id="saved" class="saved"></p></div>';
+ const set=(id,v)=>{const e=document.getElementById(id);if(e&&v!=null)e.value=v};
+ set("owner",old.owner);set("phone",old.phone);set("next",old.next);set("nextDate",old.nextDate);set("notes",old.notes);set("objections",old.objections);set("price",old.price);
+ document.querySelectorAll("[data-check]").forEach((e,i)=>e.checked=!!old.checks?.[i]);
+ let status=old.status||"À qualifier";
+ document.getElementById("currentStatus").textContent=status;
+ document.querySelectorAll("[data-status]").forEach(b=>{b.classList.toggle("active",b.dataset.status===status);b.onclick=()=>{status=b.dataset.status;document.getElementById("currentStatus").textContent=status;document.querySelectorAll("[data-status]").forEach(x=>x.classList.toggle("active",x===b));}});
+ document.getElementById("save").onclick=()=>{
+   const record={...old,status,owner:document.getElementById("owner").value,phone:document.getElementById("phone").value,next:document.getElementById("next").value,nextDate:document.getElementById("nextDate").value,notes:document.getElementById("notes").value,objections:document.getElementById("objections").value,price:document.getElementById("price").value,checks:[...document.querySelectorAll("[data-check]")].map(x=>x.checked),updatedAt:new Date().toISOString()};
+   localStorage.setItem(key,JSON.stringify(record));document.getElementById("saved").textContent="✓ Fiche enregistrée sur cet appareil.";
+ };
+ fetch("/api/geocode?q="+encodeURIComponent(address)).then(r=>r.json()).then(g=>{const x=g.items?.[0];document.getElementById("geo").textContent=x?.lat&&x?.lon?"📍 Coordonnées : "+x.lat+", "+x.lon:"⚠️ Adresse non géolocalisée"}).catch(()=>document.getElementById("geo").textContent="⚠️ Géocodage indisponible");
 }
 </script>
 </body></html>
