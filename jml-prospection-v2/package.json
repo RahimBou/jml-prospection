@@ -1,6 +1,6 @@
 {
   "name": "jml-prospection-v2",
-  "version": "2.3.1",
+  "version": "2.3.2",
   "private": true,
   "description": "Nouveau radar de prospection immobilière JML Immobilier",
   "scripts": { "start": "node server.js" },
