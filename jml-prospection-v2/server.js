@@ -52,13 +52,7 @@ async function api(req, res, url) {
   if (url.pathname === "/api/secteurs") {
     const params = Object.fromEntries(url.searchParams.entries());
     const market = await buildMarketSnapshot(params);
-    const radar = buildSectorRadar({
-      dpe: market.hidden?.length ? market.hidden : [],
-      dvf: market.market?.items || [],
-      current: market.current || [],
-      hidden: market.hidden || []
-    });
-    return send(res, 200, { version: VERSION, scope: market.scope, sector_radar: radar });
+    return send(res, 200, { version: VERSION, scope: market.scope, sector_radar: market.sector_radar });
   }
   if (url.pathname === "/api/geocode" && req.method === "GET") {
     const q = String(url.searchParams.get("q") || "").trim();
