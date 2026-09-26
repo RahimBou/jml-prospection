@@ -188,6 +188,8 @@ function buildHiddenOpportunities(dpeItems, currentItems, dvfItems = []) {
         address: x.address,
         city: x.city,
         postcode: x.postcode,
+        lat: Number.isFinite(Number(x.lat)) ? Number(x.lat) : null,
+        lon: Number.isFinite(Number(x.lon)) ? Number(x.lon) : null,
         surface: x.surface,
         dpe: x.dpe,
         ges: x.ges,
