@@ -88,20 +88,49 @@ function renderPrice(items = []) {
   ).join("");
 }
 
+function renderScoreBreakdown(breakdown = {}) {
+  const labels = [
+    ["dpe", "DPE"],
+    ["ges", "GES"],
+    ["surface", "Surface"],
+    ["age", "Âge du bien"],
+    ["market_absence", "Absence annonce"],
+    ["dvf_history", "Historique DVF"],
+    ["data_quality", "Qualité données"]
+  ];
+  return labels
+    .filter(([key]) => Number(breakdown[key] || 0) > 0)
+    .map(([key, label]) =>
+      '<span class="tag">' + escapeHtml(label) + ' +' + Number(breakdown[key]) + '</span>'
+    ).join(" ");
+}
+
 function renderTop10(items = []) {
-  const top = [...items].sort((a, b) => Number(b.score || 0) - Number(a.score || 0)).slice(0, 10);
+  const top = [...items].sort((a, b) =>
+    Number(b.score || 0) - Number(a.score || 0) ||
+    Number(b.score_breakdown?.dvf_history || 0) - Number(a.score_breakdown?.dvf_history || 0)
+  ).slice(0, 10);
+
   if (!top.length) {
     $("top10").innerHTML = '<div class="empty">Aucune adresse prioritaire détectée sur cette analyse.</div>';
     return;
   }
+
   $("top10").innerHTML = top.map((item, index) =>
-    '<article class="card priority"><div class="score">#' + (index + 1) + ' · ' +
-    Number(item.score || 0) + '/100</div><h3>' + escapeHtml(item.address || "Adresse non précisée") +
-    '</h3><div class="meta">' + escapeHtml(item.city || "") + ' · DPE ' +
-    escapeHtml(item.dpe || "—") + ' · ' + (item.surface || "—") + ' m²</div>' +
+    '<article class="card priority">' +
+    '<div class="score">#' + (index + 1) + ' · ' + Number(item.score || 0) + '/100</div>' +
+    '<h3>' + escapeHtml(item.address || "Adresse non précisée") + '</h3>' +
+    '<div class="meta">' + escapeHtml(item.city || "") + ' · DPE ' +
+    escapeHtml(item.dpe || "—") + ' · GES ' + escapeHtml(item.ges || "—") +
+    ' · ' + (item.surface || "—") + ' m²' +
+    (item.construction_year ? ' · construction ' + escapeHtml(item.construction_year) : '') +
+    '</div>' +
+    '<div class="reasons"><b>Décomposition du score</b> ' +
+    renderScoreBreakdown(item.score_breakdown) + '</div>' +
     '<div class="reasons">' + (item.reason || []).map(reason =>
-    '<span class="tag">' + escapeHtml(reason) + '</span>').join(" ") +
-    '</div><button class="field-btn" data-address="' + escapeAttr(item.address || "") +
+      '<span class="tag">' + escapeHtml(reason) + '</span>').join(" ") +
+    '</div>' +
+    '<button class="field-btn" data-address="' + escapeAttr(item.address || "") +
     '">📍 Préparer la visite</button></article>'
   ).join("");
 }
@@ -165,9 +194,18 @@ async function market() {
     renderStats(data.counts || {}, data.market || {});
     render();
     $("status").textContent = "Radar terminé";
-    $("message").textContent = (data.errors || []).length
-      ? "⚠ " + data.errors.join(" · ")
-      : "✓ Sources traitées";
+    const sourceStatus = data.source_status || {};
+    const statusParts = ["✓ Sources traitées"];
+    if (sourceStatus.dvf_source === "data.gouv.fr" || data.market?.dvf_fallback) {
+      statusParts.push("DVF officiel : data.gouv.fr");
+    }
+    if ((data.errors || []).length) {
+      const ceremaOnly = (data.errors || []).every(x => /Cerema DVF indisponible/i.test(x));
+      statusParts.push(ceremaOnly
+        ? "Cerema indisponible — repli officiel actif"
+        : "⚠ " + data.errors.join(" · "));
+    }
+    $("message").textContent = statusParts.join(" · ");
   } catch (e) {
     $("status").textContent = "Erreur";
     $("message").textContent = e.message;
