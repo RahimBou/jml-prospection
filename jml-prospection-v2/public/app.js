@@ -369,6 +369,7 @@ async function market() {
   try {
     const data = await getJSON("/api/marche?" + params());
     snapshot = data;
+    window.jmlSnapshot = data;
     newListings = data.memory?.new_items || data.new_items || [];
     renderStats(data.counts || {}, data.market || {});
     render();
