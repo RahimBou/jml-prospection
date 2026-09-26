@@ -81,6 +81,16 @@
         throw new Error("Réponse serveur vide ou non JSON");
       }
       if (!res.ok) throw new Error(data.error || "Erreur Radar secteurs");
+      // Si /api/marche a été interrompu mais que le calcul secteurs a abouti,
+      // on récupère quand même les candidats cachés pour alimenter la tournée.
+      if (data.hidden || data.current) {
+        window.jmlSnapshot = {
+          ...(window.jmlSnapshot || {}),
+          hidden: data.hidden || window.jmlSnapshot?.hidden || [],
+          current: data.current || window.jmlSnapshot?.current || [],
+          sector_radar: data.sector_radar || window.jmlSnapshot?.sector_radar
+        };
+      }
       render(data);
     } catch (e) {
       el.innerHTML = '<div class="sector-error">Radar des secteurs indisponible : ' + esc(e.message) + '</div>';
