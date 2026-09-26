@@ -332,7 +332,15 @@ document.addEventListener("click", event => {
   if (!button) return;
   const address = button.dataset.address || "";
   if (!address) return;
-  window.open("/api/geocode?q=" + encodeURIComponent(address), "_blank", "noopener");
+
+  const allItems = [
+    ...(snapshot?.hidden || []),
+    ...(snapshot?.current || []),
+    ...(snapshot?.disappeared || [])
+  ];
+  const item = allItems.find(x => x.address === address) || { address };
+  localStorage.setItem("jml_visit", JSON.stringify(item));
+  window.open("/visite.html?address=" + encodeURIComponent(address), "_blank", "noopener");
 });
 
 $("search").addEventListener("click", search);
