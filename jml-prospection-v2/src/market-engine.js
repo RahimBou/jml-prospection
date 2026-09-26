@@ -65,13 +65,13 @@ function buildHiddenOpportunities(dpeItems, currentItems, dvfItems = []) {
     .filter(x => ["F", "G"].includes(x.dpe))
     .filter(x => !currentAddresses.has(x.address.toLowerCase()))
     .map(x => {
-      const score = Math.min(100,
+      const rawScore =
         scoreDpe(x.dpe) +
         scoreGes(x.ges) +
         scoreSurface(x.surface) +
         scoreAge(x.year) +
-        scoreMarketAbsence()
-      );
+        scoreMarketAbsence();
+      const score = Math.round(Math.min(100, (rawScore / 78) * 100));
       const reason = [
         "DPE " + x.dpe,
         x.ges ? "GES " + x.ges : "",
