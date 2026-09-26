@@ -3,7 +3,7 @@ const zlib = require("zlib");
 
 const DVF_URL = "https://apidf.cerema.fr/dvf_opendata/mutations/";
 const DVF_FALLBACK_BASE = "https://files.data.gouv.fr/geo-dvf/latest/csv";
-const DPE_URL = "https://data.ademe.fr/data-fair/api/v1/datasets/dpe-v2-logements-existants/lines";
+const DPE_URL = "https://data.ademe.fr/data-fair/api/v1/datasets/dpe03existant/lines";
 const BAN_URL = "https://data.geopf.fr/geocodage/search/";
 
 function fetchBuffer(url, timeout = 20000) {
@@ -61,33 +61,45 @@ async function resolveCity(city) {
 }
 
 function mapDpe(row) {
-  const numero = first(row, ["numero_rue_ban", "n° voie (ban)", "N° voie (BAN)", "numero_voie_ban", "numero_rue"]);
-  const rue = first(row, ["nom_rue_ban", "nom de la rue (ban)", "Nom rue (BAN)", "nom_voie_ban", "nom_rue"]);
-  const city = first(row, ["nom_commune_ban", "nom commune (ban)", "Nom commune (BAN)", "nom_commune"]);
-  const cp = first(row, ["code_postal_ban", "code postal (ban)", "Code postal (BAN)", "code_postal"]);
+  const numero = first(row, ["ban_housenumber", "numero_rue_ban", "n° voie (ban)", "N° voie (BAN)", "numero_voie_ban", "numero_rue"]);
+  const rue = first(row, ["ban_street", "nom_rue_ban", "nom de la rue (ban)", "Nom rue (BAN)", "nom_voie_ban", "nom_rue"]);
+  const city = first(row, ["ban_city", "nom_commune_ban", "nom commune (ban)", "Nom commune (BAN)", "nom_commune"]);
+  const cp = first(row, ["ban_postcode", "code_postal_ban", "code postal (ban)", "Code postal (BAN)", "code_postal"]);
   return {
-    address: clean([numero, rue, cp, city].filter(Boolean).join(" ")),
+    address: clean(first(row, ["ban_label"]) || [numero, rue, cp, city].filter(Boolean).join(" ")),
     city: clean(city), postcode: clean(cp), street: clean(rue), number: clean(numero),
-    dpe: clean(first(row, ["etiquette_dpe", "étiquette dpe", "Etiquette DPE", "classe_consommation_energie", "classe_dpe"])).toUpperCase(),
-    ges: clean(first(row, ["etiquette_ges", "étiquette ges", "Etiquette GES", "classe_emission_ges"])).toUpperCase(),
+    dpe: clean(first(row, ["classe_bilan_dpe", "etiquette_dpe", "classe_conso_energie", "étiquette dpe", "Etiquette DPE", "classe_dpe"])).toUpperCase(),
+    ges: clean(first(row, ["classe_emission_ges", "etiquette_ges", "étiquette ges", "Etiquette GES"])).toUpperCase(),
     surface: Number(first(row, ["surface_habitable_logement", "Surface habitable logement", "surface_habitable", "surface_ventilee"])) || 0,
     year: Number(first(row, ["annee_construction", "Année construction", "annee_construction_batiment"])) || 0,
-    lat: Number(first(row, ["coordonnee_cartographique_ban_x", "x_ban"])) || null,
-    lon: Number(first(row, ["coordonnee_cartographique_ban_y", "y_ban"])) || null
+    lat: Number(first(row, ["ban_y", "coordonnee_cartographique_ban_y", "y_ban"])) || null,
+    lon: Number(first(row, ["ban_x", "coordonnee_cartographique_ban_x", "x_ban"])) || null
   };
 }
 
 async function fetchDpe(city, limit = 120, codeInsee = "") {
-  const query = codeInsee ? "&q_fields=" + encodeURIComponent("Code_INSEE_(BAN)") + "&q=" + encodeURIComponent(codeInsee) : "&q=" + encodeURIComponent(city);
-  const data = await fetchJson(DPE_URL + "?" + query.slice(1) + "&size=" + Math.min(200, Math.max(20, limit)), 20000);
+  const size = Math.min(200, Math.max(20, limit));
+  const filters = [];
+  if (codeInsee) {
+    filters.push("ban_citycode_eq=" + encodeURIComponent(String(codeInsee)));
+  } else if (city) {
+    filters.push("ban_city_eq=" + encodeURIComponent(String(city)));
+  }
+
+  const url = DPE_URL + "?size=" + size + (filters.length ? "&" + filters.join("&") : "");
+  const data = await fetchJson(url, 20000);
   const rows = Array.isArray(data.results) ? data.results : (Array.isArray(data) ? data : []);
-  const unique = []; const seen = new Set();
+
+  const unique = [];
+  const seen = new Set();
   for (const row of rows) {
     const item = mapDpe(row);
     if (!item.address || !item.city) continue;
+
     const key = item.address.toLowerCase();
     if (seen.has(key)) continue;
-    seen.add(key); unique.push(item);
+    seen.add(key);
+    unique.push(item);
   }
   return unique;
 }
