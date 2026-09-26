@@ -434,7 +434,7 @@ async function runFutureRadar(){
       ].join("|");
       while(!complete){
         $("futureRadarStatus").textContent="Analyse progressive · "+processed+(totalCommunes?"/"+totalCommunes:"")+" commune(s)…";
-        const data=await publicJson("/api/radar-zone?sectors="+encodeURIComponent(JSON.stringify(selected))+"&limit=100&years=5&perCommuneLimit=60&communeBatch=8&zoneMode=1&dvfMaxRows=2500&offset="+offset);
+        const data=await publicJson("/api/radar-zone?sectors="+encodeURIComponent(JSON.stringify(selected))+"&limit=100&years=5&perCommuneLimit=60&communeBatch=12&zoneMode=1&dvfMaxRows=2000&offset="+offset);
         totalCommunes=Number(data.totalCommuneCount)||totalCommunes;
         processed+=Number(data.communesAnalyzed)||0;
         totalDvf+=Number(data.dvfCount)||0;
