@@ -89,8 +89,9 @@ function renderCurrent(items = []) {
 
 function renderHidden(items = []) {
   const ordered = [...items].sort((a, b) =>
+    Number(Boolean(b.terrain_ready)) - Number(Boolean(a.terrain_ready)) ||
     Number(b.score || 0) - Number(a.score || 0) ||
-    Number(b.score_breakdown?.dvf_history || 0) - Number(a.score_breakdown?.dvf_history || 0)
+    Number(b.family_count || 0) - Number(a.family_count || 0)
   );
 
   return ordered.map((item, index) => {
@@ -106,7 +107,9 @@ function renderHidden(items = []) {
       '<div class="score">#' + (index + 1) + ' · ' + Number(item.score || 0) + '/100</div>' +
       '<div><span class="priority-badge priority-' + (item.seller_signal === "fort" ? "A" : item.seller_signal === "probable" ? "B" : "C") + '">' +
       escapeHtml(item.seller_signal_label || "Indice vendeur") + '</span> <span class="tag">' +
-      Number(item.signal_count || 0) + ' signaux</span></div>' +
+      Number(item.signal_count || 0) + ' signaux</span> ' +
+      (item.terrain_ready ? '<span class="tag">✓ Terrain renforcé</span>' : '<span class="tag">Veille</span>') +
+      '</div>' +
       '<h3>' + escapeHtml(address || "Adresse non précisée") + ' ' + renderProspectStatus(address) + '</h3>' +
       '<div class="meta">' + escapeHtml(item.city || "") + ' · ' +
       (item.surface || "—") + ' m² · DPE <b>' + escapeHtml(item.dpe || "—") +
@@ -117,8 +120,9 @@ function renderHidden(items = []) {
       '<div class="reasons">' + (item.reason || []).map(reason =>
         '<span class="tag">' + escapeHtml(reason) + '</span>'
       ).join(" ") + '</div>' +
-      '<button class="field-btn" data-address="' + escapeAttr(address) +
-      '">📍 Préparer la visite</button></article>';
+      (item.terrain_ready ? '<button class="field-btn" data-address="' + escapeAttr(address) +
+      '">📍 Préparer la visite</button>' : '<div class="meta">🔎 ' + escapeHtml(item.qualification || "À surveiller") + '</div>') +
+      '</article>';
   }).join("");
 }
 
@@ -150,7 +154,8 @@ function renderScoreBreakdown(breakdown = {}) {
     ["market_absence", "Absence annonce"],
     ["dvf_history", "Historique DVF"],
     ["local_activity", "Activité locale"],
-    ["data_quality", "Qualité données"]
+    ["data_quality", "Qualité données"],
+    ["convergence", "Convergence"]
   ];
   return labels
     .filter(([key]) => Number(breakdown[key] || 0) > 0)
