@@ -3,7 +3,7 @@ const zlib = require("zlib");
 
 const DVF_URL = "https://apidf.cerema.fr/dvf_opendata/mutations/";
 const DVF_FALLBACK_BASE = "https://files.data.gouv.fr/geo-dvf/latest/csv";
-const DPE_URL = "https://data.ademe.fr/data-fair/api/v1/datasets/dpe03existant/lines";
+const DPE_URL = "https://data.ademe.fr/data-fair/api/v1/datasets/dpe-v2-logements-existants/lines";
 const BAN_URL = "https://data.geopf.fr/geocodage/search/";
 
 function fetchBuffer(url, timeout = 20000) {
@@ -83,7 +83,7 @@ async function fetchDpe(city, limit = 120, codeInsee = "") {
   if (codeInsee) {
     filters.push("ban_citycode_eq=" + encodeURIComponent(String(codeInsee)));
   } else if (city) {
-    filters.push("ban_city_eq=" + encodeURIComponent(String(city)));
+    filters.push("ban_city_search=" + encodeURIComponent(String(city)));
   }
 
   const url = DPE_URL + "?size=" + size + (filters.length ? "&" + filters.join("&") : "");
