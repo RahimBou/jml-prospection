@@ -132,7 +132,15 @@ async function initRadarTerritory(){
     window.radarTerritoryCommunes=Array.isArray(communes)?communes:[];
     if(count)count.textContent=label||((window.radarTerritoryCommunes.length)+" communes disponibles");
     const options='<option value="">Choisir une commune…</option>'+window.radarTerritoryCommunes.map(c=>'<option value="'+apiEsc(c.city)+'">'+apiEsc(c.city)+(c.population?" · "+Number(c.population).toLocaleString("fr-FR")+" hab.":"")+'</option>').join("");
-    if(simple) simple.innerHTML=options;
+    if(simple){
+      simple.innerHTML=options;
+      // Démarrage sans friction : Charleville-Mézières est la commune par défaut
+      // si aucune commune n'a encore été choisie.
+      if(!simple.value){
+        const preferred=window.radarTerritoryCommunes.find(c=>norm(c.city)==="charleville-mezieres")||window.radarTerritoryCommunes[0];
+        if(preferred)simple.value=preferred.city;
+      }
+    }
     if(select) select.innerHTML='<option value="">+ Ajouter une commune comme secteur…</option>'+window.radarTerritoryCommunes.map(c=>'<option value="'+apiEsc(c.city)+'">'+apiEsc(c.city)+(c.population?" · "+Number(c.population).toLocaleString("fr-FR")+" hab.":"")+'</option>').join("");
   };
 
@@ -401,10 +409,14 @@ async function runFutureRadar(){
     const simpleRadius=Number($("radarSimpleRadius")?.value)||20;
     if(simpleCity) selected=[{id:"simple-"+norm(simpleCity),label:simpleCity,q:simpleCity,radiusKm:simpleRadius}];
   }
-  const q=($("futureRadarQuery")?.value||$("publicQuery")?.value||"").trim();
+  let q=($("futureRadarQuery")?.value||$("publicQuery")?.value||"").trim();
   if(!selected.length&&!q){
-    $("futureRadarStatus").textContent="Sélectionne au moins un secteur ou indique une commune.";
-    $("futureRadarReady").textContent="⚠️ Zone manquante";
+    const simpleCity=($("radarSimpleCity")?.value||"").trim();
+    if(simpleCity) q=simpleCity;
+  }
+  if(!selected.length&&!q){
+    $("futureRadarStatus").textContent="⚠️ Choisis une commune pour lancer le Radar.";
+    if($("futureRadarReady")) $("futureRadarReady").textContent="Zone manquante";
     return;
   }
   $("futureRadarBtn").disabled=true;
