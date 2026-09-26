@@ -79,29 +79,57 @@ function mapDpe(row) {
 
 async function fetchDpe(city, limit = 120, codeInsee = "") {
   const size = Math.min(200, Math.max(20, limit));
-  const filters = [];
-  if (codeInsee) {
-    filters.push("ban_citycode_eq=" + encodeURIComponent(String(codeInsee)));
-  } else if (city) {
-    filters.push("ban_city_search=" + encodeURIComponent(String(city)));
+  const datasets = [
+    "dpe-v2-logements-existants",
+    "dpe03existant"
+  ];
+
+  const queries = [
+    codeInsee ? String(codeInsee) : "",
+    city ? String(city) : ""
+  ].filter(Boolean);
+
+  let lastError = null;
+
+  for (const dataset of datasets) {
+    for (const q of queries) {
+      try {
+        // Recherche textuelle volontairement simple : elle évite de dépendre
+        // d'un nom de colonne de filtre qui peut évoluer dans Data Fair.
+        const url = "https://data.ademe.fr/data-fair/api/v1/datasets/" +
+          dataset + "/lines?size=" + size + "&q=" + encodeURIComponent(q);
+
+        const data = await fetchJson(url, 20000);
+        const rows = Array.isArray(data.results) ? data.results : (Array.isArray(data) ? data : []);
+
+        const unique = [];
+        const seen = new Set();
+
+        for (const row of rows) {
+          const item = mapDpe(row);
+          if (!item.address || !item.city) continue;
+
+          const normalizedCity = item.city.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+          const wantedCity = String(city || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+
+          if (wantedCity && !normalizedCity.includes(wantedCity) && !wantedCity.includes(normalizedCity)) {
+            continue;
+          }
+
+          const key = item.address.toLowerCase();
+          if (seen.has(key)) continue;
+          seen.add(key);
+          unique.push(item);
+        }
+
+        if (unique.length) return unique;
+      } catch (error) {
+        lastError = error;
+      }
+    }
   }
 
-  const url = DPE_URL + "?size=" + size + (filters.length ? "&" + filters.join("&") : "");
-  const data = await fetchJson(url, 20000);
-  const rows = Array.isArray(data.results) ? data.results : (Array.isArray(data) ? data : []);
-
-  const unique = [];
-  const seen = new Set();
-  for (const row of rows) {
-    const item = mapDpe(row);
-    if (!item.address || !item.city) continue;
-
-    const key = item.address.toLowerCase();
-    if (seen.has(key)) continue;
-    seen.add(key);
-    unique.push(item);
-  }
-  return unique;
+  throw lastError || new Error("Aucun DPE ADEME trouvé");
 }
 
 function parseCsvLine(line) {
