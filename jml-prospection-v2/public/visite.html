@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Préparer la visite — JML Prospection</title>
+<style>
+body{font-family:Arial,sans-serif;margin:0;background:#f4f1eb;color:#20251f}
+header{background:#18352c;color:#fff;padding:22px 6%;display:flex;justify-content:space-between;gap:20px;align-items:center}
+main{max-width:1050px;margin:24px auto;padding:0 16px}
+.card{background:#fff;border-radius:16px;padding:22px;margin-bottom:18px;box-shadow:0 5px 20px #00000012}
+h1{margin:0;font-size:1.45rem}h2{margin-top:0}
+.address{font-size:1.25rem;font-weight:700}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.data{display:flex;flex-wrap:wrap;gap:8px}.tag{background:#eee9df;padding:7px 10px;border-radius:999px;font-size:.9rem}
+.actions{display:flex;flex-wrap:wrap;gap:10px}
+button,a.btn{border:0;border-radius:10px;padding:12px 16px;background:#18352c;color:#fff;text-decoration:none;cursor:pointer;font-weight:700}
+button.alt,a.alt{background:#b78b4a} textarea{width:100%;min-height:130px;box-sizing:border-box;border:1px solid #ccc;border-radius:10px;padding:12px;font:inherit}
+.check{display:block;margin:12px 0}.muted{color:#666;font-size:.9rem}
+@media(max-width:700px){.grid{grid-template-columns:1fr}header{padding:18px}.address{font-size:1.1rem}}
+</style>
+</head>
+<body>
+<header><strong>JML Prospection V2</strong><span>Préparation de visite</span></header>
+<main>
+<div id="app"></div>
+</main>
+<script>
+const esc=s=>String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));
+const data=JSON.parse(localStorage.getItem("jml_visit")||"null");
+const app=document.getElementById("app");
+if(!data){
+ app.innerHTML='<div class="card"><h2>Adresse introuvable</h2><p>Retourne au Radar et relance « Préparer la visite ».</p><a class="btn" href="/">← Retour au Radar</a></div>';
+}else{
+ const address=data.address||"Adresse non précisée";
+ app.innerHTML=
+ '<div class="card"><div class="muted">📍 Visite terrain</div><div class="address">'+esc(address)+'</div>'+
+ '<p>'+esc(data.city||"Charleville-Mézières")+'</p>'+
+ '<div class="data">'+
+ (data.score!=null?'<span class="tag">🎯 Radar '+esc(data.score)+'/100</span>':'')+
+ (data.dpe?'<span class="tag">DPE '+esc(data.dpe)+'</span>':'')+
+ (data.ges?'<span class="tag">GES '+esc(data.ges)+'</span>':'')+
+ (data.surface?'<span class="tag">'+esc(data.surface)+' m²</span>':'')+
+ (data.construction_year?'<span class="tag">Construction '+esc(data.construction_year)+'</span>':'')+
+ '</div></div>'+
+ '<div class="card"><h2>🧭 Préparer le déplacement</h2><div class="actions">'+
+ '<a class="btn" target="_blank" href="https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(address+' '+(data.city||""))+'">📍 Ouvrir dans Google Maps</a>'+
+ '<a class="btn alt" target="_blank" href="https://www.google.com/maps/dir/?api=1&destination='+encodeURIComponent(address+' '+(data.city||""))+'">🚗 Itinéraire</a></div>'+
+ '<p id="geo" class="muted">Géocodage de l’adresse…</p></div>'+
+ '<div class="card"><h2>📋 Checklist avant visite</h2>'+
+ '<label class="check"><input type="checkbox"> Adresse vérifiée sur place</label>'+
+ '<label class="check"><input type="checkbox"> Type de bien confirmé</label>'+
+ '<label class="check"><input type="checkbox"> Surface confirmée</label>'+
+ '<label class="check"><input type="checkbox"> DPE / GES vérifiés</label>'+
+ '<label class="check"><input type="checkbox"> Bien actuellement occupé / vacant vérifié</label>'+
+ '<label class="check"><input type="checkbox"> Projet de vente identifié</label>'+
+ '</div>'+
+ '<div class="card"><h2>📝 Notes de prospection</h2><textarea id="notes" placeholder="Observations, état du bien, propriétaire, projet, objections…"></textarea><p class="muted">Les notes sont conservées sur cet appareil.</p>'+
+ '<div class="actions"><button onclick="save()">💾 Enregistrer</button><a class="btn alt" href="/">← Retour au Radar</a></div></div>';
+ const key="jml_notes_"+address;
+ document.getElementById("notes").value=localStorage.getItem(key)||"";
+ window.save=()=>{localStorage.setItem(key,document.getElementById("notes").value);alert("Notes enregistrées.");};
+ fetch("/api/geocode?q="+encodeURIComponent(address)).then(r=>r.json()).then(g=>{
+   const x=g.items?.[0]; document.getElementById("geo").textContent=x?.lat&&x?.lon?"📍 Coordonnées : "+x.lat+", "+x.lon:"⚠️ Adresse non géolocalisée";
+ }).catch(()=>document.getElementById("geo").textContent="⚠️ Géocodage indisponible");
+}
+</script>
+</body></html>
