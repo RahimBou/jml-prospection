@@ -10,6 +10,7 @@ const VERSION = "2.4.4";
 const PORT = Number(process.env.PORT || 10000);
 const ROOT = __dirname;
 const PUBLIC = path.join(ROOT, "public");
+let lastMarketSnapshot = null;
 
 function send(res, status, payload, type = "application/json; charset=utf-8") {
   const body = type.startsWith("application/json") ? JSON.stringify(payload) : payload;
@@ -47,12 +48,32 @@ async function api(req, res, url) {
     return send(res, 200, await searchPublicListings(Object.fromEntries(url.searchParams.entries())));
   }
   if (url.pathname === "/api/marche") {
-    return send(res, 200, await buildMarketSnapshot(Object.fromEntries(url.searchParams.entries())));
+    const params = Object.fromEntries(url.searchParams.entries());
+    try {
+      const market = await buildMarketSnapshot(params);
+      lastMarketSnapshot = market;
+      return send(res, 200, market);
+    } catch (error) {
+      if (lastMarketSnapshot) {
+        return send(res, 200, {
+          ...lastMarketSnapshot,
+          errors: [...(lastMarketSnapshot.errors || []), "Actualisation partielle : " + error.message],
+          source_status: { ...(lastMarketSnapshot.source_status || {}), cached: true }
+        });
+      }
+      return send(res, 503, { error: "Radar temporairement indisponible", message: error.message });
+    }
   }
   if (url.pathname === "/api/secteurs") {
     const params = Object.fromEntries(url.searchParams.entries());
     const market = await buildMarketSnapshot(params);
-    return send(res, 200, { version: VERSION, scope: market.scope, sector_radar: market.sector_radar });
+    return send(res, 200, {
+      version: VERSION,
+      scope: market.scope,
+      sector_radar: market.sector_radar,
+      hidden: market.hidden || [],
+      current: market.current || []
+    });
   }
   if (url.pathname === "/api/geocode" && req.method === "GET") {
     const q = String(url.searchParams.get("q") || "").trim();
