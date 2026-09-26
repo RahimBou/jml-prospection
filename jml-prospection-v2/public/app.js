@@ -244,7 +244,7 @@ function renderTop10(items = []) {
 
   $("top10").innerHTML = top.map((item, index) => {
     const address = item.address || "";
-    const level = priorityLevel(item.score);
+    const level = priorityLevel(item.score, item.seller_signal, item.terrain_ready);
     const checked = selectedAddresses.has(address) ? " checked" : "";
 
     return '<article class="card priority tour-card' + (checked ? ' selected-card' : '') + '">' +
