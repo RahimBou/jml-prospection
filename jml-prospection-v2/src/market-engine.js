@@ -302,6 +302,25 @@ function buildHiddenOpportunities(dpeItems, currentItems, dvfItems = []) {
         score += 2;
       }
 
+      // Filtre "terrain renforcé" : on ne présente pas comme vendeur probable
+      // un bien reposant uniquement sur des indices faibles. Ce filtre ne garantit
+      // jamais une vente : il sélectionne les dossiers qui méritent une prospection.
+      const terrainReady =
+        (dvf.matchType === "exact" && hold >= 6 && (
+          ["F", "G"].includes(x.dpe) ||
+          ["F", "G"].includes(x.ges) ||
+          Number(x.year) > 0 && Number(x.year) < 1970 ||
+          localTransactions >= 3
+        )) ||
+        (dvf.matchType === "exact" && hold >= 9);
+
+      if (terrainReady) {
+        score += 5;
+        synergies.push("dossier terrain renforcé");
+      } else {
+        score = Math.min(score, 57);
+      }
+
       score = Math.round(Math.min(100, score));
       const band = sellerBand(score);
 
@@ -335,6 +354,10 @@ function buildHiddenOpportunities(dpeItems, currentItems, dvfItems = []) {
         construction_year: x.year,
         property_type: "à qualifier",
         score,
+        terrain_ready: terrainReady,
+        qualification: terrainReady
+          ? "Candidat terrain renforcé — plusieurs indices concordants"
+          : "Veille — indices insuffisants pour une prospection prioritaire",
         seller_signal: band,
         seller_signal_label: sellerBandLabel(band),
         signal_count: signals.length,
@@ -402,7 +425,7 @@ async function buildMarketSnapshot(params = {}) {
   const memory = snapshot(items, { sourceReady: web.status === "fulfilled" });
   const market = dvfStats(openData.dvf?.items || []);
   return {
-    version: "2.3.1",
+    version: "2.3.2",
     generated_at: new Date().toISOString(),
     scope: { department: params.dept || "08", city, radius_km: number(params.radius_km || 10) },
     counts: { current_listings: items.length, hidden_opportunities: hidden.length, disappeared: memory.disappeared.length, price_changes: memory.priceChanges.length, new_listings: memory.newItems.length },
