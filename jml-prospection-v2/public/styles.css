@@ -11,3 +11,20 @@
 .new-card{border-color:#b98a45}.new-badge{display:inline-block;margin-bottom:8px;padding:4px 9px;border-radius:999px;background:#ead8b9;color:#5b3b16;font-weight:800;font-size:.72rem}
 
 .seller-method{padding:12px 14px;margin:0 0 12px;background:#f5f1e7;border:1px solid #e2ddd0;border-radius:12px}.seller-method b{display:block;color:#18382d}.seller-method span{display:block;margin-top:4px;font-size:12px;color:#69736d;line-height:1.5}
+
+.sector-panel{margin-top:18px}
+.sector-head{display:flex;justify-content:space-between;gap:16px;align-items:flex-start}
+.sector-head h2{margin:0 0 5px}.sector-head p{margin:0;color:#69736d;font-size:13px;line-height:1.5}
+.sector-version{padding:6px 9px;border-radius:999px;background:#eee8da;font-size:11px;font-weight:800;white-space:nowrap}
+.sector-warning{margin:14px 0;padding:10px 12px;border-radius:10px;background:#fff7e7;border:1px solid #ead8b9;color:#6b5738;font-size:12px;line-height:1.5}
+.sector-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.sector-card{border:1px solid #e2ddd0;border-radius:12px;padding:13px;background:#fcfbf8}
+.sector-card-top{display:flex;justify-content:space-between;gap:8px;align-items:center;margin-bottom:12px}
+.sector-card-top b{font-size:16px}.sector-card-top span{font-size:11px;font-weight:800;padding:4px 7px;border-radius:999px;background:#eee8da}
+.sector-metrics{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+.sector-metrics div{padding:8px;background:#f5f1e7;border-radius:8px}.sector-metrics small{display:block;color:#69736d;font-size:10px}.sector-metrics b{display:block;margin-top:2px;font-size:14px}
+.sector-meta,.sector-footer{margin-top:10px;color:#69736d;font-size:11px;line-height:1.5}
+.sector-subtitle{margin:18px 0 8px}.sector-table-wrap{overflow:auto}
+.sector-table{width:100%;border-collapse:collapse;font-size:12px}.sector-table th,.sector-table td{padding:9px 8px;border-bottom:1px solid #e8e3d9;text-align:left;white-space:nowrap}.sector-table th{font-size:10px;text-transform:uppercase;color:#69736d}
+.sector-error{padding:18px;border-radius:10px;background:#fff1ef;color:#8a3f35}.sector-panel.loading{opacity:.7}
+@media(max-width:900px){.sector-grid{grid-template-columns:1fr 1fr}}@media(max-width:700px){.sector-grid{grid-template-columns:1fr}.sector-head{flex-direction:column}}
