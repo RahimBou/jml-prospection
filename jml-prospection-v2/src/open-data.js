@@ -333,14 +333,13 @@ async function fetchDvfFallback(codeInsee, years = 5, maxRows = 100000) {
 }
 
 async function fetchDvf(codeInsee, years = 5, maxRows = 100000) {
-  try {
-    const result = await fetchDvfCerema(codeInsee, years, maxRows);
-    if (result.total > 0) return { ...result, source: "Cerema", fallback: false };
-    throw new Error("Cerema a renvoyé 0 transaction");
-  } catch (ceremaError) {
-    const fallback = await fetchDvfFallback(codeInsee, years, maxRows);
-    return { ...fallback, fallback: true, errors: ["Cerema DVF indisponible: " + ceremaError.message] };
-  }
+  // Source DVF officielle prioritaire : fichiers publics data.gouv.fr.
+  // Le point d'API Cerema historique apidf.cerema.fr n'est plus utilisé
+  // ici afin d'éviter une dépendance DNS/endpoint qui provoquait ENOTFOUND
+  // sur Render. On conserve fetchDvfCerema dans le fichier pour référence
+  // et réactivation éventuelle après validation d'un endpoint Cerema actuel.
+  const result = await fetchDvfFallback(codeInsee, years, maxRows);
+  return { ...result, fallback: false, errors: [] };
 }
 
 async function fetchOpenDataSignals(city, options = {}) {
