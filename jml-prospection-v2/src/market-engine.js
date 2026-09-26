@@ -134,11 +134,11 @@ function dvfStats(items) {
   };
 }
 
-function buildMarketSnapshot(params = {}) {
+async function buildMarketSnapshot(params = {}) {
   const city = params.ville || "Charleville-Mézières";
   const [web, open] = await Promise.allSettled([
     searchPublicListings(params),
-    fetchOpenDataSignals(city, { dpeLimit: 120, dvfYears: 5, dvfMaxRows: 1500 })
+    fetchOpenDataSignals(city, { dpeLimit: 120, dvfYears: 5, dvfMaxRows: 10000 })
   ]);
   const current = web.status === "fulfilled" ? dedupe(web.value.items || []) : [];
   const items = current.map(item => ({ ...item, property_type: item.property_type || classify(item), market_signal: "annonce_publique" }));
