@@ -76,7 +76,7 @@ async function buildMarketSnapshot(params = {}) {
   const items = current.map(item => ({ ...item, property_type: item.property_type || classify(item), market_signal: "annonce_publique" }));
   const openData = open.status === "fulfilled" ? open.value : { dpe: [], dvf: { items: [], total: 0 }, errors: ["Open data indisponible"] };
   const hidden = buildHiddenOpportunities(openData.dpe || [], items);
-  const memory = snapshot(items);
+  const memory = snapshot(items, { sourceReady: web.status === "fulfilled" });
   const market = dvfStats(openData.dvf?.items || []);
   return {
     version: "2.0.0",
@@ -92,7 +92,7 @@ async function buildMarketSnapshot(params = {}) {
     price_changes: memory.priceChanges,
     memory: { size: memory.memorySize, new_listings: memory.newItems.length },
     items,
-    next_phase: ["Mémoire persistante des annonces", "Croisement adresse DPE / historique DVF", "Détection des annonces disparues", "Détection des baisses de prix", "Classement Top 10 à visiter"]
+    next_phase: ["Croisement adresse DPE / historique DVF", "Qualification des doublons multi-sources", "Préparation de tournée terrain", "Historique long terme avec stockage persistant", "Enrichissement progressif des sources publiques"]
   };
 }
 module.exports = { buildMarketSnapshot };
