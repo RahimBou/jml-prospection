@@ -19,7 +19,17 @@
 <div id="message" class="message"></div>
 </section>
 <section class="stats" id="stats"></section>
-    <section class="panel"><h2>🎯 Top 10 terrain</h2><div id="top10" class="results"><div class="empty">Lance une analyse pour calculer les opportunités.</div></div></section>
+    <section class="panel"><h2>🎯 Top 10 terrain</h2>
+<div class="tour-toolbar">
+  <div><b>Préparer une tournée</b><span id="selectionCount">0/10 sélectionné(s)</span></div>
+  <div class="tour-actions">
+    <button id="selectPriority">⚡ Sélectionner les priorités</button>
+    <button id="clearSelection" class="secondary">✕ Effacer</button>
+    <button id="prepareTour">🗺️ Préparer ma tournée</button>
+  </div>
+</div>
+<div id="tourMessage" class="message"></div>
+<div id="top10" class="results"><div class="empty">Lance une analyse pour calculer les opportunités.</div></div></section>
 <section class="panel">
 <div class="tabs">
 <button class="tab active" data-tab="current">🔴 À vendre</button>
