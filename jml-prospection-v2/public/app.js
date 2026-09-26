@@ -141,28 +141,46 @@ function renderTop10(items = []) {
 
   if (!top.length) {
     $("top10").innerHTML = '<div class="empty">Aucune adresse prioritaire détectée sur cette analyse.</div>';
+    updateSelectionCount();
     return;
   }
 
-  $("top10").innerHTML = top.map((item, index) =>
-    '<article class="card priority">' +
-    '<div class="score">#' + (index + 1) + ' · ' + Number(item.score || 0) + '/100</div>' +
-    '<h3>' + escapeHtml(item.address || "Adresse non précisée") + '</h3>' +
-    '<div class="meta">' + escapeHtml(item.city || "") + ' · DPE ' +
-    escapeHtml(item.dpe || "—") + ' · GES ' + escapeHtml(item.ges || "—") +
-    ' · ' + (item.surface || "—") + ' m²' +
-    (item.construction_year ? ' · construction ' + escapeHtml(item.construction_year) : '') +
-    '</div>' +
-    '<div class="reasons"><b>Décomposition du score</b> ' +
-    renderScoreBreakdown(item.score_breakdown) + '</div>' +
-    '<div class="reasons">' + (item.reason || []).map(reason =>
-      '<span class="tag">' + escapeHtml(reason) + '</span>').join(" ") +
-    '</div>' +
-    '<button class="field-btn" data-address="' + escapeAttr(item.address || "") +
-    '">📍 Préparer la visite</button></article>'
-  ).join("");
-}
+  $("top10").innerHTML = top.map((item, index) => {
+    const address = item.address || "";
+    const level = priorityLevel(item.score);
+    const checked = selectedAddresses.has(address) ? " checked" : "";
 
+    return '<article class="card priority tour-card' + (checked ? ' selected-card' : '') + '">' +
+      '<div class="select-row">' +
+      '<label><input type="checkbox" data-select="' + escapeAttr(address) + '"' + checked +
+      '> Sélectionner</label>' +
+      '<span class="priority-badge priority-' + level + '">Priorité ' + level + '</span>' +
+      '</div>' +
+      '<div class="score">#' + (index + 1) + ' · ' + Number(item.score || 0) + '/100</div>' +
+      '<h3>' + escapeHtml(address || "Adresse non précisée") + '</h3>' +
+      '<div class="meta">' + escapeHtml(item.city || "") + ' · DPE ' +
+      escapeHtml(item.dpe || "—") + ' · GES ' + escapeHtml(item.ges || "—") +
+      ' · ' + (item.surface || "—") + ' m²' +
+      (item.construction_year ? ' · construction ' + escapeHtml(item.construction_year) : '') +
+      '</div>' +
+      '<div class="reasons"><b>Décomposition du score</b> ' +
+      renderScoreBreakdown(item.score_breakdown) + '</div>' +
+      '<div class="reasons">' + (item.reason || []).map(reason =>
+      '<span class="tag">' + escapeHtml(reason) + '</span>').join(" ") +
+      '</div>' +
+      '<button class="field-btn" data-address="' + escapeAttr(address) +
+      '">📍 Préparer la visite</button>' +
+      '</article>';
+  }).join("");
+
+  document.querySelectorAll("input[data-select]").forEach(input => {
+    input.addEventListener("change", () =>
+      toggleSelection(input.dataset.select, input.checked)
+    );
+  });
+
+  updateSelectionCount();
+}
 function render() {
   const data = snapshot || {};
   const current = data.current || [];
