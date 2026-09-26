@@ -96,7 +96,7 @@ function renderHidden(items = []) {
 
   return ordered.map((item, index) => {
     const address = item.address || "";
-    const level = priorityLevel(item.score, item.seller_signal);
+    const level = priorityLevel(item.score, item.seller_signal, item.terrain_ready);
     const checked = selectedAddresses.has(address) ? " checked" : "";
     return '<article class="card priority tour-card' + (checked ? ' selected-card' : '') + '">' +
       '<div class="select-row">' +
@@ -105,8 +105,8 @@ function renderHidden(items = []) {
       '<span class="priority-badge priority-' + level + '">Priorité ' + level + '</span>' +
       '</div>' +
       '<div class="score">#' + (index + 1) + ' · ' + Number(item.score || 0) + '/100</div>' +
-      '<div><span class="priority-badge priority-' + (item.seller_signal === "fort" ? "A" : item.seller_signal === "probable" ? "B" : "C") + '">' +
-      escapeHtml(item.seller_signal_label || "Indice vendeur") + '</span> <span class="tag">' +
+      '<div><span class="priority-badge priority-' + (item.terrain_ready && Number(item.score || 0) >= 70 ? "A" : item.terrain_ready && Number(item.score || 0) >= 58 ? "B" : "C") + '">' +
+      escapeHtml(item.seller_signal_label || (item.terrain_ready ? "Dossier terrain renforcé" : "Veille")) + '</span> <span class="tag">' +
       Number(item.signal_count || 0) + ' signaux</span> ' +
       (item.terrain_ready ? '<span class="tag">✓ Terrain renforcé</span>' : '<span class="tag">Veille</span>') +
       '</div>' +
@@ -198,12 +198,14 @@ function archiveSelectedTerrain() {
 }
 
 
-function priorityLevel(score, sellerSignal) {
-  if (sellerSignal === "fort") return "A";
-  if (sellerSignal === "probable") return "B";
-  if (sellerSignal === "surveiller") return "C";
-  const s = Number(score || 0);
-  return s >= 84 ? "A" : s >= 80 ? "B" : "C";
+function priorityLevel(score, sellerSignal, terrainReady) {
+  // La tournée doit privilégier les dossiers réellement qualifiés par le moteur.
+  // Le score seul ne suffit jamais à créer une priorité A.
+  if (terrainReady && Number(score || 0) >= 70) return "A";
+  if (terrainReady && Number(score || 0) >= 58) return "B";
+  if (sellerSignal === "fort" && terrainReady) return "A";
+  if (sellerSignal === "probable" && terrainReady) return "B";
+  return "C";
 }
 
 function updateSelectionCount() {
