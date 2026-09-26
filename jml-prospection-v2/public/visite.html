@@ -29,7 +29,9 @@ input,select,textarea{width:100%;border:1px solid var(--line);border-radius:10px
 <main><div id="app"></div></main>
 <script>
 const esc=s=>String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));
-let data=null;\ntry{data=JSON.parse(localStorage.getItem("jml_visit")||"null")}catch(e){console.warn("jml_visit invalide, réinitialisation",e);try{localStorage.removeItem("jml_visit")}catch(_){}}\nconst app=document.getElementById("app");
+let data=null;
+try{data=JSON.parse(localStorage.getItem("jml_visit")||"null")}catch(e){console.warn("jml_visit invalide, réinitialisation",e);try{localStorage.removeItem("jml_visit")}catch(_){}}
+const app=document.getElementById("app");
 if(!data){app.innerHTML='<div class="card"><h2>Prospect introuvable</h2><p>Retourne au Radar et utilise « Préparer la visite ».</p><a class="btn" href="/">← Retour au Radar</a></div>'}
 else{
  const address=data.address||"Adresse non précisée",city=data.city||"",key="jml_prospect_"+address,old=JSON.parse(localStorage.getItem(key)||"null")||{},bd=data.score_breakdown||{};
