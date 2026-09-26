@@ -92,7 +92,7 @@ function dvfSignal(dpeItem, dvfItems) {
   });
 
   if (!candidates.length) {
-    return { score: 0, label: "aucune mutation DVF rapprochée", yearsSince: null, distanceM: null };
+    return { score: 0, label: "aucune mutation DVF rapprochée", yearsSince: null, distanceM: null, matchType: null };
   }
 
   const best = candidates
@@ -128,6 +128,7 @@ function dvfSignal(dpeItem, dvfItems) {
 
   return {
     score: Math.min(20, score),
+    matchType: target && normalizeAddress(best.address) === target ? "exact" : "geographique",
     label: yearsSince == null
       ? "mutation DVF rapprochée"
       : "dernière mutation il y a " + yearsSince + " an(s)",
@@ -151,24 +152,48 @@ function scoreDataQuality(item) {
 }
 
 function scoreSellerDpe(dpe) {
-  return dpe === "G" ? 14 : dpe === "F" ? 10 : dpe === "E" ? 6 : dpe === "D" ? 3 : dpe === "C" ? 1 : 0;
+  // Le DPE est un signal, pas une preuve de vente : poids volontairement plafonné.
+  return dpe === "G" ? 10 : dpe === "F" ? 8 : dpe === "E" ? 4 : dpe === "D" ? 1 : 0;
+}
+
+function scoreSellerGes(ges) {
+  return ges === "G" ? 4 : ges === "F" ? 3 : ges === "E" ? 1 : 0;
 }
 
 function scoreLocalActivity(count) {
+  // On récompense une vraie activité locale, sans transformer un quartier dense
+  // en machine à faux positifs.
   const n = Number(count) || 0;
-  if (n >= 8) return 8;
-  if (n >= 5) return 6;
-  if (n >= 3) return 4;
-  if (n >= 1) return 2;
+  if (n >= 8) return 5;
+  if (n >= 5) return 4;
+  if (n >= 3) return 3;
+  if (n >= 1) return 1;
   return 0;
 }
 
-function sellerBand(score, signalCount) {
+function scoreHold(yearsSince) {
+  const y = Number(yearsSince);
+  if (!Number.isFinite(y)) return 0;
+  // Zone de recherche principale : propriétaire installé depuis assez longtemps
+  // pour qu'un nouveau projet soit plausible, sans survaloriser les ventes très anciennes.
+  if (y >= 15) return 16;
+  if (y >= 12) return 18;
+  if (y >= 9) return 16;
+  if (y >= 6) return 12;
+  if (y >= 4) return 6;
+  if (y >= 2) return 2;
+  return 0;
+}
+
+function scoreMatchType(matchType) {
+  return matchType === "exact" ? 8 : matchType === "geographique" ? 3 : 0;
+}
+
+function sellerBand(score) {
   const s = Number(score || 0);
-  const n = Number(signalCount || 0);
-  if (s >= 70 && n >= 4) return "fort";
-  if (s >= 55 && n >= 3) return "probable";
-  if (s >= 40 && n >= 2) return "surveiller";
+  if (s >= 72) return "fort";
+  if (s >= 58) return "probable";
+  if (s >= 42) return "surveiller";
   return "faible";
 }
 
@@ -197,39 +222,101 @@ function buildHiddenOpportunities(dpeItems, currentItems, dvfItems = []) {
         return haversineKm(x.lat, x.lon, t.latitude, t.longitude) <= 0.15;
       }).length;
 
+      const hold = scoreHold(dvf.yearsSince);
+      const dpeScore = scoreSellerDpe(x.dpe);
+      const gesScore = scoreSellerGes(x.ges);
+      const ageScore = Math.min(8, scoreAge(x.year));
+      const surfaceScore = Math.min(5, scoreSurface(x.surface));
+      const qualityScore = Math.min(6, quality);
+      const activityScore = scoreLocalActivity(localTransactions);
+      const matchScore = scoreMatchType(dvf.matchType);
+
       const signals = [];
       if (["F", "G"].includes(x.dpe)) signals.push("DPE énergivore");
       if (["F", "G"].includes(x.ges)) signals.push("GES élevé");
-      if (dvf.yearsSince != null && dvf.yearsSince >= 3) signals.push("détention DVF déjà longue");
-      if (dvf.yearsSince != null && dvf.yearsSince >= 4) signals.push("cycle de détention avancé");
-      if (localTransactions >= 3) signals.push("activité DVF locale");
-      if (Number(x.year) > 0 && Number(x.year) < 1970) signals.push("construction ancienne");
+      if (dvf.yearsSince >= 6) signals.push("détention longue");
+      if (dvf.yearsSince >= 9) signals.push("cycle de détention avancé");
+      if (localTransactions >= 3) signals.push("marché local actif");
+      if (Number(x.year) > 0 && Number(x.year) < 1970) signals.push("bâti ancien");
+      if (dvf.matchType === "exact") signals.push("DVF même adresse");
+      else if (dvf.matchType === "geographique") signals.push("DVF à proximité");
       if (quality >= 8) signals.push("données bien confirmées");
-      signals.push("aucune annonce publique détectée");
+      if (!currentAddresses.has(normalizeAddress(x.address))) signals.push("aucune annonce détectée");
 
-      const rawScore =
-        scoreSellerDpe(x.dpe) +
-        scoreGes(x.ges) +
-        scoreSurface(x.surface) +
-        Math.min(12, scoreAge(x.year)) +
-        12 +
-        dvf.score +
-        scoreLocalActivity(localTransactions) +
-        Math.min(8, quality);
+      // Base volontairement modérée : la différence vient surtout des combinaisons.
+      let score =
+        dpeScore +
+        gesScore +
+        ageScore +
+        surfaceScore +
+        hold +
+        activityScore +
+        matchScore +
+        qualityScore +
+        2; // absence d'annonce : signal faible tant que la couverture web n'est pas exhaustive
 
-      const score = Math.round(Math.min(100, rawScore));
-      const signalCount = signals.length;
-      const band = sellerBand(score, signalCount);
+      const synergies = [];
+      if (hold >= 12 && ["F", "G"].includes(x.dpe)) {
+        score += 10;
+        synergies.push("détention longue + DPE énergivore");
+      }
+      if (hold >= 12 && Number(x.year) > 0 && Number(x.year) < 1970) {
+        score += 8;
+        synergies.push("détention longue + bâti ancien");
+      }
+      if (hold >= 6 && localTransactions >= 3) {
+        score += 6;
+        synergies.push("détention longue + marché local actif");
+      }
+      if (dvf.matchType === "exact" && hold >= 6) {
+        score += 6;
+        synergies.push("même adresse DVF + détention longue");
+      }
+      if (dvf.matchType === "exact" && ["F", "G"].includes(x.dpe) && hold >= 6) {
+        score += 5;
+        synergies.push("DVF exact + DPE énergivore + détention");
+      }
+      if (Number(x.year) > 0 && Number(x.year) < 1970 && ["F", "G"].includes(x.dpe)) {
+        score += 4;
+        synergies.push("bâti ancien + DPE énergivore");
+      }
+
+      // Bonus de convergence : plusieurs familles indépendantes valent davantage
+      // que plusieurs signaux provenant de la même famille.
+      const families = [
+        ["energie", ["F", "G"].includes(x.dpe) || ["F", "G"].includes(x.ges)],
+        ["detention", hold >= 6],
+        ["historique", Boolean(dvf.matchType)],
+        ["marche", localTransactions >= 3],
+        ["bati", Number(x.year) > 0 && Number(x.year) < 1970],
+        ["donnees", quality >= 8]
+      ].filter(([, ok]) => ok).length;
+
+      if (families >= 5) {
+        score += 8;
+        synergies.push("convergence de 5 familles de signaux");
+      } else if (families >= 4) {
+        score += 5;
+        synergies.push("convergence de 4 familles de signaux");
+      } else if (families >= 3) {
+        score += 2;
+      }
+
+      score = Math.round(Math.min(100, score));
+      const band = sellerBand(score);
 
       const reason = [
-        "Indice vendeur basé sur " + signalCount + " signaux indépendants",
+        "Indice vendeur basé sur " + signals.length + " signaux",
+        "convergence : " + families + " familles indépendantes",
         "DPE " + (x.dpe || "non renseigné"),
         x.ges ? "GES " + x.ges : "",
         x.surface ? x.surface + " m²" : "",
         x.year ? "construction " + x.year : "",
-        "aucune annonce publique correspondante détectée",
         dvf.label,
-        localTransactions ? localTransactions + " mutation(s) DVF dans ~150 m" : ""
+        dvf.matchType === "exact" ? "DVF même adresse" : dvf.matchType === "geographique" ? "DVF à proximité" : "",
+        localTransactions ? localTransactions + " mutation(s) DVF dans ~150 m" : "",
+        "aucune annonce publique correspondante détectée",
+        ...synergies
       ].filter(Boolean);
 
       if (dvf.priceM2) reason.push("dernier DVF ≈ " + dvf.priceM2.toLocaleString("fr-FR") + " €/m²");
@@ -250,31 +337,33 @@ function buildHiddenOpportunities(dpeItems, currentItems, dvfItems = []) {
         score,
         seller_signal: band,
         seller_signal_label: sellerBandLabel(band),
-        signal_count: signalCount,
+        signal_count: signals.length,
+        family_count: families,
         signal_details: signals,
+        synergies,
         local_dvf_transactions: localTransactions,
-        signal: "Indice vendeur",
+        signal: "Indice vendeur multi-signaux",
         score_breakdown: {
-          dpe: scoreSellerDpe(x.dpe),
-          ges: scoreGes(x.ges),
-          surface: scoreSurface(x.surface),
-          age: Math.min(12, scoreAge(x.year)),
-          market_absence: 12,
-          dvf_history: dvf.score,
-          local_activity: scoreLocalActivity(localTransactions),
-          data_quality: Math.min(8, quality)
+          dpe: dpeScore,
+          ges: gesScore,
+          surface: surfaceScore,
+          age: ageScore,
+          market_absence: 2,
+          dvf_history: hold + matchScore,
+          local_activity: activityScore,
+          data_quality: qualityScore,
+          convergence: Math.min(8, families >= 5 ? 8 : families >= 4 ? 5 : families >= 3 ? 2 : 0)
         },
         reason,
         action: "Vérifier l'adresse sur le terrain"
       };
     })
     .sort((a, b) =>
-      Number(b.signal_count || 0) - Number(a.signal_count || 0) ||
       Number(b.score || 0) - Number(a.score || 0) ||
-      Number(b.score_breakdown?.dvf_history || 0) - Number(a.score_breakdown?.dvf_history || 0)
+      Number(b.family_count || 0) - Number(a.family_count || 0) ||
+      Number(b.signal_count || 0) - Number(a.signal_count || 0)
     );
 }
-
 function dvfStats(items) {
   const valid = items.filter(x => number(x.price) > 0 && number(x.built_surface) > 0);
   const prices = valid
@@ -313,7 +402,7 @@ async function buildMarketSnapshot(params = {}) {
   const memory = snapshot(items, { sourceReady: web.status === "fulfilled" });
   const market = dvfStats(openData.dvf?.items || []);
   return {
-    version: "2.3.0",
+    version: "2.3.1",
     generated_at: new Date().toISOString(),
     scope: { department: params.dept || "08", city, radius_km: number(params.radius_km || 10) },
     counts: { current_listings: items.length, hidden_opportunities: hidden.length, disappeared: memory.disappeared.length, price_changes: memory.priceChanges.length, new_listings: memory.newItems.length },
