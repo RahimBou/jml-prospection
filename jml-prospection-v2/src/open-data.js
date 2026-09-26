@@ -96,30 +96,35 @@ async function fetchDpe(city, limit = 120, codeInsee = "") {
       try {
         // Recherche textuelle volontairement simple : elle évite de dépendre
         // d'un nom de colonne de filtre qui peut évoluer dans Data Fair.
-        const url = "https://data.ademe.fr/data-fair/api/v1/datasets/" +
-          dataset + "/lines?size=" + size + "&q=" + encodeURIComponent(q);
-
-        const data = await fetchJson(url, 20000);
-        const rows = Array.isArray(data.results) ? data.results : (Array.isArray(data) ? data : []);
-
         const unique = [];
         const seen = new Set();
+        const maxPages = 4;
 
-        for (const row of rows) {
-          const item = mapDpe(row);
-          if (!item.address || !item.city) continue;
+        for (let page = 1; page <= maxPages && unique.length < limit; page++) {
+          const pageSize = Math.min(200, Math.max(20, limit - unique.length));
+          const url = "https://data.ademe.fr/data-fair/api/v1/datasets/" +
+            dataset + "/lines?size=" + pageSize + "&page=" + page + "&q=" + encodeURIComponent(q);
 
-          const normalizedCity = item.city.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-          const wantedCity = String(city || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+          const data = await fetchJson(url, 20000);
+          const rows = Array.isArray(data.results) ? data.results : (Array.isArray(data) ? data : []);
 
-          if (wantedCity && !normalizedCity.includes(wantedCity) && !wantedCity.includes(normalizedCity)) {
-            continue;
+          for (const row of rows) {
+            const item = mapDpe(row);
+            if (!item.address || !item.city) continue;
+
+            const normalizedCity = item.city.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+            const wantedCity = String(city || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+
+            if (wantedCity && !normalizedCity.includes(wantedCity) && !wantedCity.includes(normalizedCity)) continue;
+
+            const key = item.address.toLowerCase();
+            if (seen.has(key)) continue;
+            seen.add(key);
+            unique.push(item);
+            if (unique.length >= limit) break;
           }
 
-          const key = item.address.toLowerCase();
-          if (seen.has(key)) continue;
-          seen.add(key);
-          unique.push(item);
+          if (rows.length < pageSize) break;
         }
 
         if (unique.length) return unique;
