@@ -9,3 +9,5 @@
 .archive-btn{background:#6b4b24!important;color:#fff!important}.archive-btn:disabled{opacity:.55;cursor:not-allowed}.terrain-toolbar .tour-actions{flex-wrap:wrap}
 
 .new-card{border-color:#b98a45}.new-badge{display:inline-block;margin-bottom:8px;padding:4px 9px;border-radius:999px;background:#ead8b9;color:#5b3b16;font-weight:800;font-size:.72rem}
+
+.seller-method{padding:12px 14px;margin:0 0 12px;background:#f5f1e7;border:1px solid #e2ddd0;border-radius:12px}.seller-method b{display:block;color:#18382d}.seller-method span{display:block;margin-top:4px;font-size:12px;color:#69736d;line-height:1.5}
