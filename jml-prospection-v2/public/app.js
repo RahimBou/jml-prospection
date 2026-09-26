@@ -231,7 +231,7 @@ function render() {
       '</div></div>';
     $("results").insertAdjacentHTML("afterbegin", toolbar);
 
-    document.querySelectorAll("input[data-select]").forEach(input => {
+    document.querySelectorAll("#results input[data-select]").forEach(input => {
       input.addEventListener("change", () => toggleSelection(input.dataset.select, input.checked));
     });
 
