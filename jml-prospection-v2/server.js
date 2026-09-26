@@ -6,7 +6,7 @@ const { searchPublicListings, geocodeAddress } = require("./src/sources");
 const { buildMarketSnapshot } = require("./src/market-engine");
 const { buildSectorRadar } = require("./src/sector-radar");
 
-const VERSION = "2.4.4";
+const VERSION = "2.4.5";
 const PORT = Number(process.env.PORT || 10000);
 const ROOT = __dirname;
 const PUBLIC = path.join(ROOT, "public");
