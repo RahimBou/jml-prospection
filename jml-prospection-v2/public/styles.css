@@ -5,3 +5,5 @@
 @media(max-width:700px){.tour-start{align-items:stretch}.tour-start label,.tour-start input{width:100%}.tour-start select,.tour-start input{min-width:0}}
 
 .prospect-status{display:inline-block;margin-left:7px;padding:4px 8px;border-radius:999px;background:#ead8b9;font-size:.72rem;font-weight:700;vertical-align:middle}
+
+.archive-btn{background:#6b4b24!important;color:#fff!important}.archive-btn:disabled{opacity:.55;cursor:not-allowed}.terrain-toolbar .tour-actions{flex-wrap:wrap}
