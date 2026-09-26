@@ -217,7 +217,7 @@ function buildHiddenOpportunities(dpeItems, currentItems, dvfItems = []) {
     .map(x => {
       const dvf = dvfSignal(x, dvfItems);
       const quality = scoreDataQuality(x);
-      const localTransactions = (dvfItems || []).filter(t => {
+      const localTransactions = (dvfItems || []).filter(t => isResidentialDvf(t)).filter(t => {
         if (x.lat == null || x.lon == null || t.latitude == null || t.longitude == null) return false;
         return haversineKm(x.lat, x.lon, t.latitude, t.longitude) <= 0.15;
       }).length;
@@ -387,8 +387,14 @@ function buildHiddenOpportunities(dpeItems, currentItems, dvfItems = []) {
       Number(b.signal_count || 0) - Number(a.signal_count || 0)
     );
 }
+function isResidentialDvf(item) {
+  const t = String(item?.type || "").toLowerCase();
+  return /maison|appartement|studio|immeuble d'habitation|local d'habitation/.test(t);
+}
+
 function dvfStats(items) {
-  const valid = items.filter(x => number(x.price) > 0 && number(x.built_surface) > 0);
+  const residential = items.filter(isResidentialDvf);
+  const valid = residential.filter(x => number(x.price) > 0 && number(x.built_surface) > 0);
   const prices = valid
     .map(x => x.price / x.built_surface)
     .filter(Number.isFinite)
@@ -404,9 +410,10 @@ function dvfStats(items) {
 
   const lastYear = new Date().getUTCFullYear() - 1;
   return {
-    transactions: items.length,
+    transactions: residential.length,
+    all_mutations: items.length,
     comparables: valid.length,
-    recent_transactions: items.filter(x => Number(x.year) >= lastYear).length,
+    recent_transactions: residential.filter(x => Number(x.year) >= lastYear).length,
     median_price_m2: Math.round(median || 0),
     median_sample: prices.length
   };
@@ -425,7 +432,7 @@ async function buildMarketSnapshot(params = {}) {
   const memory = snapshot(items, { sourceReady: web.status === "fulfilled" });
   const market = dvfStats(openData.dvf?.items || []);
   return {
-    version: "2.3.2",
+    version: "2.3.4",
     generated_at: new Date().toISOString(),
     scope: { department: params.dept || "08", city, radius_km: number(params.radius_km || 10) },
     counts: { current_listings: items.length, hidden_opportunities: hidden.length, disappeared: memory.disappeared.length, price_changes: memory.priceChanges.length, new_listings: memory.newItems.length },
