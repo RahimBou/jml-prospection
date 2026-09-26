@@ -29,12 +29,18 @@ input,select,textarea{width:100%;border:1px solid var(--line);border-radius:10px
 <main><div id="app"></div></main>
 <script>
 const esc=s=>String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));
-let data=null;
-try{data=JSON.parse(localStorage.getItem("jml_visit")||"null")}catch(e){console.warn("jml_visit invalide, réinitialisation",e);try{localStorage.removeItem("jml_visit")}catch(_){}}
+const safeParse=(value,fallback=null)=>{try{return JSON.parse(value)}catch(e){console.warn("JSON localStorage invalide",e);return fallback}};
+let data=safeParse(localStorage.getItem("jml_visit")||"null");
 const app=document.getElementById("app");
+const queryAddress=new URLSearchParams(location.search).get("address");
+if(!data && queryAddress){
+  data={address:queryAddress,city:"",score:null,reason:[],score_breakdown:{}};
+  try{localStorage.setItem("jml_visit",JSON.stringify(data))}catch(_){}
+}
 if(!data){app.innerHTML='<div class="card"><h2>Prospect introuvable</h2><p>Retourne au Radar et utilise « Préparer la visite ».</p><a class="btn" href="/">← Retour au Radar</a></div>'}
 else{
- const address=data.address||"Adresse non précisée",city=data.city||"",key="jml_prospect_"+address,old=JSON.parse(localStorage.getItem(key)||"null")||{},bd=data.score_breakdown||{};
+ try{
+ const address=data.address||"Adresse non précisée",city=data.city||"",key="jml_prospect_"+address,old=safeParse(localStorage.getItem(key)||"null",{})||{},bd=data.score_breakdown||{};
  const level=(data.terrain_ready&&Number(data.score||0)>=70)?"A":(data.terrain_ready&&Number(data.score||0)>=58)?"B":(data.seller_signal==="fort"&&data.terrain_ready)?"A":(data.seller_signal==="probable"&&data.terrain_ready)?"B":"C";
  const reason=(data.reason||[]).map(x=>'<span class="tag">'+esc(x)+'</span>').join("");
  const initial={status:old.status||"À qualifier",owner:old.owner||"",phone:old.phone||"",email:old.email||"",next:old.next||"",nextDate:old.nextDate||"",notes:old.notes||"",objections:old.objections||"",price:old.price||"",estimateLow:old.estimateLow||"",estimateTarget:old.estimateTarget||"",estimateHigh:old.estimateHigh||"",sellerProject:old.sellerProject||"",sellerDelay:old.sellerDelay||"",sellerReason:old.sellerReason||"",checks:old.checks||[],docs:old.docs||[],photos:old.photos||[]};
@@ -64,6 +70,10 @@ else{
  async function resize(file){return new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>{const img=new Image();img.onload=()=>{const max=1200,scale=Math.min(1,max/Math.max(img.width,img.height)),c=document.createElement("canvas");c.width=Math.round(img.width*scale);c.height=Math.round(img.height*scale);c.getContext("2d").drawImage(img,0,0,c.width,c.height);resolve(c.toDataURL("image/jpeg",.75))};img.onerror=reject;img.src=r.result};r.onerror=reject;r.readAsDataURL(file)})}
  document.getElementById("photos").onchange=async e=>{for(const f of [...e.target.files].slice(0,6-photos.length)){try{photos.push(await resize(f))}catch{}}e.target.value="";renderPhotos();save(false)};
  document.getElementById("save").onclick=()=>save(true);document.getElementById("saveTop").onclick=()=>save(true);document.getElementById("print").onclick=()=>{save(false);window.print()};document.getElementById("print2").onclick=()=>{save(false);window.print()};renderPhotos();
+ }catch(err){
+   console.error("JML Visite: erreur d'affichage",err);
+   app.innerHTML='<div class="card"><h2>Erreur de chargement du dossier</h2><p>Le prospect a bien été transmis, mais un élément de la fiche n’a pas pu être affiché.</p><div class="notice"><strong>Détail technique :</strong> '+esc(err&&err.message?err.message:String(err))+'</div><a class="btn" href="/">← Retour au Radar</a></div>';
+ }
 }
 </script>
 </body>
