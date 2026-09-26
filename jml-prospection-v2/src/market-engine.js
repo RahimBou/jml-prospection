@@ -120,7 +120,7 @@ async function buildMarketSnapshot(params = {}) {
     scope: { department: params.dept || "08", city, radius_km: number(params.radius_km || 10) },
     counts: { current_listings: items.length, hidden_opportunities: hidden.length, disappeared: memory.disappeared.length, price_changes: memory.priceChanges.length, new_listings: memory.newItems.length },
     market,
-    source_status: { web_public: web.status === "fulfilled", dpe: Boolean(openData.dpe?.length), dvf: Boolean(openData.dvf?.total) },
+    source_status: { web_public: web.status === "fulfilled", dpe: Boolean(openData.dpe?.length), dvf: Boolean(openData.dvf?.total), dvf_source: openData.dvf?.source || "indisponible" },
     errors: [...(web.status === "rejected" ? ["Web public: " + web.reason.message] : []), ...(openData.errors || [])],
     current: items,
     hidden,
