@@ -77,8 +77,8 @@ function mapDpe(row) {
   };
 }
 
-async function fetchDpe(city, limit = 120) {
-  const data = await fetchJson(DPE_URL + "?q_fields=" + encodeURIComponent("Code_INSEE_(BAN)") + "&q=" + encodeURIComponent(arguments.length > 0 ? city : "") + "&size=" + Math.min(200, Math.max(20, limit)), 20000);
+async function fetchDpe(city, limit = 120, codeInsee = "") {
+  const query = codeInsee ? "&q_fields=" + encodeURIComponent("Code_INSEE_(BAN)") + "&q=" + encodeURIComponent(codeInsee) : "&q=" + encodeURIComponent(city);\n  const data = await fetchJson(DPE_URL + "?" + query.slice(1) + "&size=" + Math.min(200, Math.max(20, limit)), 20000);
   const rows = Array.isArray(data.results) ? data.results : (Array.isArray(data) ? data : []);
   const unique = []; const seen = new Set();
   for (const row of rows) {
@@ -204,7 +204,7 @@ async function fetchOpenDataSignals(city, options = {}) {
   }
 
   const [dpe, dvf] = await Promise.allSettled([
-    fetchDpe(resolved.city, options.dpeLimit || 120),
+    fetchDpe(resolved.city, options.dpeLimit || 120, resolved.citycode),
     fetchDvf(resolved.citycode, options.dvfYears || 5, options.dvfMaxRows || 1500)
   ]);
   const dvfValue = dvf.status === "fulfilled" ? dvf.value : { items: [], total: 0, source: "indisponible" };
