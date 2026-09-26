@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: jml-prospection-v2
+    runtime: node
+    rootDir: jml-prospection-v2
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /api/health
+    autoDeploy: true
