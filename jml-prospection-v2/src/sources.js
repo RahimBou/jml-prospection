@@ -198,7 +198,7 @@ async function searchPublicListings(params = {}) {
   });
   return {
     source: "Web public local",
-    version: "2.3.1",
+    version: "2.3.2",
     total: unique.length,
     items: unique,
     sources: sites.map((site, i) => ({
