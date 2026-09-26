@@ -160,8 +160,8 @@ function activeTerrainItems(items = []) {
 
 function archiveSelectedTerrain() {
   const selected = [...selectedAddresses].filter(Boolean);
-  if (!selected.length) {
-    $("tourMessage").textContent = "Sélectionne les adresses préparées avant de les archiver.";
+  if (selected.length !== 10) {
+    $("tourMessage").textContent = "Sélectionne exactement 10 adresses préparées avant de les archiver.";
     return;
   }
   const archived = getArchivedAddresses();
