@@ -34,7 +34,7 @@ else{
  const address=data.address||"Adresse non précisée", key="jml_prospect_"+address;
  const old=JSON.parse(localStorage.getItem(key)||"null")||{};
  const bd=data.score_breakdown||{};
- const level=Number(data.score||0)>=84?"A":Number(data.score||0)>=80?"B":"C";
+ const level=(data.terrain_ready && Number(data.score||0)>=70)?"A":(data.terrain_ready && Number(data.score||0)>=58)?"B":(data.seller_signal==="fort" && data.terrain_ready)?"A":(data.seller_signal==="probable" && data.terrain_ready)?"B":"C";
  const reason=(data.reason||[]).map(x=>'<span>'+esc(x)+'</span>').join("");
  app.innerHTML=
  '<div class="card"><div class="title"><div><div class="eyebrow">🎯 PROSPECT · PRIORITÉ '+level+'</div><div class="address">'+esc(address)+'</div><div>'+esc(data.city||"")+'</div></div><div class="badge">Radar '+esc(data.score??"—")+'/100</div></div>'+
