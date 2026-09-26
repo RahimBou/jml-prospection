@@ -107,8 +107,7 @@ function parseCsvLine(line) {
 }
 
 function parseDvfCsv(text, codeInsee, maxRows) {
-  const lines = text.split(/\r?
-/).filter(Boolean);
+  const lines = text.split(/\\r?\\n/).filter(Boolean);
   if (!lines.length) return [];
   const headers = parseCsvLine(lines[0]).map(clean);
   const index = Object.fromEntries(headers.map((h, i) => [h, i]));
