@@ -437,8 +437,8 @@ async function buildMarketSnapshot(params = {}) {
   // Le Radar doit rester utilisable même si une source publique ralentit.
   // Render peut retourner 502 lorsqu'une requête reste trop longtemps en amont.
   const [web, open] = await Promise.allSettled([
-    withTimeout(searchPublicListings(params), 35000, "Collecte annonces publiques"),
-    withTimeout(fetchOpenDataSignals(city, { dpeLimit: 800, dvfYears: 5, dvfMaxRows: 100000 }), 45000, "Collecte DVF/DPE")
+    withTimeout(searchPublicListings({ ...params, web_sources: Math.min(6, Number(params.web_sources || 6)) }), 18000, "Collecte annonces publiques"),
+    withTimeout(fetchOpenDataSignals(city, { dpeLimit: 350, dvfYears: 5, dvfMaxRows: 25000 }), 22000, "Collecte DVF/DPE")
   ]);
   const current = web.status === "fulfilled" ? dedupe(web.value.items || []) : [];
   const items = current.map(item => ({ ...item, property_type: item.property_type || classify(item), market_signal: "annonce_publique" }));
