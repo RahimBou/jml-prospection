@@ -3,7 +3,7 @@ const zlib = require("zlib");
 
 const DVF_URL = "https://apidf.cerema.fr/dvf_opendata/mutations/";
 const DVF_FALLBACK_BASE = "https://files.data.gouv.fr/geo-dvf/latest/csv";
-const DPE_URL = "https://data.ademe.fr/data-fair/api/v1/datasets/dpe03existant/lines";
+const DPE_URL = "https://data.ademe.fr/data-fair/api/v1/datasets/dpe-v2-logements-existants/lines";
 const BAN_URL = "https://data.geopf.fr/geocodage/search/";
 
 function fetchBuffer(url, timeout = 20000) {
@@ -61,24 +61,24 @@ async function resolveCity(city) {
 }
 
 function mapDpe(row) {
-  const numero = first(row, ["numero_rue_ban", "n° voie (ban)", "numero_voie_ban", "numero_rue"]);
-  const rue = first(row, ["nom_rue_ban", "nom de la rue (ban)", "nom_voie_ban", "nom_rue"]);
-  const city = first(row, ["nom_commune_ban", "nom commune (ban)", "nom_commune"]);
-  const cp = first(row, ["code_postal_ban", "code postal (ban)", "code_postal"]);
+  const numero = first(row, ["numero_rue_ban", "n° voie (ban)", "N° voie (BAN)", "numero_voie_ban", "numero_rue"]);
+  const rue = first(row, ["nom_rue_ban", "nom de la rue (ban)", "Nom rue (BAN)", "nom_voie_ban", "nom_rue"]);
+  const city = first(row, ["nom_commune_ban", "nom commune (ban)", "Nom commune (BAN)", "nom_commune"]);
+  const cp = first(row, ["code_postal_ban", "code postal (ban)", "Code postal (BAN)", "code_postal"]);
   return {
     address: clean([numero, rue, cp, city].filter(Boolean).join(" ")),
     city: clean(city), postcode: clean(cp), street: clean(rue), number: clean(numero),
-    dpe: clean(first(row, ["etiquette_dpe", "étiquette dpe", "classe_consommation_energie", "classe_dpe"])).toUpperCase(),
-    ges: clean(first(row, ["etiquette_ges", "étiquette ges", "classe_emission_ges"])).toUpperCase(),
-    surface: Number(first(row, ["surface_habitable_logement", "surface_habitable", "surface_ventilee"])) || 0,
-    year: Number(first(row, ["annee_construction", "annee_construction_batiment"])) || 0,
+    dpe: clean(first(row, ["etiquette_dpe", "étiquette dpe", "Etiquette DPE", "classe_consommation_energie", "classe_dpe"])).toUpperCase(),
+    ges: clean(first(row, ["etiquette_ges", "étiquette ges", "Etiquette GES", "classe_emission_ges"])).toUpperCase(),
+    surface: Number(first(row, ["surface_habitable_logement", "Surface habitable logement", "surface_habitable", "surface_ventilee"])) || 0,
+    year: Number(first(row, ["annee_construction", "Année construction", "annee_construction_batiment"])) || 0,
     lat: Number(first(row, ["coordonnee_cartographique_ban_x", "x_ban"])) || null,
     lon: Number(first(row, ["coordonnee_cartographique_ban_y", "y_ban"])) || null
   };
 }
 
 async function fetchDpe(city, limit = 120) {
-  const data = await fetchJson(DPE_URL + "?q=" + encodeURIComponent(city) + "&size=" + Math.min(200, Math.max(20, limit)), 20000);
+  const data = await fetchJson(DPE_URL + "?q_fields=" + encodeURIComponent("Code_INSEE_(BAN)") + "&q=" + encodeURIComponent(arguments.length > 0 ? city : "") + "&size=" + Math.min(200, Math.max(20, limit)), 20000);
   const rows = Array.isArray(data.results) ? data.results : (Array.isArray(data) ? data : []);
   const unique = []; const seen = new Set();
   for (const row of rows) {
