@@ -19,7 +19,7 @@ button.alt,a.alt{background:var(--gold)}button.light{background:#eee9df;color:#2
 textarea,input,select{width:100%;border:1px solid var(--line);border-radius:10px;padding:11px;font:inherit;background:#fff}
 textarea{min-height:120px;resize:vertical}.field{margin-bottom:12px}.field label{display:block;font-weight:700;margin-bottom:6px}
 .small{font-size:.85rem;color:#666}.breakdown{display:flex;flex-wrap:wrap;gap:7px}.breakdown span{background:#f0eee9;border-radius:999px;padding:6px 9px;font-size:.82rem}
-.saved{color:#176b45;font-weight:700;min-height:20px}
+.saved{color:#176b45;font-weight:700;min-height:20px}.prospect-status{display:inline-block;margin-left:7px;padding:4px 8px;border-radius:999px;background:#ead8b9;font-size:.72rem;font-weight:700;vertical-align:middle}
 @media(max-width:700px){.grid,.status-grid{grid-template-columns:1fr}.title{display:block}header{padding:16px}.address{font-size:1.12rem}}
 </style>
 </head>
@@ -57,7 +57,7 @@ else{
  document.querySelectorAll("[data-check]").forEach((e,i)=>e.checked=!!old.checks?.[i]);
  let status=old.status||"À qualifier";
  document.getElementById("currentStatus").textContent=status;
- document.querySelectorAll("[data-status]").forEach(b=>{b.classList.toggle("active",b.dataset.status===status);b.onclick=()=>{status=b.dataset.status;document.getElementById("currentStatus").textContent=status;document.querySelectorAll("[data-status]").forEach(x=>x.classList.toggle("active",x===b));}});
+ document.querySelectorAll("[data-status]").forEach(b=>{b.classList.toggle("active",b.dataset.status===status);b.onclick=()=>{status=b.dataset.status;document.getElementById("currentStatus").textContent=status;document.querySelectorAll("[data-status]").forEach(x=>x.classList.toggle("active",x===b));localStorage.setItem(key,JSON.stringify({...old,status,updatedAt:new Date().toISOString()}));document.getElementById("saved").textContent="✓ Statut enregistré.";}});
  document.getElementById("save").onclick=()=>{
    const record={...old,status,owner:document.getElementById("owner").value,phone:document.getElementById("phone").value,next:document.getElementById("next").value,nextDate:document.getElementById("nextDate").value,notes:document.getElementById("notes").value,objections:document.getElementById("objections").value,price:document.getElementById("price").value,checks:[...document.querySelectorAll("[data-check]")].map(x=>x.checked),updatedAt:new Date().toISOString()};
    localStorage.setItem(key,JSON.stringify(record));document.getElementById("saved").textContent="✓ Fiche enregistrée sur cet appareil.";
