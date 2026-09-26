@@ -57,16 +57,35 @@ function renderCurrent(items = []) {
 }
 
 function renderHidden(items = []) {
-  return items.map(item =>
-    '<article class="card priority"><div class="score">' + Number(item.score || 0) +
-    '/100</div><h3>' + escapeHtml(item.address || "Adresse non précisée") +
-    '</h3><div class="meta">' + escapeHtml(item.city || "") + ' · ' +
-    (item.surface || "—") + ' m² · DPE <b>' + escapeHtml(item.dpe || "—") +
-    '</b></div><div class="reasons">' + (item.reason || []).map(reason =>
-      '<span class="tag">' + escapeHtml(reason) + '</span>'
-    ).join(" ") + '</div><button class="field-btn" data-address="' +
-    escapeAttr(item.address || "") + '">📍 Préparer cette adresse</button></article>'
-  ).join("");
+  const ordered = [...items].sort((a, b) =>
+    Number(b.score || 0) - Number(a.score || 0) ||
+    Number(b.score_breakdown?.dvf_history || 0) - Number(a.score_breakdown?.dvf_history || 0)
+  );
+
+  return ordered.map((item, index) => {
+    const address = item.address || "";
+    const level = priorityLevel(item.score);
+    const checked = selectedAddresses.has(address) ? " checked" : "";
+    return '<article class="card priority tour-card' + (checked ? ' selected-card' : '') + '">' +
+      '<div class="select-row">' +
+      '<label><input type="checkbox" data-select="' + escapeAttr(address) + '"' + checked +
+      '> Sélectionner</label>' +
+      '<span class="priority-badge priority-' + level + '">Priorité ' + level + '</span>' +
+      '</div>' +
+      '<div class="score">#' + (index + 1) + ' · ' + Number(item.score || 0) + '/100</div>' +
+      '<h3>' + escapeHtml(address || "Adresse non précisée") + '</h3>' +
+      '<div class="meta">' + escapeHtml(item.city || "") + ' · ' +
+      (item.surface || "—") + ' m² · DPE <b>' + escapeHtml(item.dpe || "—") +
+      '</b>' + (item.ges ? ' · GES ' + escapeHtml(item.ges) : '') +
+      (item.construction_year ? ' · construction ' + escapeHtml(item.construction_year) : '') +
+      '</div>' +
+      '<div class="reasons"><b>Décomposition</b> ' + renderScoreBreakdown(item.score_breakdown) + '</div>' +
+      '<div class="reasons">' + (item.reason || []).map(reason =>
+        '<span class="tag">' + escapeHtml(reason) + '</span>'
+      ).join(" ") + '</div>' +
+      '<button class="field-btn" data-address="' + escapeAttr(address) +
+      '">📍 Préparer la visite</button></article>';
+  }).join("");
 }
 
 function renderDisappeared(items = []) {
@@ -202,6 +221,36 @@ function render() {
       : activeTab === "disappeared" ? renderDisappeared(items)
       : renderPrice(items))
     : '<div class="empty">Aucun résultat dans cette catégorie.</div>';
+
+  if (activeTab === "hidden") {
+    const toolbar = '<div class="tour-toolbar terrain-toolbar">' +
+      '<div><b>Prospection terrain</b><span>' + items.length + ' adresse(s) à qualifier · sélection max 10</span></div>' +
+      '<div class="tour-actions">' +
+      '<button id="selectTerrainTop">⚡ Sélectionner les 10 meilleures</button>' +
+      '<button id="clearTerrain" class="secondary">✕ Effacer</button>' +
+      '</div></div>';
+    $("results").insertAdjacentHTML("afterbegin", toolbar);
+
+    document.querySelectorAll("input[data-select]").forEach(input => {
+      input.addEventListener("change", () => toggleSelection(input.dataset.select, input.checked));
+    });
+
+    $("selectTerrainTop").addEventListener("click", () => {
+      selectedAddresses.clear();
+      [...items].sort((a,b) =>
+        Number(b.score||0)-Number(a.score||0) ||
+        Number(b.score_breakdown?.dvf_history||0)-Number(a.score_breakdown?.dvf_history||0)
+      ).slice(0,10).forEach(x => selectedAddresses.add(x.address));
+      render();
+      $("tourMessage").textContent = "Les 10 meilleures adresses terrain sont sélectionnées.";
+    });
+
+    $("clearTerrain").addEventListener("click", () => {
+      selectedAddresses.clear();
+      render();
+      $("tourMessage").textContent = "";
+    });
+  }
 }
 
 async function search() {
