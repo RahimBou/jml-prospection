@@ -169,6 +169,13 @@ async function searchPublicListings(params = {}) {
         return false;
       }
 
+      // Les exclusivités d'agence ne doivent pas entrer dans la prospection
+      // multi-sources : elles sont déjà confiées à une agence et ne constituent
+      // pas une opportunité de prospection pour nous.
+      if (/\\b(exclusivite|exclusivite agence|bien en exclusivite|exclusivite chez)\\b/.test(titleNorm)) {
+        return false;
+      }
+
       // Une adresse/titre Charleville ou un code postal 08000 est une preuve
       // directe. Sinon, on n'utilise plus le simple texte SEO de la page.
       const directCity = /\b08000\b/.test(titleNorm) ||
@@ -191,7 +198,7 @@ async function searchPublicListings(params = {}) {
   });
   return {
     source: "Web public local",
-    version: "2.2.2",
+    version: "2.2.3",
     total: unique.length,
     items: unique,
     sources: sites.map((site, i) => ({
