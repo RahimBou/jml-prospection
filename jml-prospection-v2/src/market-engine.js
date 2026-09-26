@@ -280,7 +280,7 @@ async function buildMarketSnapshot(params = {}) {
     hidden,
     disappeared: memory.disappeared,
     price_changes: memory.priceChanges,
-    memory: { size: memory.memorySize, new_listings: memory.newItems.length },
+    memory: { size: memory.memorySize, new_listings: memory.newItems.length, new_items: memory.newItems },
     items,
     next_phase: ["Croisement adresse DPE / historique DVF", "Qualification des doublons multi-sources", "Préparation de tournée terrain", "Historique long terme avec stockage persistant", "Enrichissement progressif des sources publiques"]
   };
