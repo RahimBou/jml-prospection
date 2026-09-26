@@ -27,6 +27,21 @@ function escapeHtml(v) {
 function escapeAttr(v) {
   return escapeHtml(v);
 }
+function getProspectStatus(address) {
+  if (!address) return "";
+  try {
+    const value = localStorage.getItem("jml_prospect_" + address);
+    return value ? (JSON.parse(value).status || "") : "";
+  } catch (_) { return ""; }
+}
+
+function renderProspectStatus(address) {
+  const status = getProspectStatus(address);
+  return status && status !== "À qualifier"
+    ? '<span class="prospect-status">' + escapeHtml(status) + '</span>'
+    : "";
+}
+
 
 function renderStats(counts = {}, market = {}) {
   $("stats").innerHTML = [
@@ -73,7 +88,7 @@ function renderHidden(items = []) {
       '<span class="priority-badge priority-' + level + '">Priorité ' + level + '</span>' +
       '</div>' +
       '<div class="score">#' + (index + 1) + ' · ' + Number(item.score || 0) + '/100</div>' +
-      '<h3>' + escapeHtml(address || "Adresse non précisée") + '</h3>' +
+      '<h3>' + escapeHtml(address || "Adresse non précisée") + ' ' + renderProspectStatus(address) + '</h3>' +
       '<div class="meta">' + escapeHtml(item.city || "") + ' · ' +
       (item.surface || "—") + ' m² · DPE <b>' + escapeHtml(item.dpe || "—") +
       '</b>' + (item.ges ? ' · GES ' + escapeHtml(item.ges) : '') +
