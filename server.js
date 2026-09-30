@@ -580,10 +580,13 @@ function percentile(values,p){
   return lo===hi?a[lo]:a[lo]+(a[hi]-a[lo])*(i-lo);
 }
 function estimateurComparableType(property,tx){
-  const p=String(property?.buildingType||"").toLowerCase();
-  const t=String(tx?.type||"").toLowerCase();
-  if(/appartement|appart|apartment/.test(p)) return /appartement|appart|apartment/.test(t);
-  if(/maison|house/.test(p)) return /maison|house/.test(t);
+  const p=String(property?.buildingType||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"");
+  const t=String(tx?.type||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"");
+  const code=String(tx?.typeCode||"").trim();
+  const isHouse=/maison|house|villa/.test(t)||code==="1";
+  const isApartment=/appartement|appart|apartment|dependance/.test(t)||code==="2";
+  if(/appartement|appart|apartment/.test(p)) return isApartment;
+  if(/maison|house|villa/.test(p)) return isHouse;
   return false;
 }
 function estimateurComparableArea(tx,property){
@@ -681,7 +684,8 @@ function localComparables(property,rows){
     seen.add(id);
     const age=estimateurAgeMonths(tx.date);
     if(age==null||age>24)continue;
-    if(String(tx.natureMutation||"").trim() && String(tx.natureMutation||"").trim()!=="Vente")continue;
+    const nature=norm(tx.natureMutation||"");
+    if(nature && !/vente/.test(nature))continue;
     if(!(Number(tx.value)>0))continue;
     if(!estimateurComparableType(property,tx))continue;
     const area=estimateurComparableArea(tx,property);
@@ -693,8 +697,19 @@ function localComparables(property,rows){
     if(roomDiff!==null&&roomDiff>3)continue;
     const metric=Number(tx.value)/area;
     if(!Number.isFinite(metric)||metric<=0||metric>50000)continue;
-    const distance=distanceMeters(pointOf(property),pointOf(tx));
-    if(distance===null||distance>5000)continue;
+    let distance=distanceMeters(pointOf(property),pointOf(tx));
+    // Certaines lignes DVF n'ont pas de coordonnées malgré une adresse exploitable.
+    // On ne les jette plus immédiatement : on peut les retenir si elles sont sur
+    // la même commune et, lorsque possible, la même rue. La distance exacte reste
+    // prioritaire dès qu'elle existe.
+    if(distance===null){
+      const pa=addressParts(property),ta=addressParts(tx);
+      const sameCommune=(pa.cityCode&&ta.cityCode&&pa.cityCode===ta.cityCode)||(pa.postal&&ta.postal&&pa.postal===ta.postal);
+      const sameStreet=pa.street&&ta.street&&pa.street===ta.street;
+      if(!sameCommune)continue;
+      distance=sameStreet?3500:5000;
+    }
+    if(distance>5000)continue;
     eligible.push({...tx,area,metric,ageMonths:age,distanceMeters:distance});
     temporalRows.push({...tx,area,metric});
   }
