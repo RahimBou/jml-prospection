@@ -579,70 +579,161 @@ function percentile(values,p){
   const i=(a.length-1)*p,lo=Math.floor(i),hi=Math.ceil(i);
   return lo===hi?a[lo]:a[lo]+(a[hi]-a[lo])*(i-lo);
 }
+function estimateurComparableType(property,tx){
+  const p=String(property?.buildingType||"").toLowerCase();
+  const t=String(tx?.type||"").toLowerCase();
+  if(/appartement|appart|apartment/.test(p)) return /appartement|appart|apartment/.test(t);
+  if(/maison|house/.test(p)) return /maison|house/.test(t);
+  return false;
+}
+function estimateurComparableArea(tx,property){
+  const p=String(property?.buildingType||"").toLowerCase();
+  if(/appartement|appart|apartment/.test(p) && Number(tx?.carrezArea)>0) return Number(tx.carrezArea);
+  return Number(tx?.builtArea)>0 ? Number(tx.builtArea) : Number(tx?.carrezArea)||0;
+}
+function estimateurAgeMonths(date){
+  const t=new Date(date).getTime();
+  return Number.isFinite(t)?Math.max(0,(Date.now()-t)/(30.4375*864e5)):null;
+}
+function estimateurAreaSimilarity(a,b){
+  if(a<=0||b<=0)return 0.55;
+  return Math.exp(-Math.abs(a-b)/Math.max(1,b*0.30));
+}
+function estimateurRoomSimilarity(a,b){
+  if(a<=0||b<=0)return 0.70;
+  return Math.exp(-Math.abs(a-b)/1.6);
+}
+function estimateurLandSimilarity(a,b){
+  if(a<=0||b<=0)return 0.70;
+  const ratio=Math.max(a,b)/Math.max(1,Math.min(a,b));
+  return Math.exp(-Math.log(ratio)/1.8);
+}
+function estimateurDistanceSimilarity(km){
+  return Math.exp(-km/0.35);
+}
+function estimateurRecencySimilarity(date){
+  const m=estimateurAgeMonths(date);
+  if(m==null||m>24)return 0;
+  return Math.exp(-m/12);
+}
+function estimateurComparableAdjustment(tx,s){
+  let factor=1;
+  if(tx.area>0&&s.area>0){
+    const ratio=tx.area/s.area;
+    factor*=Math.min(1.12,Math.max(0.88,Math.pow(ratio,0.14)));
+  }
+  if(tx.rooms>0&&s.rooms>0){
+    factor*=Math.min(1.06,Math.max(0.94,1+(s.rooms-tx.rooms)*0.018));
+  }
+  return Math.min(1.16,Math.max(0.84,factor));
+}
+function estimateurAnnualMarketFactors(rows){
+  const byYear=new Map();
+  for(const x of rows){
+    const y=new Date(x.date).getFullYear();
+    const v=Number(x.metric);
+    if(!Number.isFinite(y)||!Number.isFinite(v)||v<=0)continue;
+    if(!byYear.has(y))byYear.set(y,[]);
+    byYear.get(y).push(v);
+  }
+  const years=[...byYear.keys()].sort((a,b)=>b-a);
+  if(years.length<2)return ()=>1;
+  const latest=median(byYear.get(years[0]));
+  return date=>{
+    const y=new Date(date).getFullYear();
+    const med=byYear.has(y)?median(byYear.get(y)):latest;
+    if(!latest||!med)return 1;
+    return Math.min(1.12,Math.max(0.88,latest/med));
+  };
+}
+function estimateurScoreComparable(tx,s,temporalFn){
+  const d=distanceMeters(pointOf(s),pointOf(tx));
+  if(d==null)return {score:0,weight:0,distanceKm:null,temporalFactor:1,adjustmentFactor:1,adjustedMetric:null};
+  if(!estimateurComparableType(s,tx))return {score:0,weight:0,distanceKm:d/1000,temporalFactor:1,adjustmentFactor:1,adjustedMetric:null};
+  const area=estimateurComparableArea(tx,s);
+  const a=estimateurAreaSimilarity(area,s.area);
+  const r=estimateurRoomSimilarity(tx.rooms,s.rooms);
+  const l=estimateurLandSimilarity(tx.landArea,s.landArea);
+  const dist=estimateurDistanceSimilarity(d/1000);
+  const rec=estimateurRecencySimilarity(tx.date);
+  const tf=temporalFn(tx.date);
+  const adjustmentFactor=estimateurComparableAdjustment({...tx,area},s);
+  const metric=Number(tx.value)>0&&area>0?Number(tx.value)/area:null;
+  const raw=20*1+25*dist+20*rec+15*a+10*r+5*l+5;
+  const score=Math.round(Math.min(100,Math.max(0,raw)));
+  const weight=Math.max(0.0001,Math.pow(score/100,3)*tf);
+  const adjustedMetric=Number.isFinite(metric)?metric*adjustmentFactor*tf:null;
+  return {score,weight,distanceKm:d/1000,temporalFactor:tf,adjustmentFactor,adjustedMetric,metric,area};
+}
 function localComparables(property,rows){
-  const targetPoint=pointOf(property),targetArea=Number(property?.area)||0,targetRooms=Number(property?.rooms)||0;
-  const now=Date.now(),seen=new Set(),pool=[];
-  const propertyType=String(property?.buildingType||"").toLowerCase();
-  const isApartment=/appartement|appart|apartment/.test(propertyType);
+  // Même moteur de sélection que JML Estimateur V7.4 :
+  // ventes classiques, 24 mois, type strict, surface 60–170 %,
+  // score de similarité, correction temporelle et rayon adaptatif jusqu'à 5 km.
+  const targetArea=Number(property?.area)||0;
+  const targetRooms=Number(property?.rooms)||0;
+  if(targetArea<=0)return {count:0,radius:null,selectionRadiusKm:5,medianPriceM2:null,q1:null,q3:null,dispersion:null,medianDistance:null,recentCount:0,marketScore:0,distanceKnownCount:0,distanceUnknownCount:0,distanceCoverage:0,distanceStatus:"Surface cible absente",best:null,items:[],method:"JML Estimateur V7.4 — sélection adaptative"};
+  const eligible=[];
+  const seen=new Set();
+  const temporalRows=[];
   for(const tx of rows||[]){
-    const id=tx.mutationId||[tx.date,tx.value,tx.address,tx.builtArea].join("|");
+    const id=tx.mutationId||[tx.date,tx.value,tx.address,tx.builtArea,tx.carrezArea].join("|");
     if(seen.has(id))continue;
     seen.add(id);
-    if(!tx?.value||tx.value<10000)continue;
-    if(comparableType(property,tx)!==true)continue;
-    const area=comparableArea(tx,property);
-    if(targetArea<=0||area<=0)continue;
-    const surfaceRatio=Math.abs(targetArea-area)/Math.max(targetArea,area);
-    if(surfaceRatio>0.20)continue;
-    // Ne pas exclure un appartement parce que la mutation contient plusieurs lots :\n    // cave, parking ou dépendance peuvent faire monter lotCount sans invalider le logement.
-    const rooms=Number(tx?.rooms)||0;
+    const age=estimateurAgeMonths(tx.date);
+    if(age==null||age>24)continue;
+    if(String(tx.natureMutation||"").trim() && String(tx.natureMutation||"").trim()!=="Vente")continue;
+    if(!(Number(tx.value)>0))continue;
+    if(!estimateurComparableType(property,tx))continue;
+    const area=estimateurComparableArea(tx,property);
+    if(area<=0)continue;
+    const ratio=area/targetArea;
+    if(ratio<0.60||ratio>1.70)continue;
+    const rooms=Number(tx.rooms)||0;
     const roomDiff=targetRooms&&rooms?Math.abs(targetRooms-rooms):null;
-    if(roomDiff!==null&&roomDiff>1)continue;
-    const point=pointOf(tx);
-    const distance=targetPoint&&point?distanceMeters(targetPoint,point):null;
-    if(distance!==null&&distance>500)continue;
-    const date=tx.date?new Date(tx.date):null;
-    const ageYears=date&&Number.isFinite(date.getTime())?Math.max(0,(now-date.getTime())/86400000/365.25):null;
-    if(ageYears!==null&&ageYears>5.5)continue;
-    const priceM2=tx.value/area;
-    if(!Number.isFinite(priceM2)||priceM2<100||priceM2>15000)continue;
-    const distanceScore=distance===null?3:Math.max(0,30*(1-distance/500));
-    const surfaceScore=Math.max(0,35*(1-surfaceRatio/0.20));
-    const roomScore=roomDiff===null?5:(roomDiff===0?15:7);
-    const recencyScore=ageYears===null?2:Math.max(0,7*(1-ageYears/5.5));
-    pool.push({tx,distance,area,rooms,priceM2,ageYears,surfaceRatio,qualityScore:distanceScore+surfaceScore+roomScore+recencyScore});
+    if(roomDiff!==null&&roomDiff>3)continue;
+    const metric=Number(tx.value)/area;
+    if(!Number.isFinite(metric)||metric<=0||metric>50000)continue;
+    const distance=distanceMeters(pointOf(property),pointOf(tx));
+    if(distance===null||distance>5000)continue;
+    eligible.push({...tx,area,metric,ageMonths:age,distanceMeters:distance});
+    temporalRows.push({...tx,area,metric});
   }
-  let radius=100;
-  let selected=pool.filter(x=>x.distance===null||x.distance<=100);
-  if(selected.length<5){radius=250;selected=pool.filter(x=>x.distance===null||x.distance<=250)}
-  if(selected.length<5){radius=500;selected=pool.filter(x=>x.distance===null||x.distance<=500)}
-  selected.sort((a,b)=>b.qualityScore-a.qualityScore);
-  selected=selected.slice(0,10);
-  const prices=selected.map(x=>x.priceM2);
-  const med=median(prices),q1=percentile(prices,.25),q3=percentile(prices,.75);
-  const recent=selected.filter(x=>x.ageYears!==null&&x.ageYears<=2).length;
-  const knownDistances=selected.map(x=>x.distance).filter(Number.isFinite);
-  const unknownDistanceCount=selected.length-knownDistances.length;
+  const temporalFn=estimateurAnnualMarketFactors(temporalRows);
+  const scored=eligible.map(tx=>({...tx,...estimateurScoreComparable(tx,property,temporalFn)}))
+    .filter(x=>x.distanceKm!=null&&x.ageMonths<=24&&Number.isFinite(x.metric)&&x.metric>0&&Number.isFinite(x.adjustedMetric)&&x.adjustedMetric>0);
+  const radii=[0.20,0.35,0.50,1,2,3,5];
+  let chosen=[];let used=5;
+  for(const r of radii){
+    const candidates=scored.filter(x=>x.distanceKm<=r&&x.score>=55).sort((a,b)=>b.weight-a.weight);
+    if(candidates.length>=8){chosen=candidates;used=r;break;}
+  }
+  if(!chosen.length)chosen=scored.filter(x=>x.distanceKm<=5).sort((a,b)=>b.score-a.score).slice(0,40);
+  chosen.sort((a,b)=>b.weight-a.weight);
+  const selected=chosen.slice(0,30);
+  const values=selected.map(x=>x.metric).filter(Number.isFinite);
+  const adjusted=selected.map(x=>x.adjustedMetric).filter(Number.isFinite);
+  const med=median(values);
+  const q1=percentile(values,.25),q3=percentile(values,.75);
+  const adjustedMedian=median(adjusted);
+  const recent=selected.filter(x=>x.ageMonths<=12).length;
+  const knownDistances=selected.map(x=>x.distanceKm).filter(Number.isFinite);
   const medianDistance=median(knownDistances);
-  const distanceCoverage=selected.length?knownDistances.length/selected.length:0;
-  const distanceStatus=selected.length===0
-    ?"Aucun comparable"
-    :unknownDistanceCount===0
-      ?"Distances calculées · rayon "+radius+" m"
-      :knownDistances.length>0
-        ?"Distance partiellement disponible · "+knownDistances.length+"/"+selected.length+" distances"
-        :"Distance indisponible pour les comparables";
-  const dispersion=med&&q1!==null&&q3!==null?(q3-q1)/med:null;
+  const dispersion=med&&q1!=null&&q3!=null?(q3-q1)/med:null;
   let marketScore=0;
   if(selected.length>=8)marketScore+=5;else if(selected.length>=5)marketScore+=4;else if(selected.length>=3)marketScore+=3;else if(selected.length>=2)marketScore+=2;else if(selected.length===1)marketScore+=1;
   if(recent>=4)marketScore+=2;else if(recent>=2)marketScore+=1;
   if(dispersion!==null){if(dispersion<=0.15)marketScore+=3;else if(dispersion<=0.25)marketScore+=2;else if(dispersion<=0.40)marketScore+=1}
   marketScore=Math.min(10,marketScore);
+  const distanceStatus=selected.length===0?"Aucun comparable":"Distances calculées · rayon "+used+" km";
   const best=selected[0]||null;
   return {
-    count:selected.length,radius:unknownDistanceCount===0?radius:null,selectionRadius:radius,medianPriceM2:med,q1,q3,dispersion,medianDistance,recentCount:recent,marketScore,distanceKnownCount:knownDistances.length,distanceUnknownCount:unknownDistanceCount,distanceCoverage,distanceStatus,
-    best:best?{date:best.tx.date,value:best.tx.value,type:best.tx.type,builtArea:best.tx.builtArea,carrezArea:best.tx.carrezArea,rooms:best.tx.rooms,landArea:best.tx.landArea,priceM2:best.priceM2,distanceMeters:best.distance,surfaceRatio:best.surfaceRatio}:null,
-    items:selected.map(x=>({date:x.tx.date,value:x.tx.value,type:x.tx.type,area:x.area,rooms:x.rooms,priceM2:x.priceM2,distanceMeters:x.distance}))
+    count:selected.length,radius:selected.length?used*1000:null,selectionRadiusKm:used,
+    medianPriceM2:adjustedMedian||med,rawMedianPriceM2:med,q1,q3,dispersion,medianDistance,recentCount:recent,marketScore,
+    distanceKnownCount:knownDistances.length,distanceUnknownCount:selected.length-knownDistances.length,
+    distanceCoverage:selected.length?knownDistances.length/selected.length:0,distanceStatus,
+    best:best?{date:best.date,value:best.value,type:best.type,builtArea:best.builtArea,carrezArea:best.carrezArea,rooms:best.rooms,landArea:best.landArea,priceM2:best.adjustedMetric||best.metric,distanceMeters:best.distanceMeters,surfaceRatio:best.surfaceRatio,score:best.score}:null,
+    items:selected.map(x=>({date:x.date,value:x.value,type:x.type,area:x.area,rooms:x.rooms,priceM2:x.adjustedMetric||x.metric,distanceMeters:x.distanceMeters,score:x.score,weight:x.weight,ageMonths:x.ageMonths,temporalFactor:x.temporalFactor,adjustmentFactor:x.adjustmentFactor,surfaceRatio:x.surfaceRatio})),
+    method:"JML Estimateur V7.4 — ventes ≤ 24 mois · type strict · surface 60–170 % · score de similarité · correction temporelle · rayon adaptatif jusqu'à 5 km"
   };
 }
 function buildDvfIndexes(rows){
@@ -1121,7 +1212,7 @@ function groupPublicDvfRows(rows){
 async function api(pathname,url){
   pathname=String(pathname||"").replace(/\/+$/,"")||"/";
   if(pathname==="/api/veille-annonces") pathname="/api/annonces-multi";
-  if(pathname==="/api/health") return {ok:true,sources:{dpe:"ADEME",dvf:"DVF+ Cerema",geocoding:"Géoplateforme",chercherTrouver:"ChercherTrouver.immo"},server:"jml-prospection",version:"1.40.9"};
+  if(pathname==="/api/health") return {ok:true,sources:{dpe:"ADEME",dvf:"DVF+ Cerema",geocoding:"Géoplateforme",chercherTrouver:"ChercherTrouver.immo"},server:"jml-prospection",version:"1.40.10"};
   if(pathname==="/api/integrations-health"){
     const ct=await fetchChercherTrouverPing();
     return {ok:ct.ok===true,checkedAt:new Date().toISOString(),chercherTrouver:ct};
