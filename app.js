@@ -1,4 +1,4 @@
-const APP_VERSION = "1.41.0";
+const APP_VERSION = "1.41.1";
 const API_BASE = String(window.JML_API_BASE || (location.hostname === "jml-prospection.onrender.com" ? "https://jml-prospection-web.onrender.com" : "")).replace(/\/$/,"");
 
 /* V1.37.3 — garde-fou des boutons : délégation globale + diagnostic JS */
@@ -128,39 +128,77 @@ async function initRadarTerritory(){
     {city:"Vouziers",cityCode:"08490",postalCode:"08400",population:4000}
   ];
 
-  const applyCommunes=(communes,label)=>{
+  const renderCommunes=(communes,label)=>{
+    const currentSimple=simple?.value||"";
+    const currentSelect=select?.value||"";
     window.radarTerritoryCommunes=Array.isArray(communes)?communes:[];
     if(count)count.textContent=label||((window.radarTerritoryCommunes.length)+" communes disponibles");
-    const options='<option value="">Choisir une commune…</option>'+window.radarTerritoryCommunes.map(c=>'<option value="'+apiEsc(c.city)+'">'+apiEsc(c.city)+(c.population?" · "+Number(c.population).toLocaleString("fr-FR")+" hab.":"")+'</option>').join("");
+    const sorted=window.radarTerritoryCommunes.slice().sort((a,b)=>norm(a.city).localeCompare(norm(b.city),"fr"));
+    const options='<option value="">Choisir une commune…</option>'+sorted.map(c=>'<option value="'+apiEsc(c.city)+'">'+apiEsc(c.city)+(c.population?" · "+Number(c.population).toLocaleString("fr-FR")+" hab.":"")+'</option>').join("");
     if(simple){
       simple.innerHTML=options;
-      // Démarrage sans friction : Charleville-Mézières est la commune par défaut
-      // si aucune commune n'a encore été choisie.
+      if(currentSimple && sorted.some(c=>norm(c.city)===norm(currentSimple))) simple.value=currentSimple;
       if(!simple.value){
-        const preferred=window.radarTerritoryCommunes.find(c=>norm(c.city)==="charleville-mezieres")||window.radarTerritoryCommunes[0];
+        const preferred=sorted.find(c=>norm(c.city)==="charleville-mezieres")||sorted[0];
         if(preferred)simple.value=preferred.city;
       }
     }
-    if(select) select.innerHTML='<option value="">+ Ajouter une commune comme secteur…</option>'+window.radarTerritoryCommunes.map(c=>'<option value="'+apiEsc(c.city)+'">'+apiEsc(c.city)+(c.population?" · "+Number(c.population).toLocaleString("fr-FR")+" hab.":"")+'</option>').join("");
+    if(select){
+      select.innerHTML='<option value="">+ Ajouter une commune comme secteur…</option>'+sorted.map(c=>'<option value="'+apiEsc(c.city)+'">'+apiEsc(c.city)+(c.population?" · "+Number(c.population).toLocaleString("fr-FR")+" hab.":"")+'</option>').join("");
+      if(currentSelect && sorted.some(c=>norm(c.city)===norm(currentSelect))) select.value=currentSelect;
+    }
   };
 
-  applyCommunes(fallback,"Chargement du référentiel complet…");
+  // Premier affichage immédiat : évite une liste vide pendant le chargement.
+  renderCommunes(fallback,"Chargement du référentiel des Ardennes…");
+
+  const loadTerritoryDirect=async()=>{
+    const u="https://geo.api.gouv.fr/communes?codeDepartement=08&fields=nom,code,codesPostaux,codeDepartement,centre,population&format=json&geometry=centre";
+    const response=await fetch(u,{headers:{Accept:"application/json"}});
+    if(!response.ok)throw new Error("geo.api.gouv.fr HTTP "+response.status);
+    const rows=await response.json();
+    const communes=(Array.isArray(rows)?rows:[]).map(x=>{
+      const c=x?.centre?.coordinates||[];
+      return {
+        city:x?.nom||"",cityCode:x?.code||"",
+        postalCode:Array.isArray(x?.codesPostaux)?x.codesPostaux[0]||"":"",
+        department:x?.codeDepartement||"08",
+        population:Number(x?.population)||0,
+        point:(Number.isFinite(Number(c[0]))&&Number.isFinite(Number(c[1])))?{kind:"lonlat",x:Number(c[0]),y:Number(c[1])}:null
+      };
+    }).filter(x=>x.cityCode&&x.city);
+    if(communes.length<100)throw new Error("Référentiel incomplet");
+    return communes;
+  };
+
   const territoryPromise=publicJson("/api/territory?department=08");
+  const directPromise=loadTerritoryDirect();
+
   territoryPromise.then(data=>{
     const communes=Array.isArray(data?.communes)?data.communes:[];
-    if(communes.length)applyCommunes(communes,Number(data.communeCount||communes.length)+" communes disponibles");
+    if(communes.length>=100)renderCommunes(communes,Number(data.communeCount||communes.length)+" communes disponibles");
+  }).catch(()=>{});
+
+  directPromise.then(communes=>{
+    renderCommunes(communes,communes.length+" communes disponibles · source officielle");
   }).catch(()=>{});
 
   try{
     const data=await Promise.race([
       territoryPromise,
+      directPromise,
       new Promise((_,reject)=>setTimeout(()=>reject(new Error("timeout")),8000))
     ]);
-    const communes=Array.isArray(data?.communes)?data.communes:[];
-    if(communes.length)applyCommunes(communes,Number(data.communeCount||communes.length)+" communes disponibles");
-    else applyCommunes(fallback,"Référentiel complet indisponible · mode secours");
+    const communes=Array.isArray(data?.communes)?data.communes:data;
+    if(Array.isArray(communes)&&communes.length>=100){
+      renderCommunes(communes,Number(data?.communeCount||communes.length)+" communes disponibles");
+    }else{
+      throw new Error("Référentiel incomplet");
+    }
   }catch(e){
-    applyCommunes(fallback,"Référentiel complet indisponible · mode secours");
+    // Le secours reste volontairement limité : on ne prétend pas avoir chargé
+    // le référentiel complet si aucune source n'est disponible.
+    if(!window.radarTerritoryCommunes?.length) renderCommunes(fallback,"Référentiel complet indisponible · 6 communes de secours");
   }
   if(add&&list){
     add.onclick=()=>{
