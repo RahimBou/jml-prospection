@@ -52,6 +52,36 @@ async function jsonFetch(url){
   }
   throw new Error("Source inaccessible après 3 tentatives : "+(lastError?.message||"connexion impossible"));
 }
+async function getMajorRoadAxes(point,radiusKm=20){
+  if(!point||point.x==null||point.y==null)return [];
+  const lat=Number(point.y),lon=Number(point.x);
+  if(!Number.isFinite(lat)||!Number.isFinite(lon))return [];
+  const radius=Math.max(1000,Math.min(30000,Number(radiusKm||20)*1000));
+  const query='[out:json][timeout:12];way["highway"~"^(motorway|trunk|primary|secondary)$"](around:'+radius+','+lat+','+lon+');out tags center;';
+  try{
+    const u=new URL("https://overpass-api.de/api/interpreter");
+    u.searchParams.set("data",query);
+    const data=await jsonFetch(u);
+    const ways=Array.isArray(data?.elements)?data.elements:[];
+    const rank={motorway:4,trunk:3,primary:2,secondary:1};
+    const seen=new Map();
+    for(const w of ways){
+      const tags=w?.tags||{};
+      const name=String(tags.name||tags.ref||"").trim();
+      if(!name)continue;
+      const key=name.toUpperCase().replace(/\s+/g," ");
+      const type=String(tags.highway||"secondary");
+      const current=seen.get(key);
+      if(!current||rank[type]>rank[current.type])seen.set(key,{name,ref:String(tags.ref||"").trim(),type});
+    }
+    return Array.from(seen.values())
+      .sort((a,b)=>(rank[b.type]-rank[a.type])||a.name.localeCompare(b.name,"fr"))
+      .slice(0,10);
+  }catch{
+    return [];
+  }
+}
+
 async function fetchDvfPaginated(baseUrl,{codeInsee,yearMin,yearMax,maxRows=10000}){
   const rows=[];
   const seenPages=new Set();
@@ -1832,7 +1862,15 @@ async function api(pathname,url){
       const communeCount=codes.filter(code=>(communeMembership.get(code)||[]).some(x=>x.sectorId===sector.id)).length;
       return {id:sector.id,label:sector.city+" + "+sector.radiusKm+" km",city:sector.city,radiusKm:sector.radiusKm,communeCount,candidateCount:sectorCandidates.length};
     });
-    return {source:"ADEME + DVF · zone de prospection multi-secteurs",mode:"multi-sector",sectors:sectorSummary,communeCount:codes.length,communesAnalyzed:aggregate.length,failedCommunes:errors,dpeCount,dpeRawCount,dpeDuplicateCount:Math.max(0,dpeRawCount-dpeCount),dvfCount,dvfFallback,results,totalCandidatesBeforeLimit:candidatesByKey.size,offset,communeBatch,nextOffset:offset+selectedCodes.length,complete:offset+selectedCodes.length>=codes.length,totalCommuneCount:codes.length,processedCommuneCodes:selectedCodes,disclaimer:"Analyse par lots de communes pour éviter les expirations de requête. Les biens sont dédoublonnés à chaque lot puis fusionnés côté navigateur."};
+    // Information territoriale uniquement : les grands axes routiers ne modifient jamais le score radar.
+    let majorRoadAxes=[];
+    if(offset===0){
+      majorRoadAxes=await Promise.all(sectorPlans.map(async sector=>({
+        id:sector.id,city:sector.city,radiusKm:sector.radiusKm,
+        axes:await getMajorRoadAxes(sector.centerPoint,sector.radiusKm)
+      })));
+    }
+    return {source:"ADEME + DVF · zone de prospection multi-secteurs",mode:"multi-sector",sectors:sectorSummary,majorRoadAxes,communeCount:codes.length,communesAnalyzed:aggregate.length,failedCommunes:errors,dpeCount,dpeRawCount,dpeDuplicateCount:Math.max(0,dpeRawCount-dpeCount),dvfCount,dvfFallback,results,totalCandidatesBeforeLimit:candidatesByKey.size,offset,communeBatch,nextOffset:offset+selectedCodes.length,complete:offset+selectedCodes.length>=codes.length,totalCommuneCount:codes.length,processedCommuneCodes:selectedCodes,disclaimer:"Analyse par lots de communes pour éviter les expirations de requête. Les biens sont dédoublonnés à chaque lot puis fusionnés côté navigateur. Les grands axes routiers sont fournis à titre territorial et n'entrent pas dans le score."};
   }
   if(pathname==="/api/radar"){
     let codeInsee=url.searchParams.get("codeInsee")?.trim();
