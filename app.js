@@ -464,6 +464,7 @@ async function runFutureRadar(){
     try{
       const merged=new Map();
       const sectorStats=new Map(selected.map(s=>[s.id,{...s,candidateCount:0,communeCount:0}]));
+      const sectorRoadAxes=new Map();
       let offset=0,totalCommunes=0,processed=0,totalDvf=0,totalDpe=0,totalRawDpe=0,totalDuplicates=0,anyFallback=false,failed=[];
       let complete=false;
       const candidateKey=p=>[
@@ -482,6 +483,7 @@ async function runFutureRadar(){
         anyFallback=anyFallback||Boolean(data.dvfFallback);
         failed=failed.concat(data.failedCommunes||[]);
         (data.results||[]).forEach(p=>merged.set(candidateKey(p),p));
+        (data.majorRoadAxes||[]).forEach(s=>{ if(Array.isArray(s.axes)&&s.axes.length) sectorRoadAxes.set(s.id,s.axes); });
         (data.sectors||[]).forEach(s=>{
           const old=sectorStats.get(s.id);
           if(old){old.communeCount=Math.max(old.communeCount,Number(s.communeCount)||0);old.candidateCount+=Number(s.candidateCount)||0}
@@ -505,9 +507,15 @@ async function runFutureRadar(){
         (Number(b.commercialSignalScore??0)-Number(a.commercialSignalScore??0))
       );
       const sectors=Array.from(sectorStats.values()).map(x=>apiEsc(x.label)+" <strong>"+x.radiusKm+" km</strong>").join(" · ");
+      const roadAxes=Array.from(sectorRoadAxes.entries()).map(([id,axes])=>{
+        const sector=sectorStats.get(id);
+        const names=(axes||[]).map(a=>a.ref&&a.ref!==a.name?a.ref+" · "+a.name:a.name).slice(0,6);
+        return names.length?"<span>🚗 <strong>"+apiEsc(sector?.label||"Secteur")+"</strong> : "+apiEsc(names.join(", "))+"</span>":"";
+      }).filter(Boolean).join(" · ");
+      const roadInfo=roadAxes?" · "+roadAxes:"";
       const dedupInfo=totalDuplicates>0?" · "+totalDuplicates+" doublon(s) DPE écarté(s)":"";
       const errorInfo=failed.length>0?" · "+failed.length+" commune(s) indisponible(s)":"";
-      $("futureRadarStatus").innerHTML="<strong>Zone de prospection analysée</strong> · "+sectors+" · <strong>"+futureRadarDetectedCount+"</strong> biens détectés · <strong>"+Math.min(30,futureRadarCandidates.length)+"</strong> priorités de travail · "+processed+"/"+totalCommunes+" commune(s) analysée(s)"+dedupInfo+errorInfo+" · "+totalDvf+" transactions comparées. "+apiEsc(anyFallback?"DVF open-data utilisé en secours.":"DVF+ utilisé.");
+      $("futureRadarStatus").innerHTML="<strong>Zone de prospection analysée</strong> · "+sectors+" · <strong>"+futureRadarDetectedCount+"</strong> biens détectés · <strong>"+Math.min(30,futureRadarCandidates.length)+"</strong> priorités de travail · "+processed+"/"+totalCommunes+" commune(s) analysée(s)"+dedupInfo+errorInfo+" · "+totalDvf+" transactions comparées."+roadInfo+" "+apiEsc(anyFallback?"DVF open-data utilisé en secours.":"DVF+ utilisé.");
       if($("futureRadarReady")) $("futureRadarReady").textContent="✅ Analyse terminée · "+processed+" commune(s) · "+futureRadarCandidates.length+" bien(s)";
       if($("publicQuery")) $("publicQuery").value=selected[0]?.label||"";
     }catch(e){
