@@ -1,5 +1,6 @@
-const APP_VERSION = "1.42.0";
-const API_BASE = String(window.JML_API_BASE || (location.hostname === "jml-prospection.onrender.com" ? "https://jml-prospection-api.onrender.com" : "")).replace(/\/$/,"");
+const APP_VERSION = "1.50.0";
+/* V1.50 — le frontend Render web doit toujours viser le service API dédié. */
+const API_BASE = String(window.JML_API_BASE || ((location.hostname === "jml-prospection-web.onrender.com" || location.hostname === "jml-prospection.onrender.com") ? "https://jml-prospection-api.onrender.com" : "")).replace(/\/$/,"");
 
 /* V1.37.3 — garde-fou des boutons : délégation globale + diagnostic JS */
 window.addEventListener("error",e=>{
@@ -1272,6 +1273,11 @@ function ctRender(items){
   if($("ctLocateBtn"))$("ctLocateBtn").disabled=ctSelectedIndices.size===0;
   if($("ctSelect10Btn"))$("ctSelect10Btn").disabled=!visible.length;
   if($("ctDeselectBtn"))$("ctDeselectBtn").disabled=ctSelectedIndices.size===0;
+  if($("ctSelect10Btn")){
+    const n=ctSelectedIndices.size;
+    $("ctSelect10Btn").textContent=visible.length ? ("☑️ "+(n||0)+" sélectionnée(s)") : "☑️ 0 sélectionnée(s)";
+    $("ctSelect10Btn").title=visible.length ? "Sélectionner les 10 meilleures annonces visibles" : "Aucune annonce exploitable à sélectionner";
+  }
   if(!visible.length){box.innerHTML='<div class="meta">Aucune annonce ne correspond à cette vue. Utilise « Toutes » pour revoir la recherche.</div>';return}
   box.innerHTML=visible.map(p=>{
     const i=all.findIndex(x=>x===p||ctMemoryKey(x)===p._marketKey);
