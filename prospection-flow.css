@@ -27,3 +27,16 @@
 .flow-argument-block ul{margin:5px 0 0;padding-left:20px}
 .flow-argument-block li{margin:4px 0;line-height:1.4}
 .flow-argument-block p{margin:8px 0;line-height:1.45}
+
+/* V1.50 — preuve lisible : distinguer les faits vérifiés des interprétations. */
+.flow-section-facts{background:#f7faf8;border-color:#dbe8e1}
+.flow-facts-list{display:flex;flex-wrap:wrap;gap:7px}
+.flow-facts-list span{padding:7px 9px;border-radius:999px;background:#e9f2ed;color:#285d51;font-size:.75rem;font-weight:700}
+.flow-evidence-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.flow-evidence-card{padding:11px;border:1px solid #e6e2d8;border-radius:12px;background:#fffdf8}
+.flow-evidence-card strong,.flow-evidence-card span,.flow-evidence-card small,.flow-evidence-card em{display:block}
+.flow-evidence-card strong{font-size:.76rem;color:#263c35}
+.flow-evidence-card span{margin-top:5px;font-weight:900;font-size:1rem;color:#173f35}
+.flow-evidence-card small{margin-top:4px;color:#6b7280;font-size:.68rem}
+.flow-evidence-card em{margin-top:7px;padding-top:7px;border-top:1px solid #eee8dc;color:#8a6c2e;font-size:.68rem;font-style:normal;font-weight:800}
+@media(max-width:700px){.flow-evidence-grid{grid-template-columns:1fr}}
