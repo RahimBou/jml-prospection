@@ -231,18 +231,47 @@
     bind();
   }
 
+  function renderArgument(data, p, mode){
+    const local=data?.local || {};
+    const text=data?.text || "";
+    const reasons=Array.isArray(local.reasons)?local.reasons:[];
+    const actions=Array.isArray(local.actions)?local.actions:[];
+    const questions=Array.isArray(local.questions)?local.questions:[];
+    const objections=Array.isArray(local.objections)?local.objections:[];
+    const sections=[];
+    if(text){
+      sections.push('<div class="flow-argument-script"><span class="flow-kicker">TEXTE PRÊT À DIRE</span><p>'+esc(text).replace(/\\n/g,"<br>")+'</p></div>');
+    }
+    if(reasons.length){
+      sections.push('<div class="flow-argument-block"><strong>📊 Les faits à utiliser</strong><ul>'+reasons.slice(0,6).map(x=>'<li>'+esc(x)+'</li>').join("")+'</ul></div>');
+    }
+    if(questions.length){
+      sections.push('<div class="flow-argument-block"><strong>❓ Questions à poser</strong><ul>'+questions.slice(0,4).map(x=>'<li>'+esc(x)+'</li>').join("")+'</ul></div>');
+    }
+    if(objections.length){
+      sections.push('<div class="flow-argument-block"><strong>🛡️ Si le propriétaire objecte</strong>'+objections.slice(0,3).map(x=>'<p><b>'+esc(x.objection||"Objection")+'</b><br>'+esc(x.response||"")+'</p>').join("")+'</div>');
+    }
+    if(actions.length){
+      sections.push('<div class="flow-argument-block"><strong>➡️ Prochaine étape</strong><ul>'+actions.slice(0,3).map(x=>'<li>'+esc(x)+'</li>').join("")+'</ul></div>');
+    }
+    if(!sections.length){
+      sections.push('<p>Aucun argumentaire exploitable n’a été retourné. Vérifie les données du dossier.</p>');
+    }
+    return '<div class="flow-argument-head"><strong>💬 Argumentaire vendeur</strong><span>'+esc(data?.provider||data?.local?.mode||"IA JML")+'</span></div>'+sections.join("");
+  }
+
   async function aiArgument(p, task) {
     const box = document.getElementById("flowArgument");
     if (!box || !p) return;
 
-    box.innerHTML = '<div class="flow-loading">🧠 Préparation de l’argumentaire…</div>';
+    box.innerHTML = '<div class="flow-loading">🧠 Construction de l’argumentaire à partir des données du dossier…</div>';
 
     try {
       const context =
-        "Prépare un argumentaire COMMERCIAL pour un agent commercial immobilier JML. " +
-        "Explique pourquoi le bien mérite une discussion sur sa valeur et sa stratégie de vente, " +
-        "uniquement à partir des données fournies. Ne prétends jamais connaître l'intention du propriétaire. " +
-        "Ne donne pas de données personnelles. Sois court, concret et utilisable à l'oral.";
+        "Prépare un argumentaire vendeur utilisable par un agent commercial JML dans les Ardennes. " +
+        "Le but est d'expliquer la valeur et les éléments de marché de façon crédible, sans supposer que le propriétaire veut vendre. " +
+        "Priorise les ventes DVF, les comparables, la médiane, la fourchette, le DPE confirmé, les caractéristiques du bien, les éléments du secteur et l'historique disponible. " +
+        "Ne parle pas de score Radar au propriétaire. Si une donnée manque, dis-le plutôt que de l'inventer.";
 
       const response = await fetch("/api/ai", {
         method: "POST",
@@ -251,23 +280,29 @@
       });
 
       const data = await response.json().catch(() => ({}));
-      if (!response.ok || data.ok === false) {
-        throw new Error(data.error || "IA indisponible");
-      }
+      if (!response.ok || data.ok === false) throw new Error(data.error || "IA indisponible");
 
-      const text = data.text || data.local?.summary || "Aucun argumentaire généré.";
-      box.innerHTML =
-        '<div class="flow-argument-head"><strong>💬 Argumentaire vendeur</strong><span>' +
-        esc(data.provider || "IA JML") +
-        '</span></div><div>' + esc(text).replace(/\n/g, "<br>") + "</div>";
+      box.innerHTML = renderArgument(data, p, task);
     } catch (_) {
-      const reasons = Array.isArray(p.priorityProspectionReasons)
-        ? p.priorityProspectionReasons.slice(0, 3) : [];
-
+      const reasons = Array.isArray(p.priorityProspectionReasons) ? p.priorityProspectionReasons.slice(0, 4) : [];
+      const median = Number(p.medianPriceM2 || p.marketMedianPriceM2 || 0);
+      const central = Number(p.estimatedValue || p.valueCentral || p.marketValue || 0);
+      const low = Number(p.priceRangeLow || p.estimatedLow || p.rangeLow || 0);
+      const high = Number(p.priceRangeHigh || p.estimatedHigh || p.rangeHigh || 0);
+      const sale = p.sameAddressSale || {};
+      const facts = [];
+      if(median) facts.push("Médiane du secteur : "+Math.round(median).toLocaleString("fr-FR")+" €/m².");
+      if(central) facts.push("Valeur centrale calculée : "+Math.round(central).toLocaleString("fr-FR")+" €.");
+      if(low || high) facts.push("Fourchette indicative : "+(low?Math.round(low).toLocaleString("fr-FR"):"—")+" à "+(high?Math.round(high).toLocaleString("fr-FR"):"—")+" €.");
+      if(sale.status==="confirmed") facts.push("Une mutation DVF est confirmée à la même adresse.");
+      if(p.dpeConfirmed===true && p.dpe) facts.push("DPE "+p.dpe+" confirmé à l'adresse.");
+      if(p.area) facts.push("Surface : "+Number(p.area).toLocaleString("fr-FR")+" m².");
+      const script = "« Je ne vais pas vous annoncer un prix au hasard. Je peux vous montrer les ventes réellement enregistrées dans votre secteur, les biens comparables et, lorsque les données le permettent, une fourchette de valeur. L’objectif est de voir ensemble ce qui justifie cette valeur et quels éléments de votre bien peuvent la soutenir. »";
       box.innerHTML =
-        '<div class="flow-argument-head"><strong>💬 Argumentaire local</strong><span>Sans appel externe</span></div>' +
-        '<p>« Je peux vous expliquer la valeur de votre bien à partir de ventes réelles comparables et des caractéristiques de votre secteur. L’objectif est de distinguer le prix affiché, la valeur de marché et la stratégie de mise en vente. »</p>' +
-        (reasons.length ? "<ul>" + reasons.map((x) => "<li>" + esc(x) + "</li>").join("") + "</ul>" : "");
+        '<div class="flow-argument-head"><strong>💬 Argumentaire vendeur</strong><span>Mode local</span></div>' +
+        '<div class="flow-argument-script"><span class="flow-kicker">TEXTE PRÊT À DIRE</span><p>'+esc(script)+'</p></div>' +
+        (facts.length ? '<div class="flow-argument-block"><strong>📊 Faits disponibles</strong><ul>'+facts.map(x=>'<li>'+esc(x)+'</li>').join("")+'</ul></div>' : '') +
+        (reasons.length ? '<div class="flow-argument-block"><strong>🎯 Pourquoi ce dossier</strong><ul>'+reasons.map(x=>'<li>'+esc(x)+'</li>').join("")+'</ul></div>' : '');
     }
   }
 
