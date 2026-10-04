@@ -396,7 +396,7 @@ function futureRadarRender(){
   },{field:0,contact:0,active:0,coverage:0,watch:0});
   const selectedCount=futureRadarSelectedIndices.size;
   const priorityCount=Math.min(10,futureRadarCandidates.length);
-  const selectedText=selectedCount?selectedCount+" sélectionné(s)":"Aucune sélection";
+  const selectedText=selectedCount?selectedCount+" prêt(s) à ajouter":"Aucune sélection";
   const summary='<div class="radar-worklist-summary"><strong>🎯 TOP '+priorityCount+' · À PROSPECTER</strong><span>'+apiEsc(selectedText)+' · '+(futureRadarDetectedCount||futureRadarCandidates.length)+' biens détectés</span></div>';
   const controls='<div class="radar-selection-toolbar"><strong>📋 '+apiEsc(selectedText)+'</strong><button type="button" class="ghost" data-radar-page="prev" '+(futureRadarPage===0?"disabled":"")+'>&larr; 10 précédents</button><button type="button" class="ghost" data-radar-page="next" '+(futureRadarPage>=totalPages-1?"disabled":"")+'>'+ (futureRadarPage>=totalPages-1?"Fin":"10 suivants &rarr;")+'</button><span class="meta">Le score sert à classer les dossiers ; il ne prédit pas une vente.</span></div>';
   const tourButton=selectedCount?'<button type="button" class="primary" id="futureRadarRoute">🚗 Préparer ma tournée</button>':'';
