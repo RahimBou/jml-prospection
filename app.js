@@ -369,13 +369,17 @@ function futureRadarRender(){
     return;
   }
   futureRadarPage=Math.max(0,Math.min(futureRadarPage,Math.max(0,Math.ceil(futureRadarCandidates.length/FUTURE_RADAR_PAGE_SIZE)-1)));
-  // V1.37.4 : ne sélectionne plus automatiquement les 10 premiers.
-  // La sélection est entièrement contrôlée par l'utilisateur via les cases et les boutons.
+  // Sélection automatique : les 10 biens affichés sont prêts à être ajoutés.
+  // L'utilisateur peut ensuite retirer un bien avec sa case, sans devoir sélectionner
+  // manuellement chaque ligne. Le CRM déduplique lors de l'ajout.
+  const pageStart=futureRadarPage*FUTURE_RADAR_PAGE_SIZE;
+  const pageEnd=Math.min(pageStart+FUTURE_RADAR_PAGE_SIZE,futureRadarCandidates.length);
   futureRadarSelectedIndices=new Set(
-    [...futureRadarSelectedIndices]
-      .filter(i=>i>=0&&i<futureRadarCandidates.length)
-      .slice(0,FUTURE_RADAR_MAX_SELECTED)
+    [...futureRadarSelectedIndices].filter(i=>i>=pageStart&&i<pageEnd)
   );
+  if(futureRadarSelectedIndices.size===0){
+    for(let i=pageStart;i<pageEnd;i++) futureRadarSelectedIndices.add(i);
+  }
   futureRadarPriorityCount=Math.min(10,futureRadarCandidates.length);
 
   const totalPages=Math.max(1,Math.ceil(futureRadarCandidates.length/FUTURE_RADAR_PAGE_SIZE));
@@ -712,9 +716,12 @@ if($("futureRadarResults"))$("futureRadarResults").onclick=e=>{
     const nextPage=pg.dataset.radarPage==="next"?Math.min(totalPages-1,futureRadarPage+1):Math.max(0,futureRadarPage-1);
     if(nextPage!==futureRadarPage){
       futureRadarPage=nextPage;
-      // La sélection est volontairement limitée à la page affichée : en passant aux 10 suivants,
-      // on repart avec une sélection vide et on évite de devoir désélectionner manuellement les 10 précédents.
+      // À chaque page, les 10 biens affichés sont présélectionnés.
+      // On ne demande donc pas de cliquer sur "Sélectionner les 10" à chaque fois.
       futureRadarSelectedIndices=new Set();
+      const start=nextPage*FUTURE_RADAR_PAGE_SIZE;
+      const end=Math.min(start+FUTURE_RADAR_PAGE_SIZE,futureRadarCandidates.length);
+      for(let i=start;i<end;i++) futureRadarSelectedIndices.add(i);
     }
     futureRadarRender();
     return;
