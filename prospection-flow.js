@@ -233,31 +233,36 @@
 
   function renderArgument(data, p, mode){
     const local=data?.local || {};
-    const text=data?.text || "";
+    const text=String(data?.text || "").trim();
     const reasons=Array.isArray(local.reasons)?local.reasons:[];
     const actions=Array.isArray(local.actions)?local.actions:[];
     const questions=Array.isArray(local.questions)?local.questions:[];
     const objections=Array.isArray(local.objections)?local.objections:[];
+    const facts=[];
+    const median=Number(p?.medianPriceM2||p?.marketMedianPriceM2||0);
+    const central=Number(p?.estimatedValue||p?.valueCentral||p?.marketValue||0);
+    const low=Number(p?.priceRangeLow||p?.estimatedLow||p?.rangeLow||0);
+    const high=Number(p?.priceRangeHigh||p?.estimatedHigh||p?.rangeHigh||0);
+    const sale=p?.sameAddressSale||{};
+    if(median) facts.push("Médiane du secteur : "+Math.round(median).toLocaleString("fr-FR")+" €/m².");
+    if(central) facts.push("Valeur centrale : "+Math.round(central).toLocaleString("fr-FR")+" €.");
+    if(low||high) facts.push("Fourchette indicative : "+(low?Math.round(low).toLocaleString("fr-FR"):"—")+" à "+(high?Math.round(high).toLocaleString("fr-FR"):"—")+" €.");
+    if(sale.status==="confirmed") facts.push("Une mutation DVF est confirmée à la même adresse.");
+    if(p?.dpeConfirmed===true&&p?.dpe) facts.push("DPE "+p.dpe+" confirmé à l'adresse.");
+    if(Number(p?.area)>0) facts.push("Surface : "+Number(p.area).toLocaleString("fr-FR")+" m².");
+    if(Number(p?.land||p?.terrainArea)>0) facts.push("Terrain : "+Number(p.land||p.terrainArea).toLocaleString("fr-FR")+" m².");
+    const script="« Je ne vais pas vous annoncer un prix au hasard. Je peux vous montrer les ventes réellement enregistrées dans votre secteur, les biens comparables et, lorsque les données le permettent, une fourchette de valeur. L'objectif est de voir ensemble ce qui justifie cette valeur et quels éléments de votre bien peuvent la soutenir. »";
     const sections=[];
-    if(text){
-      sections.push('<div class="flow-argument-script"><span class="flow-kicker">TEXTE PRÊT À DIRE</span><p>'+esc(text).replace(/\\n/g,"<br>")+'</p></div>');
-    }
-    if(reasons.length){
-      sections.push('<div class="flow-argument-block"><strong>📊 Les faits à utiliser</strong><ul>'+reasons.slice(0,6).map(x=>'<li>'+esc(x)+'</li>').join("")+'</ul></div>');
-    }
-    if(questions.length){
-      sections.push('<div class="flow-argument-block"><strong>❓ Questions à poser</strong><ul>'+questions.slice(0,4).map(x=>'<li>'+esc(x)+'</li>').join("")+'</ul></div>');
-    }
-    if(objections.length){
-      sections.push('<div class="flow-argument-block"><strong>🛡️ Si le propriétaire objecte</strong>'+objections.slice(0,3).map(x=>'<p><b>'+esc(x.objection||"Objection")+'</b><br>'+esc(x.response||"")+'</p>').join("")+'</div>');
-    }
-    if(actions.length){
-      sections.push('<div class="flow-argument-block"><strong>➡️ Prochaine étape</strong><ul>'+actions.slice(0,3).map(x=>'<li>'+esc(x)+'</li>').join("")+'</ul></div>');
-    }
-    if(!sections.length){
-      sections.push('<p>Aucun argumentaire exploitable n’a été retourné. Vérifie les données du dossier.</p>');
-    }
-    return '<div class="flow-argument-head"><strong>💬 Argumentaire vendeur</strong><span>'+esc(data?.provider||data?.local?.mode||"IA JML")+'</span></div>'+sections.join("");
+    if(text) sections.push('<div class="flow-argument-script"><span class="flow-kicker">TEXTE PRÊT À DIRE</span><p>'+esc(text).replace(/\\n/g,"<br>")+'</p></div>');
+    else sections.push('<div class="flow-argument-script"><span class="flow-kicker">TEXTE PRÊT À DIRE</span><p>'+esc(script)+'</p></div>');
+    const allFacts=[...reasons,...facts].filter((v,i,a)=>v&&a.indexOf(v)===i);
+    if(allFacts.length) sections.push('<div class="flow-argument-block"><strong>📊 Les faits à utiliser</strong><ul>'+allFacts.slice(0,8).map(x=>'<li>'+esc(x)+'</li>').join("")+'</ul></div>');
+    if(questions.length) sections.push('<div class="flow-argument-block"><strong>❓ Questions à poser</strong><ul>'+questions.slice(0,4).map(x=>'<li>'+esc(x)+'</li>').join("")+'</ul></div>');
+    else sections.push('<div class="flow-argument-block"><strong>❓ Question à poser</strong><p>« Qu'est-ce qui serait le plus important pour vous si vous envisagiez un jour de faire évoluer votre situation avec ce bien ? »</p></div>');
+    if(objections.length) sections.push('<div class="flow-argument-block"><strong>🛡️ Si le propriétaire objecte</strong>'+objections.slice(0,3).map(x=>'<p><b>'+esc(x.objection||"Objection")+'</b><br>'+esc(x.response||"")+'</p>').join("")+'</div>');
+    if(actions.length) sections.push('<div class="flow-argument-block"><strong>➡️ Prochaine étape</strong><ul>'+actions.slice(0,3).map(x=>'<li>'+esc(x)+'</li>').join("")+'</ul></div>');
+    else sections.push('<div class="flow-argument-block"><strong>➡️ Prochaine étape</strong><p>Proposer de présenter les ventes comparables et la méthode de valorisation, sans engagement.</p></div>');
+    return '<div class="flow-argument-head"><strong>💬 Argumentaire vendeur</strong><span>'+esc(data?.provider||"IA JML")+'</span></div>'+sections.join("");
   }
 
   async function aiArgument(p, task) {
