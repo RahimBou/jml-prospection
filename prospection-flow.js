@@ -79,6 +79,27 @@
     const signal = Number(p.commercialSignalScore ?? 0);
     const quality = Number(p.dataQuality?.score ?? p.evidence?.dataQuality?.score ?? 0);
     const terrain = Number(p.terrainArea ?? p.landArea ?? p.land ?? 0);
+    const comparableRows = Array.isArray(p.comparables) ? p.comparables.slice(0, 3) : [];
+    const verifiedFacts = [];
+    if (p.dpeConfirmed === true && p.dpe) verifiedFacts.push("DPE " + String(p.dpe).toUpperCase() + " confirmé à l’adresse");
+    if (sale.status === "confirmed") verifiedFacts.push((sale.count || 1) + " mutation(s) DVF confirmée(s) à la même adresse");
+    if (Number.isFinite(Number(p.area)) && Number(p.area) > 0) verifiedFacts.push(Number(p.area).toLocaleString("fr-FR") + " m² de surface documentée");
+    if (Number.isFinite(Number(p.rooms)) && Number(p.rooms) > 0) verifiedFacts.push(Number(p.rooms) + " pièce(s) renseignée(s)");
+    if (quality > 0) verifiedFacts.push("Qualité des données : " + quality + "/5");
+    const comparableEvidenceHtml = comparableRows.length ? [
+      '<div class="flow-section"><div class="flow-section-head"><div><span class="flow-kicker">VENTES RÉELLES</span><h4>📊 Pourquoi ces comparables comptent</h4></div><span class="flow-section-note">'+comparablesRowsLabel(comparableRows.length)+'</span></div>',
+      '<div class="flow-evidence-grid">',
+      comparableRows.map((c) => {
+        const distance = Number(c.distanceKm), surface = Number(c.surface), priceValue = Number(c.price);
+        const reasons = [];
+        if (c.sameStreet) reasons.push("Même rue");
+        else if (Number.isFinite(distance) && distance <= 0.5) reasons.push("À moins de 500 m");
+        if (Number.isFinite(surface) && Number(p.area) > 0 && Math.abs(surface - Number(p.area)) / Number(p.area) <= 0.15) reasons.push("Surface proche");
+        const reason = reasons.length ? reasons.join(" · ") : "Repère de secteur";
+        return '<div class="flow-evidence-card"><strong>'+esc(c.type || "Vente DVF")+'</strong><span>'+(Number.isFinite(priceValue) && priceValue > 0 ? priceValue.toLocaleString("fr-FR") + " €" : "Prix —")+'</span><small>'+(Number.isFinite(distance) ? distance + " km" : "Distance —")+' · '+(Number.isFinite(surface) && surface > 0 ? Math.round(surface) + " m²" : "surface —")+'</small><em>'+esc(reason)+'</em></div>';
+      }).join(""),
+      '</div></div>'
+    ].join("") : "";
     const price = Number(p.price);
     const priceM2 = Number(p.priceM2 ?? (price > 0 && Number(p.area) > 0 ? price / Number(p.area) : 0));
     const medianM2 = Number(p.medianPriceM2 ?? p.marketMedianPriceM2 ?? 0);
@@ -140,6 +161,10 @@
         ${reasons.length ? "<ul>" + reasons.slice(0, 3).map((x) => "<li>✓ " + esc(x) + "</li>").join("") + "</ul>" : ""}
       </div>
 
+      ${verifiedFacts.length ? '<div class="flow-section flow-section-facts"><div class="flow-section-head"><div><span class="flow-kicker">ÉLÉMENTS VÉRIFIÉS</span><h4>🔎 Ce que le dossier établit réellement</h4></div></div><div class="flow-facts-list">'+verifiedFacts.map(x => "<span>✓ " + esc(x) + "</span>").join("")+"</div></div>" : ""}
+
+      ${comparableEvidenceHtml}
+
       ${marketHtml}
 
       <div class="flow-mini-grid">
@@ -179,6 +204,8 @@
       <div id="flowArgument" class="flow-argument"></div>`;
   }
 
+
+  function comparablesRowsLabel(n) { return n + " vente" + (n > 1 ? "s" : "") + " affichée" + (n > 1 ? "s" : ""); }
   function render() {
     const el = root();
     if (!el) return;
