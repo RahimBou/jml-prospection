@@ -1223,6 +1223,7 @@ function ctMarketMatches(p){
 function ctSelect10(){
   ctSelectedIndices=new Set();
   const visible=ctMarketMeta.items?.filter(ctMarketMatches)||[];
+  if(!visible.length){ctRender(ctMarketMeta.items||[]);return;}
   visible.slice(0,10).forEach(p=>{
     const idx=ctAnnonces.findIndex(x=>x===p||ctMemoryKey(x)===p._marketKey);
     if(idx>=0)ctSelectedIndices.add(idx);
@@ -1383,6 +1384,15 @@ async function ctIncrementalWatch(){
       return !agency&&p.exclusive!==true&&p.exclusive!=="true"&&p.exclusivity!==true&&p.exclusivity!=="true";
     }):raw;
     const market=ctMarketClassify(filtered);
+    // Sélection automatique uniquement lorsqu’il existe de vraies annonces.
+    // Si la source retourne 0 résultat, aucune sélection fantôme ne doit rester.
+    ctSelectedIndices=new Set();
+    if(market.items.length){
+      market.items.filter(ctMarketMatches).slice(0,10).forEach(p=>{
+        const idx=market.items.findIndex(x=>x===p||ctMemoryKey(x)===p._marketKey);
+        if(idx>=0)ctSelectedIndices.add(idx);
+      });
+    }
     ctRenderMarketPanel();
     ctRender(market.items);
     const memory=ctRememberResults(filtered);
@@ -1444,7 +1454,9 @@ async function ctSearch(){
       return label+" ✓ "+Number(s.count||0);
     }).join(" · ");
     const freshnessDiag=data.freshness&&Number.isFinite(Number(data.freshness.raw_total||data.raw_total))?" · brut : "+Number(data.raw_total||0)+" · fraîcheur : -"+Number(data.freshness.discarded||0)+" / "+Number(data.freshness.unknown||0)+" inconnue(s)":""; 
-    $("ctStatus").textContent=filtered.length+" annonce(s) exploitables"+zone+" · "+(data.items?.length||0)+" reçue(s)"+freshnessDiag+" · Sources : "+(sourceSummary||"aucune")+(sourceDiag?" · État : "+sourceDiag:"")+(privateOnly&&raw.length&&!filtered.length?" · ⚠️ toutes écartées par le filtre « Particulier uniquement »":"")+" · "+raw.filter(p=>Array.isArray(p.sources)&&p.sources.length>1).length+" multi-portails · 🧠 mémoire : "+memory.total+" fiches / +"+memory.newCount+" nouvelles / "+memory.changedCount+" prix modifiés";
+    const selectedNow=ctSelectedIndices.size;
+    const sourceDetails=sourceDiag||"aucun retour source";
+    $("ctStatus").textContent=filtered.length+" annonce(s) exploitables"+zone+" · "+(data.items?.length||0)+" reçue(s)"+freshnessDiag+" · Sources : "+(sourceSummary||"aucune")+" · État : "+sourceDetails+(privateOnly&&raw.length&&!filtered.length?" · ⚠️ toutes écartées par le filtre « Particulier uniquement »":"")+(filtered.length?" · ☑️ "+selectedNow+" automatiquement sélectionnée(s)":" · ☑️ 0 sélectionnée(s)")+ " · "+raw.filter(p=>Array.isArray(p.sources)&&p.sources.length>1).length+" multi-portails · 🧠 mémoire : "+memory.total+" fiches / +"+memory.newCount+" nouvelles / "+memory.changedCount+" prix modifiés";
   }catch(e){$("ctStatus").textContent="Erreur veille annonces : "+e.message;ctRender([])}
   finally{btn.disabled=false}
 }
