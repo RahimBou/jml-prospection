@@ -343,6 +343,33 @@ function futureRadarDistanceKm(a,b){
   const h=Math.sin(dLat/2)**2+Math.cos(lat1*rad)*Math.cos(lat2*rad)*Math.sin(dLon/2)**2;
   return 2*R*Math.asin(Math.sqrt(h));
 }
+function futureRadarAutoPrepare(selected){
+  const neighborhood=norm($("radarNeighborhood")?.value||"");
+  const excludeExisting=$("radarExcludeExisting")?.checked!==false;
+  const city=norm($("radarSimpleCity")?.value||selected?.[0]?.label||"");
+  const existing=new Set();
+  if(excludeExisting){
+    prospects.forEach(p=>existing.add(dedupeKey(p)));
+  }
+  const source=Array.isArray(futureRadarCandidates)?futureRadarCandidates:[];
+  const filtered=source.filter(p=>{
+    if(neighborhood){
+      const hay=norm([p.district,p.neighborhood,p.quartier,p.address,p.city].filter(Boolean).join(" "));
+      if(!hay.includes(neighborhood)) return false;
+    }
+    if(excludeExisting && existing.has(dedupeKey({
+      address:p.address||"",postalCode:p.postalCode||"",city:p.city||"",type:futureRadarType(p.buildingType),externalId:"",source:""
+    }))) return false;
+    return true;
+  });
+  futureRadarCandidates=filtered;
+  futureRadarPage=0;
+  futureRadarSelectedIndices=new Set();
+  for(let i=0;i<Math.min(FUTURE_RADAR_PAGE_SIZE,filtered.length);i++) futureRadarSelectedIndices.add(i);
+  futureRadarDetectedCount=filtered.length;
+  return {total:source.length,filtered:filtered.length,city,neighborhood,excludeExisting};
+}
+
 function futureRadarSelectCompactTen(){
   const pageStart=futureRadarPage*FUTURE_RADAR_PAGE_SIZE;
   const pageItems=futureRadarCandidates.slice(pageStart,pageStart+FUTURE_RADAR_PAGE_SIZE);
@@ -512,6 +539,7 @@ async function runFutureRadar(){
         (Number(b.sellerOpportunityScore??0)-Number(a.sellerOpportunityScore??0))||
         (Number(b.commercialSignalScore??0)-Number(a.commercialSignalScore??0))
       );
+      const auto=futureRadarAutoPrepare(selected);
       const sectors=Array.from(sectorStats.values()).map(x=>apiEsc(x.label)+" <strong>"+x.radiusKm+" km</strong>").join(" · ");
       const roadAxes=Array.from(sectorRoadAxes.entries()).map(([id,axes])=>{
         const sector=sectorStats.get(id);
@@ -521,7 +549,7 @@ async function runFutureRadar(){
       const roadInfo=roadAxes?" · "+roadAxes:"";
       const dedupInfo=totalDuplicates>0?" · "+totalDuplicates+" doublon(s) DPE écarté(s)":"";
       const errorInfo=failed.length>0?" · "+failed.length+" commune(s) indisponible(s)":"";
-      $("futureRadarStatus").innerHTML="<strong>Zone de prospection analysée</strong> · "+sectors+" · <strong>"+futureRadarDetectedCount+"</strong> biens détectés · <strong>"+Math.min(30,futureRadarCandidates.length)+"</strong> priorités de travail · "+processed+"/"+totalCommunes+" commune(s) analysée(s)"+dedupInfo+errorInfo+" · "+totalDvf+" transactions comparées."+roadInfo+" "+apiEsc(anyFallback?"DVF open-data utilisé en secours.":"DVF+ utilisé.");
+      $("futureRadarStatus").innerHTML="<strong>Zone analysée</strong> · "+sectors+" · <strong>"+auto.filtered+"</strong> dossier(s) retenu(s) sur "+auto.total+" détecté(s) · <strong>"+Math.min(10,auto.filtered)+"</strong> automatiquement sélectionné(s) · "+processed+"/"+totalCommunes+" commune(s) analysée(s)"+(auto.excludeExisting?" · doublons de ma base exclus":"")+(auto.neighborhood?" · quartier : "+apiEsc($("radarNeighborhood").value):"")+dedupInfo+errorInfo+" · "+totalDvf+" transactions comparées."+roadInfo+" "+apiEsc(anyFallback?"DVF open-data utilisé en secours.":"DVF+ utilisé.");
       if($("futureRadarReady")) $("futureRadarReady").textContent="✅ Analyse terminée · "+processed+" commune(s) · "+futureRadarCandidates.length+" bien(s)";
       if($("publicQuery")) $("publicQuery").value=selected[0]?.label||"";
     }catch(e){
