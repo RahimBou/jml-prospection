@@ -1612,7 +1612,7 @@ async function aiRun(task){
   if(!p){$("aiStatus").textContent="Choisis d'abord un prospect commercial.";return}
   aiSetBusy(true);$("aiStatus").textContent="Assistant IA en cours…";
   try{
-    const r=await fetch("/api/ai",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({task,prospect:p,context:$("aiContext")?.value||""})});
+    const r=await fetch((API_BASE||"")+"/api/ai",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({task,prospect:p,context:$("aiContext")?.value||""})});
     const data=await r.json().catch(()=>({}));
     if(!r.ok||data.ok===false)throw new Error(data.error||"Service IA indisponible");
     const provider=data.provider==="Gemini"?"🟢 Gemini":data.provider==="local-fallback"?"🟠 Gemini indisponible · secours local":"🔵 IA locale";
