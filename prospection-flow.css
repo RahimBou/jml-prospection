@@ -19,3 +19,11 @@
 .flow-seller-pitch{margin-top:14px;padding:14px;border-left:4px solid #b68b3c;background:#f7f4ed;border-radius:0 12px 12px 0}
 .flow-seller-pitch p{margin:6px 0 0;font-weight:600;line-height:1.45}
 @media(max-width:900px){.flow-market-grid,.flow-mini-grid{grid-template-columns:repeat(2,1fr)}}
+
+.flow-argument-script{margin:10px 0;padding:12px 14px;border-left:4px solid #b38a45;border-radius:9px;background:#fffaf0}
+.flow-argument-script p{margin:7px 0 0;line-height:1.6}
+.flow-argument-block{margin-top:10px;padding:11px 13px;border:1px solid rgba(0,0,0,.07);border-radius:10px;background:#fff}
+.flow-argument-block>strong{display:block;margin-bottom:6px}
+.flow-argument-block ul{margin:5px 0 0;padding-left:20px}
+.flow-argument-block li{margin:4px 0;line-height:1.4}
+.flow-argument-block p{margin:8px 0;line-height:1.45}
