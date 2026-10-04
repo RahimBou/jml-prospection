@@ -463,3 +463,11 @@ body{background:linear-gradient(180deg,#f3efe8 0,#f7f5f1 42%,#f5f2ec 100%)}
 .ct-market-filter-row{display:flex;justify-content:space-between;margin-top:10px;font-size:.82rem;color:#667085}
 @media(max-width:900px){.ct-market-cards{grid-template-columns:repeat(4,1fr)}}
 @media(max-width:600px){.ct-market-cards{grid-template-columns:repeat(2,1fr)}.ct-market-head{flex-direction:column}.ct-market-filter-row{flex-direction:column;gap:4px}}
+
+/* Radar — sélection automatique par zone */
+.radar-auto-filter{display:grid;grid-template-columns:1.4fr auto 1fr;gap:10px;align-items:center;margin:12px 0;padding:11px 13px;border:1px solid #d8e3dc;border-radius:12px;background:#f7faf8}
+.radar-auto-filter>div{display:flex;flex-direction:column;gap:3px}
+.radar-auto-filter>div span{font-size:.74rem;color:var(--muted)}
+.radar-auto-filter label{display:flex;align-items:center;gap:6px;font-size:.75rem;color:var(--muted)}
+.radar-auto-filter input[type="text"]{min-width:180px;padding:8px 10px;border:1px solid #d5ddd8;border-radius:8px;background:#fff}
+@media(max-width:850px){.radar-auto-filter{grid-template-columns:1fr}.radar-auto-filter label{flex-wrap:wrap}.radar-auto-filter input[type="text"]{width:100%}}
