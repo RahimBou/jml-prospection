@@ -1,4 +1,4 @@
-const APP_VERSION = "1.41.1";
+const APP_VERSION = "1.42.0";
 const API_BASE = String(window.JML_API_BASE || (location.hostname === "jml-prospection.onrender.com" ? "https://jml-prospection-api.onrender.com" : "")).replace(/\/$/,"");
 
 /* V1.37.3 — garde-fou des boutons : délégation globale + diagnostic JS */

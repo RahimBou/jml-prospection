@@ -1,3 +1,29 @@
+# JML Prospection — V1.42.0 GOLDEN
+
+Cette version est la **version de référence à conserver** pour le moteur de prospection.
+
+## Ce qui est verrouillé dans cette base
+- Radar Ardennes et classement **Priorité de prospection** séparé du **Potentiel vendeur**.
+- Moteurs DVF / DPE / BDNB / BAN-Géoplateforme conservés sans réécriture.
+- Veille annonces ChercherTrouver avec sélection contrôlée des 10 priorités.
+- Rapprochement annonce → adresse candidate avec concordance technique, DPE, BDNB et géographie.
+- Workflow commercial : Radar → Top 10 → fiche → argumentaire → suivi.
+- Assistant IA local + Gemini côté serveur, sans inférence d'intention de vente.
+- Biens de surveillance séparés des prospects commerciaux.
+
+## Décision d'architecture
+Les anciennes branches servent uniquement d'archives ou de références. Une fonctionnalité d'une ancienne branche ne doit être réintroduite que si elle apporte un gain vérifié sans déstabiliser DVF/DPE/Radar.
+
+**Important : la recherche visuelle par photo n'est pas considérée comme une fonctionnalité active de V1.42.0 tant qu'un fournisseur et un flux techniquement vérifiés ne sont pas intégrés.** On ne simule donc pas cette fonction et on ne laisse pas une fausse promesse dans l'interface.
+
+## Ordre de travail
+1. Stabiliser le backend Render.
+2. Tester Radar, Veille, adresse candidate et Top 10.
+3. Tester le workflow fiche/argumentaire/suivi.
+4. Seulement après validation, archiver les anciennes branches.
+
+release/v1.42-golden est la branche de référence pour cette stabilisation.
+
 ## V1.35.0 — Assistant IA JML
 - Ajout d'un panneau **Assistant IA JML** directement dans le poste de travail commercial.
 - 4 actions : **Analyser**, **Préparer l'appel**, **Compte-rendu**, **Préparer la relance**.
