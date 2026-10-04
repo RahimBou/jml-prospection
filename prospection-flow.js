@@ -75,7 +75,37 @@
     const dpe = p.dpe || "—";
     const sale = p.sameAddressSale || {};
     const comparables = Number(p.comparableCount ?? (Array.isArray(p.comparables) ? p.comparables.length : 0));
+    const opportunity = Number(p.sellerOpportunityScore ?? p.marketContextScore ?? 0);
+    const signal = Number(p.commercialSignalScore ?? 0);
+    const quality = Number(p.dataQuality?.score ?? p.evidence?.dataQuality?.score ?? 0);
+    const terrain = Number(p.terrainArea ?? p.landArea ?? p.land ?? 0);
     const price = Number(p.price);
+    const priceM2 = Number(p.priceM2 ?? (price > 0 && Number(p.area) > 0 ? price / Number(p.area) : 0));
+    const medianM2 = Number(p.medianPriceM2 ?? p.marketMedianPriceM2 ?? 0);
+    const centralValue = Number(p.estimatedValue ?? p.valueCentral ?? p.marketValue ?? 0);
+    const lowValue = Number(p.priceRangeLow ?? p.estimatedLow ?? p.rangeLow ?? 0);
+    const highValue = Number(p.priceRangeHigh ?? p.estimatedHigh ?? p.rangeHigh ?? 0);
+
+    const marketHtml = (medianM2 || centralValue || lowValue || highValue)
+      ? `
+        <div class="flow-section">
+          <div class="flow-section-head"><div><span class="flow-kicker">REPÈRE MARCHÉ</span><h4>💶 Ce que les données permettent de dire</h4></div><span class="flow-section-note">Données disponibles dans le dossier</span></div>
+          <div class="flow-market-grid">
+            ${medianM2 ? `<div><span>Médiane DVF</span><strong>${Math.round(medianM2).toLocaleString("fr-FR")} €/m²</strong></div>` : ""}
+            ${priceM2 ? `<div><span>Prix du bien</span><strong>${Math.round(priceM2).toLocaleString("fr-FR")} €/m²</strong></div>` : ""}
+            ${centralValue ? `<div><span>Valeur centrale</span><strong>${Math.round(centralValue).toLocaleString("fr-FR")} €</strong></div>` : ""}
+            ${lowValue || highValue ? `<div><span>Fourchette indicative</span><strong>${lowValue ? Math.round(lowValue).toLocaleString("fr-FR") : "—"} → ${highValue ? Math.round(highValue).toLocaleString("fr-FR") : "—"} €</strong></div>` : ""}
+          </div>
+        </div>`
+      : `
+        <div class="flow-section flow-section-muted">
+          <div class="flow-section-head"><div><span class="flow-kicker">REPÈRE MARCHÉ</span><h4>💶 Valeur de marché</h4></div></div>
+          <p>La fiche Radar ne contient pas encore de valeur calculée pour ce dossier. On ne l'invente pas : les comparables et la médiane restent accessibles dans l'estimation.</p>
+        </div>`;
+
+    const angle = reasons.length
+      ? reasons.slice(0, 2).join(" · ")
+      : "Commencer par montrer les ventes réelles et les caractéristiques du secteur avant de parler prix.";
 
     return `
       <div class="flow-detail-head">
@@ -90,22 +120,38 @@
         </div>
         <div class="flow-big-score">
           ${score(p).toFixed(1)}<small>/100</small>
-          <em>${esc(p.priorityProspectionLevel || (score(p) >= 65 ? "Priorité" : "À travailler"))}</em>
+          <em>Priorité de prospection</em>
         </div>
       </div>
 
       <div class="flow-metrics">
-        <div><span>DPE</span><strong>${esc(dpe)}</strong></div>
-        <div><span>DVF même adresse</span><strong>${esc(sale.status === "confirmed" ? "Confirmée" : "À vérifier")}</strong></div>
-        <div><span>Comparables</span><strong>${comparables}</strong></div>
-        <div><span>Prix</span><strong>${Number.isFinite(price) && price > 0 ? price.toLocaleString("fr-FR") + " €" : "—"}</strong></div>
+        <div><span>⚡ DPE</span><strong>${esc(dpe)}</strong><small>${p.dpeConfirmed === true ? "Confirmé à l'adresse" : "À vérifier"}</small></div>
+        <div><span>📊 DVF même adresse</span><strong>${esc(sale.status === "confirmed" ? "Confirmée" : "À vérifier")}</strong><small>${sale.count ? sale.count + " mutation(s)" : "Pas de mutation confirmée"}</small></div>
+        <div><span>🎯 Potentiel vendeur</span><strong>${opportunity.toFixed(0)}/100</strong><small>${esc(p.sellerOpportunityLevel || "Lecture marché")}</small></div>
+        <div><span>📢 Signal public</span><strong>${signal.toFixed(0)}/100</strong><small>${quality ? "Qualité " + quality + "/5" : "Données à vérifier"}</small></div>
       </div>
 
-      <div class="flow-reasons">
-        <h4>Pourquoi ce dossier est dans le Top 10</h4>
-        ${reasons.length
-          ? reasons.map((x) => `<span>✓ ${esc(x)}</span>`).join("")
-          : "<span>Classement issu des scores déjà calculés par le Radar JML.</span>"}
+      <div class="flow-section flow-section-highlight">
+        <div class="flow-section-head">
+          <div><span class="flow-kicker">ANGLE D'APPROCHE</span><h4>🎯 Pourquoi commencer par ce dossier ?</h4></div>
+          <span class="flow-badge">${score(p).toFixed(1)}/100</span>
+        </div>
+        <p>${esc(angle)}</p>
+        ${reasons.length ? "<ul>" + reasons.slice(0, 3).map((x) => "<li>✓ " + esc(x) + "</li>").join("") + "</ul>" : ""}
+      </div>
+
+      ${marketHtml}
+
+      <div class="flow-mini-grid">
+        <div><span>📐 Surface</span><strong>${p.area ? Number(p.area).toLocaleString("fr-FR") + " m²" : "—"}</strong></div>
+        <div><span>🌳 Terrain</span><strong>${terrain ? Math.round(terrain).toLocaleString("fr-FR") + " m²" : "Non documenté"}</strong></div>
+        <div><span>📈 Comparables</span><strong>${comparables || "—"}</strong></div>
+        <div><span>💰 Prix actuel</span><strong>${Number.isFinite(price) && price > 0 ? price.toLocaleString("fr-FR") + " €" : "—"}</strong></div>
+      </div>
+
+      <div class="flow-seller-pitch">
+        <span class="flow-kicker">PHRASE POUR LE PREMIER CONTACT</span>
+        <p>« Je peux vous montrer, à partir des ventes réellement enregistrées dans votre secteur, comment positionner votre bien et quels éléments peuvent justifier sa valeur. »</p>
       </div>
 
       <div class="flow-actions">
@@ -122,12 +168,8 @@
         <div class="flow-follow-actions">
           <select data-flow-status>
             <option value="">Changer le statut…</option>
-            <option>À contacter</option>
-            <option>Visité</option>
-            <option>À relancer</option>
-            <option>Mandat obtenu</option>
-            <option>Mandat refusé</option>
-            <option>Vendu / abandonné</option>
+            <option>À contacter</option><option>Visité</option><option>À relancer</option>
+            <option>Mandat obtenu</option><option>Mandat refusé</option><option>Vendu / abandonné</option>
           </select>
           <input type="date" data-flow-follow-date value="${esc(p.nextFollow || "")}">
           <button type="button" class="ghost" data-flow-save>💾 Enregistrer le suivi</button>
