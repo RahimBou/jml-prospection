@@ -324,6 +324,8 @@ function previewImport(){const file=$("csvFile").files[0];if(!file)return;$("imp
 $("importBtn").onclick=()=>{$("csvFile").value="";$("importPreview").textContent="Choisis un fichier CSV." ;pendingImport=[];$("importConfirm").disabled=true;$("importDialog").showModal()};$("importClose").onclick=()=>$("importDialog").close();$("importCancel").onclick=()=>$("importDialog").close();$("csvFile").addEventListener("change",previewImport);$("importConfirm").onclick=()=>{let created=0,merged=0;pendingImport.forEach(x=>{const r=mergeProspect(x);r==="created"?created++:merged++});save();$("importDialog").close();alert("Import terminé : "+created+" nouveau(x), "+merged+" fusionné(s).");pendingImport=[]};$("exportBtn").onclick=exportCSV;
 
 let futureRadarCandidates=[];let futureRadarDetectedCount=0;let futureRadarPriorityCount=0;
+/* Bridge public pour les modules externes : le Workflow consomme le même Radar, sans dupliquer le scoring. */
+window.JMLFutureRadarBridge={getCandidates:()=>futureRadarCandidates,getSelectedIndices:()=>futureRadarSelectedIndices};
 let futureRadarPage=0;
 let futureRadarSelectedIndices=new Set();
 const FUTURE_RADAR_PAGE_SIZE=10;
