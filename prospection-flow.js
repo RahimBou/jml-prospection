@@ -305,7 +305,7 @@
         "Priorise les ventes DVF, les comparables, la médiane, la fourchette, le DPE confirmé, les caractéristiques du bien, les éléments du secteur et l'historique disponible. " +
         "Ne parle pas de score Radar au propriétaire. Si une donnée manque, dis-le plutôt que de l'inventer.";
 
-      const response = await fetch("/api/ai", {
+      const response = await fetch((window.JML_API_BASE || "https://jml-prospection-api.onrender.com") + "/api/ai", {
         method: "POST",
         headers: {"Content-Type": "application/json"},
         body: JSON.stringify({task: task || "why", prospect: p, context})
