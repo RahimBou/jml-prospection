@@ -310,3 +310,18 @@ Le score est un **indice de surveillance** et non une probabilité de vente. Cha
 - Un lancement « Analyser la commune » synchronise automatiquement la recherche publique ADEME/DVF et le Radar.
 - Le champ public historique reste synchronisé pour conserver les outils existants.
 - En cas d'échec des sources publiques, le Radar peut conserver son résultat propre.
+
+
+## V1.50.0 — GOLDEN UNIFIÉE
+
+Cette version consolide les améliorations validées dans les autres briques JML sans réécrire le moteur DVF/DPE/Radar :
+
+- routage explicite du frontend Render vers le service API dédié ;
+- sélection de veille annonces cohérente avec le nombre réel d'annonces ;
+- distinction visuelle entre éléments vérifiés et interprétation commerciale ;
+- explication dynamique des comparables lorsqu'ils sont disponibles ;
+- argumentaire vendeur fondé sur les faits du dossier ;
+- conservation de la séparation entre priorité de prospection, potentiel vendeur et surveillance ;
+- aucune inférence automatique d'une intention de vendre.
+
+Le moteur Radar DVF/DPE reste la base de référence et ne doit pas être modifié pour corriger une source externe de veille.
