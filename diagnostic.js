@@ -86,6 +86,19 @@
       results.push(row("Serveur JML", "fail", "Impossible d’atteindre "+API+" : "+msg));
     }
 
+    const deepResult = await timedFetch(API + "/api/diagnostic", 15000);
+    if (deepResult.ok && Array.isArray(deepResult.data?.checks)) {
+      for (const check of deepResult.data.checks) {
+        const state = check.ok === true ? "ok" : check.ok === false ? "fail" : "warn";
+        results.push(row("Serveur · "+(check.label || "Contrôle"), state, check.detail || ""));
+      }
+      if (deepResult.data.summary?.message) {
+        results.push(row("Diagnostic serveur", deepResult.data.summary.level === "OK" ? "ok" : "fail", deepResult.data.summary.message));
+      }
+    } else {
+      results.push(row("Diagnostic serveur approfondi", "warn", "La route /api/diagnostic n'est pas encore disponible sur cette version du serveur."));
+    }
+
     const integrationResult = await timedFetch(API + "/api/integrations-health", 8000);
     if (integrationResult.ok) {
       results.push(row("Sources externes", "ok", "Le serveur répond au contrôle des intégrations en "+integrationResult.elapsed+" ms."));
