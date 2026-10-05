@@ -1,3 +1,12 @@
+## V1.73.0 — Tournées terrain extensibles — 06/10/2026
+
+- La tournée n'est plus limitée à 10 prospects.
+- Choix de taille : 10, 20, 30 ou 50 prospects.
+- Limite mémorisée pour les prochaines tournées.
+- Sélection par secteur et complétion automatique utilisent désormais la limite choisie.
+- L'optimisation géographique conserve tous les prospects de la tournée sélectionnée.
+- Version d'interface et cache des scripts passés en V1.73.0.
+
 ## V1.72.0 — Recherche des secteurs simplifiée — 06/10/2026
 
 - Classement des secteurs par défaut de A à Z.
