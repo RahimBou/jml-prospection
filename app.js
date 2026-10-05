@@ -576,7 +576,7 @@ function renderSectorSelectionBar(){
     addBtn.disabled=ready;
     addBtn.textContent=ready?"✓ Sélection complète":(selected.length?"⚡ Compléter ma sélection ("+places+")":"⚡ Préparer mes "+limit+" meilleurs");
   }
-  bar.innerHTML='<div class="sector-selection-status"><div><strong>🎯 '+selected.length+'/10 dossiers sélectionnés</strong><span>'+(inSector.length?' · '+inSector.length+' dans ce secteur':'')+'</span></div><small>'+(ready?'Sélection complète. Prête pour le travail commercial.':places+' place'+(places>1?'s':'')+' restante'+(places>1?'s':'')+' — les meilleurs scores seront ajoutés en priorité.')+'</small></div><div class="sector-selection-actions"><button type="button" class="ghost" data-sector-selection-action="crm">Voir ma sélection</button><button type="button" class="primary" data-sector-selection-action="tour">Préparer la tournée</button></div>';
+  bar.innerHTML='<div class="sector-selection-status"><div><strong>🎯 '+selected.length+'/'+limit+' dossiers sélectionnés</strong><span>'+(inSector.length?' · '+inSector.length+' dans ce secteur':'')+'</span></div><small>'+(ready?'Sélection complète. Prête pour le travail commercial.':places+' place'+(places>1?'s':'')+' restante'+(places>1?'s':'')+' — les meilleurs scores seront ajoutés en priorité.')+'</small></div><div class="sector-selection-actions"><button type="button" class="ghost" data-sector-selection-action="crm">Voir ma sélection</button><button type="button" class="primary" data-sector-selection-action="tour">Préparer la tournée</button></div>';
 }
 function renderSectorWork(sector){
   const panel=$("sectorWorkPanel"); if(!panel)return;
