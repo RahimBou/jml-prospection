@@ -1,4 +1,4 @@
-const APP_VERSION = "1.50.3";
+const APP_VERSION = "1.51.0";
 /* V1.50 — le frontend Render web doit toujours viser le service API dédié. */
 const API_BASE = String(window.JML_API_BASE || "https://jml-prospection-web.onrender.com").replace(/\/$/,"");
 
@@ -295,6 +295,71 @@ function render(){
 }
 function badgeClass(s){return s==="Mandat obtenu"?"green":s==="À relancer"?"hot":""}
 function mergeProspect(incoming){const key=dedupeKey(incoming),idx=prospects.findIndex(p=>dedupeKey(p)===key),date=now();if(idx<0){const created={id:crypto.randomUUID(),...incoming,detectionDate:incoming.detectionDate||today(),history:[{date,type:"Import CSV",text:"Bien importé dans la base."}],priceHistory:incoming.price?[{date,price:incoming.price,source:incoming.source||"",reason:"Création"}]:[],appearanceHistory:[{date,source:incoming.source||"",sourceUrl:incoming.sourceUrl||"",externalId:incoming.externalId||""}],firstDetectedAt:incoming.detectionDate||today(),lastSeenAt:date,createdAt:date,updatedAt:date};prospects.push(created);return"created"}const old=ensureHistory({...prospects[idx]}),history=[...(old.history||[])];history.push({date,type:"Mise à jour source",text:incoming.source?"Données reçues depuis "+incoming.source+".":"Données importées et fusionnées."});const merged={...old};const oldPrice=num(old.price),newPrice=num(incoming.price);for(const[k,v]of Object.entries(incoming)){if(v!==""&&v!==null&&v!==undefined&&(typeof v!=="number"||v!==0))merged[k]=v}if(newPrice&&newPrice!==oldPrice){merged.priceHistory=[...(old.priceHistory||[]),{date,price:newPrice,previousPrice:oldPrice,source:incoming.source||"",reason:"Changement de prix"}];history.push({date,type:"Changement de prix",text:(oldPrice?oldPrice.toLocaleString("fr-FR")+" € → ":"")+" "+newPrice.toLocaleString("fr-FR")+" €"});}const appearance={date,source:incoming.source||"",sourceUrl:incoming.sourceUrl||"",externalId:incoming.externalId||""};const last=(old.appearanceHistory||[])[(old.appearanceHistory||[]).length-1];if(!last||[appearance.source,appearance.sourceUrl,appearance.externalId].some((v,i)=>v!==[last.source,last.sourceUrl,last.externalId][i]))merged.appearanceHistory=[...(old.appearanceHistory||[]),appearance];merged.history=history;merged.lastSeenAt=date;merged.updatedAt=date;prospects[idx]=merged;return"merged"}
+
+/* V1.51 — traitement automatique des prospects en lots */
+function autoTreatmentForProspect(p){
+  ensureHistory(p);
+  const m=movement6mInfo(p);
+  const sig=signalInfo(p);
+  const completeness=[
+    p.address,p.city,p.postalCode,p.type,p.area,p.price
+  ].filter(v=>v!==undefined&&v!==null&&String(v).trim()!=="").length;
+  const dataScore=Math.round((completeness/6)*20);
+  const signalScore=Math.min(20,sig.score*3);
+  const movementScore=Math.min(50,m.score*0.5);
+  const total=Math.max(0,Math.min(100,Math.round(movementScore+signalScore+dataScore)));
+  let priority="D",priorityLabel="Faible priorité";
+  if(total>=75){priority="A";priorityLabel="Priorité A — à contacter";}
+  else if(total>=55){priority="B";priorityLabel="Priorité B — intéressant";}
+  else if(total>=35){priority="C";priorityLabel="Priorité C — à surveiller";}
+  const city=String(p.city||"").trim();
+  const postal=String(p.postalCode||"").trim();
+  p.autoScore=total;
+  p.autoPriority=priority;
+  p.autoPriorityLabel=priorityLabel;
+  p.autoSignals=(m.tags||[]).map(x=>x.label);
+  p.autoSector=city || (postal ? "CP "+postal : "Secteur non renseigné");
+  p.autoProcessedAt=now();
+  p.autoProcessingVersion=APP_VERSION;
+  return p;
+}
+async function processAllProspectsAutomatically(){
+  const btn=$("autoProcessBtn"),status=$("autoProcessStatus"),bar=$("autoProcessBar"),count=$("autoProcessCount");
+  if(!prospects.length){status.textContent="Aucun prospect à traiter.";return}
+  if(btn)btn.disabled=true;
+  let done=0;
+  const total=prospects.length;
+  const batchSize=50;
+  const runBatch=()=>{
+    const end=Math.min(done+batchSize,total);
+    for(let i=done;i<end;i++)autoTreatmentForProspect(prospects[i]);
+    done=end;
+    const pct=Math.round(done/total*100);
+    if(bar)bar.value=pct;
+    if(count)count.textContent=done+" / "+total;
+    if(status)status.textContent=done<total ? "Traitement en cours… "+pct+" %" : "Traitement terminé : "+total+" prospect(s) analysé(s).";
+    if(done<total) requestAnimationFrame(runBatch);
+    else {
+      save();
+      if(btn)btn.disabled=false;
+      renderAutoTreatmentSummary();
+      prospectPage=1;
+      render();
+    }
+  };
+  requestAnimationFrame(runBatch);
+}
+function renderAutoTreatmentSummary(){
+  const el=$("autoProcessSummary"); if(!el)return;
+  const counts={A:0,B:0,C:0,D:0};
+  prospects.forEach(p=>{const k=p.autoPriority||"D";counts[k]=(counts[k]||0)+1});
+  const sectors=new Set(prospects.map(p=>p.autoSector).filter(Boolean)).size;
+  el.innerHTML=[
+    ["A",counts.A,"À contacter"],["B",counts.B,"Intéressants"],["C",counts.C,"À surveiller"],["D",counts.D,"Faible priorité"]
+  ].map(x=>'<div><strong>'+x[1]+'</strong><span>Priorité '+x[0]+'</span><small>'+x[2]+'</small></div>').join("")
+  +'<div><strong>'+sectors+'</strong><span>Secteurs</span><small>répartis automatiquement</small></div>';
+}
+
 $("addBtn").onclick=()=>openForm();$("closeBtn").onclick=closeForm;$("cancelBtn").onclick=closeForm;
 $("prospectForm").onsubmit=e=>{e.preventDefault();const d=formData(),id=$("editId").value,action=$("actionNote").value.trim(),date=now();if(!d.address||!d.city)return;if(id){const i=prospects.findIndex(p=>p.id===id);if(i<0)return;const old=prospects[i],history=[...(old.history||[])];if(old.status!==d.status)history.push({date,type:"Changement de statut",text:old.status+" → "+d.status});if(action)history.push({date,type:"Action / note",text:action});const updated=ensureHistory({...old,...d});if(num(old.price)!==num(d.price)&&num(d.price)){updated.priceHistory=[...(old.priceHistory||[]),{date,price:num(d.price),previousPrice:num(old.price),source:d.source||"",reason:"Changement de prix"}];history.push({date,type:"Changement de prix",text:(old.price?num(old.price).toLocaleString("fr-FR")+" € → ":"")+" "+num(d.price).toLocaleString("fr-FR")+" €"});}updated.appearanceHistory=old.appearanceHistory?.length?old.appearanceHistory:[{date,source:d.source||"",sourceUrl:d.sourceUrl||"",externalId:d.externalId||""}];updated.history=history;updated.updatedAt=date;updated.lastSeenAt=date;prospects[i]=updated}else{const duplicate=prospects.find(p=>dedupeKey(p)===dedupeKey(d));if(duplicate){alert("Ce bien existe déjà dans la base. Ouvre sa fiche pour le modifier.");openForm(duplicate);return}prospects.push({id:crypto.randomUUID(),...d,history:[{date,type:"Création",text:action||"Prospect créé"}],priceHistory:d.price?[{date,price:d.price,source:d.source||"",reason:"Création"}]:[],appearanceHistory:[{date,source:d.source||"",sourceUrl:d.sourceUrl||"",externalId:d.externalId||""}],firstDetectedAt:d.detectionDate||today(),lastSeenAt:date,createdAt:date,updatedAt:date})}save();closeForm()};
 $("resetBtn").onclick=()=>{["q","city","districtFilter","type","status","dpeFilter","signalFilter","movementFilter","priceMin","priceMax","areaMin","areaMax","landMin","landMax","roomsMin","roomsMax","detectedFrom","detectedTo"].forEach(id=>$(id).value="");prospectPage=1;render()};
@@ -324,6 +389,8 @@ function csvCell(v){const s=String(v??"");return /[,"\n\r]/.test(s)?'"'+s.replac
 function exportCSV(){const fields=["address","postalCode","city","district","type","area","land","rooms","bedrooms","price","dpe","status","detectionDate","nextFollow","source","externalId","sourceUrl","description","notes"],head=["adresse","codePostal","commune","quartier","type","surface","terrain","pieces","chambres","prix","dpe","statut","detection","prochaineRelance","source","identifiantSource","sourceUrl","description","notes"],lines=[head.join(",")];prospects.forEach(p=>lines.push(fields.map(k=>csvCell(p[k])).join(",")));const blob=new Blob(["\ufeff"+lines.join("\r\n")],{type:"text/csv;charset=utf-8"}),url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download="jml-prospection-export.csv";a.click();URL.revokeObjectURL(url)}
 function previewImport(){const file=$("csvFile").files[0];if(!file)return;$("importPreview").textContent="Lecture du fichier…";const reader=new FileReader();reader.onload=()=>{try{pendingImport=parseCSV(reader.result);const existing=pendingImport.filter(x=>prospects.some(p=>dedupeKey(p)===dedupeKey(x))).length;$("importPreview").innerHTML="<strong>"+pendingImport.length+"</strong> ligne(s) valide(s) · <strong>"+existing+"</strong> déjà connue(s) · les doublons seront fusionnés.<br><span class='meta'>Colonnes reconnues : adresse, CP, commune, surface, terrain, pièces, prix, DPE, détection, statut, source…</span>";$("importConfirm").disabled=!pendingImport.length}catch(err){pendingImport=[];$("importPreview").textContent="CSV illisible ou vide.";$("importConfirm").disabled=true}};reader.readAsText(file,"UTF-8")}
 $("importBtn").onclick=()=>{$("csvFile").value="";$("importPreview").textContent="Choisis un fichier CSV." ;pendingImport=[];$("importConfirm").disabled=true;$("importDialog").showModal()};$("importClose").onclick=()=>$("importDialog").close();$("importCancel").onclick=()=>$("importDialog").close();$("csvFile").addEventListener("change",previewImport);$("importConfirm").onclick=()=>{let created=0,merged=0;pendingImport.forEach(x=>{const r=mergeProspect(x);r==="created"?created++:merged++});save();$("importDialog").close();alert("Import terminé : "+created+" nouveau(x), "+merged+" fusionné(s).");pendingImport=[]};$("exportBtn").onclick=exportCSV;
+$("autoProcessBtn")?.addEventListener("click",processAllProspectsAutomatically);
+renderAutoTreatmentSummary();
 
 let futureRadarCandidates=[];let futureRadarDetectedCount=0;let futureRadarPriorityCount=0;
 /* Bridge public pour les modules externes : le Workflow consomme le même Radar, sans dupliquer le scoring. */
