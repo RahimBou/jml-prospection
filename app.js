@@ -332,7 +332,7 @@ function autoSectorStats(){
     x.total++;x[pr]=(x[pr]||0)+1;x.scoreSum+=Number(p.autoScore)||0;
   });
   return [...map.values()].map(x=>({...x,avg:x.total?Math.round(x.scoreSum/x.total):0}))
-    .sort((a,b)=>(b.A-b.A)||(b.B-b.B)||(b.avg-a.avg)||a.sector.localeCompare(b.sector,"fr"));
+    .sort((a,b)=>(b.A-a.A)||(b.B-a.B)||(b.avg-a.avg)||a.sector.localeCompare(b.sector,"fr"));
 }
 function renderAutoTreatmentSummary(){
   const el=$("autoProcessSummary"); if(!el)return;
@@ -345,7 +345,7 @@ function renderAutoTreatmentSummary(){
   table.innerHTML=sectors.map(x=>'<tr><td><strong>'+esc(x.sector)+'</strong></td><td>'+x.total+'</td><td>'+x.A+'</td><td>'+x.B+'</td><td>'+x.C+'</td><td>'+x.D+'</td><td>'+x.avg+'/100</td><td><button class="ghost autoSectorBtn" data-sector="'+esc(x.sector)+'">Travailler</button></td></tr>').join("");
 }
 function showAutoSector(sector){
-  $("city").value=sector;$("prospectView").value="watch";prospectPage=1;render();
+  $("city").value=sector;$("prospectView").value="all";$("sort").value="auto";$("prospectPageSize").value="20";prospectPage=1;render();
   $("prospectsPanel")?.scrollIntoView({behavior:"smooth",block:"start"});
 }
 async function processAllProspectsAutomatically(){
@@ -355,6 +355,8 @@ async function processAllProspectsAutomatically(){
   const runBatch=()=>{
     const end=Math.min(done+batchSize,total);
     for(let i=done;i<end;i++)autoTreatmentForProspect(prospects[i]);
+    const sectorCounts={}; prospects.forEach(p=>{const k=p.autoSector||p.city||"Secteur non renseigné";sectorCounts[k]=(sectorCounts[k]||0)+1});
+    prospects.forEach(p=>{const n=sectorCounts[p.autoSector||p.city||"Secteur non renseigné"]||1;p.sectorActivityScore=Math.min(10,Math.round(Math.log2(n+1)*2));autoTreatmentForProspect(p)});
     done=end;const pct=Math.round(done/total*100);
     if(bar)bar.value=pct;if(count)count.textContent=done+" / "+total;
     if(status)status.textContent=done<total?"Traitement en cours… "+pct+" %":"Traitement terminé : "+total+" prospect(s) analysé(s).";
