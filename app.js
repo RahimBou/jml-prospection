@@ -26,7 +26,6 @@ function showJmlPage(page){
   first?.scrollIntoView({behavior:"smooth",block:"start"});
   if(page==="crm")render();
   if(page==="tour")renderTour();
-  if(page==="watch")renderCtMemory?.();
 }
 
 // V1.61 — routeur d'actions robuste : les boutons de travail ne dépendent plus du bind local
