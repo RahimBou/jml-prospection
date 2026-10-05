@@ -82,7 +82,7 @@ document.addEventListener("click",e=>{
   const tour=e.target.closest("#navRouteShortcut");
   if(tour){e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();openTour();return;}
 },true);
-const APP_VERSION = "1.75.1";
+const APP_VERSION = "1.75.3";
 /* V1.50 — le frontend Render web doit toujours viser le service API dédié. */
 const API_BASE = String(window.JML_API_BASE || "https://jml-prospection-web.onrender.com").replace(/\/$/,"");
 
@@ -633,8 +633,19 @@ function bindAutoSectorControls(){
 }
 let sectorWorkPriority="ALL";
 function sectorRowsForSelection(sector){
-  const name=norm(String(sector||""));
-  const rows=prospects.filter(p=>norm(p.autoSector||p.city||p.postalCode||"")===name);
+  const raw=String(sector||"").trim();
+  const name=norm(raw);
+  let rows=prospects.filter(p=>{
+    const candidates=[p.autoSector,p.city,p.district,p.postalCode].filter(Boolean).map(norm);
+    return candidates.includes(name);
+  });
+  if(!rows.length && name){
+    rows=prospects.filter(p=>{
+      const city=norm(p.city||"");
+      const auto=norm(p.autoSector||"");
+      return city===name || auto===name || city.includes(name) || name.includes(city);
+    });
+  }
   const groups=new Map();
   rows.forEach(p=>{const key=dedupeKey(p)||String(p.id);if(!groups.has(key))groups.set(key,[]);groups.get(key).push(p);});
   return [...groups.values()].map(g=>g[0]).sort((a,b)=>{
