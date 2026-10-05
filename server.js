@@ -9,7 +9,8 @@ const DVF_URL = "https://apidf-preprod.cerema.fr/dvf_opendata/mutations/";
 const DVF_GEO_BASE = "https://files.data.gouv.fr/geo-dvf/latest/csv";
 const DVF_GEO_LATEST_YEAR = 2025;
 const dvfGeoCache = new Map();
-const communeGeoCache = new Map();\nconst radarCommuneCache = new Map();
+const communeGeoCache = new Map();
+const radarCommuneCache = new Map();
 const RADAR_CACHE_TTL_MS = 10 * 60 * 1000;
 
 const DVF_LOCAL_FILE = path.join(ROOT,"data","dvf_ardennes.csv.gz");
