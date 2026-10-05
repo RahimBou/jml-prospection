@@ -548,3 +548,7 @@ body{background:linear-gradient(180deg,#f3efe8 0,#f7f5f1 42%,#f5f2ec 100%)}
 
 /* V1.69 — optimisation de tournée */
 #tourOptimizeBtn{border-color:rgba(47,102,85,.25)}
+
+/* V1.70 — actions terrain */
+.tour-card-actions{display:flex;gap:7px;flex-wrap:wrap;margin-top:9px}.tour-card-actions .selected{border-color:var(--action);background:#eef4f0}
+@media(max-width:700px){.tour-card-actions button{flex:1}}
