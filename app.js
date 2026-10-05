@@ -69,7 +69,7 @@ document.addEventListener("click",e=>{
   const tour=e.target.closest("#navRouteShortcut");
   if(tour){e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();openTour();return;}
 },true);
-const APP_VERSION = "1.72.0";
+const APP_VERSION = "1.73.0";
 /* V1.50 — le frontend Render web doit toujours viser le service API dédié. */
 const API_BASE = String(window.JML_API_BASE || "https://jml-prospection-web.onrender.com").replace(/\/$/,"");
 
@@ -84,6 +84,7 @@ document.addEventListener("click",e=>{
  const tv=e.target.closest("[data-tour-visited]");if(tv){markTourVisited(tv.dataset.tourVisited);return;}
  const tr=e.target.closest("[data-tour-remove]");if(tr){toggleProspectSelection(tr.dataset.tourRemove);renderTour();return;}
  if(e.target.closest("#tourOptimizeBtn")){optimizeTourOrder();return;}
+ const tl=e.target.closest("#tourLimitSelect");if(tl){setTourLimit(tl.value);return;}
  if(e.target.closest("#tourClearBtn")){clearProspectSelection();renderTour();return;}
  if(e.target.closest("#tourBackBtn")){openTour();$("tourPanel").hidden=true;$("prospectsPanel").scrollIntoView({behavior:"smooth",block:"start"});return;}
 
@@ -130,12 +131,15 @@ function load(){
     return result.prospects;
   }catch(e){return[]}
 }
-function loadSelectedProspects(){try{const x=JSON.parse(localStorage.getItem("jml_prospection_selection_v1")||"[]");return Array.isArray(x)?x.slice(0,10):[]}catch(e){return[]}}
+const TOUR_LIMIT_OPTIONS=[10,20,30,50];
+function getTourLimit(){const n=Number(localStorage.getItem("jml_tour_limit_v1")||"30");return TOUR_LIMIT_OPTIONS.includes(n)?n:30}
+function setTourLimit(n){const limit=TOUR_LIMIT_OPTIONS.includes(Number(n))?Number(n):30;localStorage.setItem("jml_tour_limit_v1",String(limit));if(selectedProspectIds.length>limit){selectedProspectIds=selectedProspectIds.slice(0,limit);saveSelectedProspects()}renderSelectionPanel();renderSectorSelectionBar();renderTour()}
+function loadSelectedProspects(){try{const x=JSON.parse(localStorage.getItem("jml_prospection_selection_v1")||"[]");return Array.isArray(x)?x.slice(0,getTourLimit()):[]}catch(e){return[]}}
 function saveSelectedProspects(){localStorage.setItem("jml_prospection_selection_v1",JSON.stringify(selectedProspectIds))}
 function selectedProspects(){return selectedProspectIds.map(id=>prospects.find(p=>p.id===id)).filter(Boolean)}
-function toggleProspectSelection(id){const i=selectedProspectIds.indexOf(id);if(i>=0){selectedProspectIds.splice(i,1)}else{if(selectedProspectIds.length>=10){alert("Ma sélection est limitée à 10 prospects.");return}selectedProspectIds.push(id)}saveSelectedProspects();render()}
+function toggleProspectSelection(id){const i=selectedProspectIds.indexOf(id);if(i>=0){selectedProspectIds.splice(i,1)}else{if(selectedProspectIds.length>=getTourLimit()){alert("Ma sélection est limitée à "+getTourLimit()+" prospects.");return}selectedProspectIds.push(id)}saveSelectedProspects();render()}
 function clearProspectSelection(){selectedProspectIds=[];saveSelectedProspects();render()}
-function renderSelectionPanel(){const box=$("selectionPanel");if(!box)return;const selected=selectedProspects();const last=selected[selected.length-1];const route=selected.length>1?"https://www.google.com/maps/dir/?api=1&destination="+encodeURIComponent(last.address+", "+(last.postalCode||"")+" "+(last.city||""))+"&waypoints="+encodeURIComponent(selected.slice(0,-1).map(p=>p.address+", "+(p.postalCode||"")+" "+(p.city||"")).join("|")):"";box.innerHTML="<div class=\"selection-head\"><div><strong>🎯 Ma sélection</strong><span>"+selected.length+"/10 prospects</span></div><div class=\"selection-actions\"><button type=\"button\" class=\"ghost\" id=\"clearSelectionBtn\" "+(selected.length?"":"disabled")+">Vider</button>"+(route?"<a class=\"primary\" target=\"_blank\" rel=\"noopener\" href=\""+route+"\">🚗 Itinéraire</a>":"")+"</div></div>"+(selected.length?"<div class=\"selection-list\">"+selected.map((p,i)=>"<div class=\"selection-item\"><span>"+(i+1)+".</span><div><strong>"+esc(p.address)+"</strong><small>"+esc(p.postalCode||"")+" "+esc(p.city||"")+" · "+esc(p.autoPriority||"")+"</small></div><button type=\"button\" class=\"icon\" data-remove-selection=\""+esc(p.id)+"\">×</button></div>").join("")+"</div>":"<div class=\"selection-empty\">Ajoute jusqu'à 10 prospects depuis le secteur travaillé.</div>")}
+function renderSelectionPanel(){const box=$("selectionPanel");if(!box)return;const selected=selectedProspects();const limit=getTourLimit();const last=selected[selected.length-1];const route=selected.length>1?"https://www.google.com/maps/dir/?api=1&destination="+encodeURIComponent(last.address+", "+(last.postalCode||"")+" "+(last.city||""))+"&waypoints="+encodeURIComponent(selected.slice(0,-1).map(p=>p.address+", "+(p.postalCode||"")+" "+(p.city||"")).join("|")):"";box.innerHTML="<div class=\"selection-head\"><div><strong>🎯 Ma sélection</strong><span>"+selected.length+"/10 prospects</span></div><div class=\"selection-actions\"><button type=\"button\" class=\"ghost\" id=\"clearSelectionBtn\" "+(selected.length?"":"disabled")+">Vider</button>"+(route?"<a class=\"primary\" target=\"_blank\" rel=\"noopener\" href=\""+route+"\">🚗 Itinéraire</a>":"")+"</div></div>"+(selected.length?"<div class=\"selection-list\">"+selected.map((p,i)=>"<div class=\"selection-item\"><span>"+(i+1)+".</span><div><strong>"+esc(p.address)+"</strong><small>"+esc(p.postalCode||"")+" "+esc(p.city||"")+" · "+esc(p.autoPriority||"")+"</small></div><button type=\"button\" class=\"icon\" data-remove-selection=\""+esc(p.id)+"\">×</button></div>").join("")+"</div>":"<div class=\"selection-empty\">Ajoute jusqu'à 10 prospects depuis le secteur travaillé.</div>")}
 function bindSelectionControls(){const clear=$("clearSelectionBtn");if(clear)clear.onclick=clearProspectSelection;document.querySelectorAll("[data-remove-selection]").forEach(b=>b.onclick=()=>toggleProspectSelection(b.dataset.removeSelection))}
 
 function save(){localStorage.setItem(KEY,JSON.stringify(prospects));render();if(typeof statsSync==="function")statsSync()}
@@ -548,7 +552,7 @@ function prepareSectorSelection(){
   const rows=sectorRowsForSelection(autoSectorFilter);
   let added=0;
   for(const p of rows){
-    if(selectedProspectIds.length>=10)break;
+    if(selectedProspectIds.length>=getTourLimit())break;
     if(selectedProspectIds.includes(p.id))continue;
     selectedProspectIds.push(p.id);added++;
   }
@@ -565,14 +569,14 @@ function renderSectorSelectionBar(){
   if(!bar)return;
   const selected=selectedProspects();
   const inSector=selected.filter(p=>String(p.autoSector||p.city||p.postalCode||"").trim().toLowerCase()===String(autoSectorFilter).trim().toLowerCase());
-  const places=Math.max(0,10-selected.length);
-  const ready=selected.length>=10;
+  const limit=getTourLimit(),places=Math.max(0,limit-selected.length);
+  const ready=selected.length>=limit;
   const addBtn=$("sectorAddTopBtn");
   if(addBtn){
     addBtn.disabled=ready;
     addBtn.textContent=ready?"✓ Sélection complète":(selected.length?"⚡ Compléter ma sélection ("+places+")":"⚡ Préparer mes 10 meilleurs");
   }
-  bar.innerHTML='<div class="sector-selection-status"><div><strong>🎯 '+selected.length+'/10 dossiers sélectionnés</strong><span>'+(inSector.length?' · '+inSector.length+' dans ce secteur':'')+'</span></div><small>'+(ready?'Sélection complète. Prête pour le travail commercial.':places+' place'+(places>1?'s':'')+' restante'+(places>1?'s':'')+' — les meilleurs scores seront ajoutés en priorité.')+'</small></div><div class="sector-selection-actions"><button type="button" class="ghost" data-sector-selection-action="crm">Voir mes 10</button><button type="button" class="primary" data-sector-selection-action="tour">Préparer la tournée</button></div>';
+  bar.innerHTML='<div class="sector-selection-status"><div><strong>🎯 '+selected.length+'/10 dossiers sélectionnés</strong><span>'+(inSector.length?' · '+inSector.length+' dans ce secteur':'')+'</span></div><small>'+(ready?'Sélection complète. Prête pour le travail commercial.':places+' place'+(places>1?'s':'')+' restante'+(places>1?'s':'')+' — les meilleurs scores seront ajoutés en priorité.')+'</small></div><div class="sector-selection-actions"><button type="button" class="ghost" data-sector-selection-action="crm">Voir ma sélection</button><button type="button" class="primary" data-sector-selection-action="tour">Préparer la tournée</button></div>';
 }
 function renderSectorWork(sector){
   const panel=$("sectorWorkPanel"); if(!panel)return;
@@ -633,7 +637,7 @@ async function optimizeTourOrder(){
       ordered.push(remaining.splice(best,1)[0]);
     }
     const orderedIds=ordered.map(p=>p.id), missing=selected.filter(p=>!orderedIds.includes(p.id)).map(p=>p.id);
-    selectedProspectIds=[...orderedIds,...missing].slice(0,10);
+    selectedProspectIds=[...orderedIds,...missing].slice(0,getTourLimit());
     saveSelectedProspects();save();
     if(status)status.textContent="✓ Ordre optimisé · "+ordered.length+" adresses géolocalisées";
     renderTour();
@@ -655,7 +659,9 @@ function markTourVisited(id){
 function renderTour(){
  const panel=$("tourPanel");if(!panel)return;
  const selected=selectedProspects();
- const summary=$("tourSummary");summary.innerHTML='<div><strong>'+selected.length+'/10</strong><span>prospects</span></div><div><strong>'+selected.filter(p=>p.autoPriority==="A").length+'</strong><span>priorité A</span></div><div><strong>'+selected.filter(p=>p.status==="À relancer").length+'</strong><span>à relancer</span></div>';
+ const limit=getTourLimit();
+ const selector=$("tourLimitSelect");if(selector)selector.value=String(limit);
+ const summary=$("tourSummary");summary.innerHTML='<div><strong>'+selected.length+'/'+limit+'</strong><span>prospects</span></div><div><strong>'+selected.filter(p=>p.autoPriority==="A").length+'</strong><span>priorité A</span></div><div><strong>'+selected.filter(p=>p.status==="À relancer").length+'</strong><span>à relancer</span></div>';
  const maps=selected.length? "https://www.google.com/maps/dir/?api=1&destination="+encodeURIComponent([selected[selected.length-1].address,selected[selected.length-1].postalCode,selected[selected.length-1].city].filter(Boolean).join(", "))+"&waypoints="+encodeURIComponent(selected.slice(0,-1).map(p=>[p.address,p.postalCode,p.city].filter(Boolean).join(", ")).join("|")) : "";
  $("tourMapsBtn").href=maps||"#";$("tourMapsBtn").style.pointerEvents=maps?"auto":"none";$("tourMapsBtn").style.opacity=maps?"1":".5";
  $("tourList").innerHTML=selected.length?selected.map((p,i)=>'<article class="tour-card"><div class="tour-num">'+(i+1)+'</div><div><strong>'+esc(p.address||"Adresse à compléter")+'</strong><span>'+esc([p.postalCode,p.city,p.type].filter(Boolean).join(" · "))+'</span><div class="tour-data"><b>⭐ '+Number(p.autoScore||0)+'</b><b>📐 '+(p.area||0)+' m²</b><b>🔤 DPE '+esc(p.dpe||"—")+'</b><b>📌 '+esc(p.status||"Nouveau")+'</b></div><div class="tour-card-actions"><button class="ghost" data-tour-open="'+esc(p.id)+'">Dossier</button><button class="ghost '+(p.status==="Visité"?"selected":"")+'" data-tour-visited="'+esc(p.id)+'">'+(p.status==="Visité"?"✓ Visité":"Marquer visité")+'</button></div></div><button class="ghost" data-tour-remove="'+esc(p.id)+'">Retirer</button></article>').join(""):'<div class="empty-state">Aucun prospect sélectionné. Depuis un secteur, ajoute jusqu’à 10 dossiers à ta tournée.</div>';
