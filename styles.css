@@ -545,3 +545,6 @@ body{background:linear-gradient(180deg,#f3efe8 0,#f7f5f1 42%,#f5f2ec 100%)}
 
 /* V1.68 — CRM: indicateurs cliquables */
 .crm-today-item{border:1px solid rgba(47,102,85,.14);background:#fff;border-radius:12px;padding:12px;text-align:left;cursor:pointer;display:flex;flex-direction:column;gap:2px;transition:.15s}.crm-today-item:hover,.crm-today-item.active{border-color:var(--action);box-shadow:0 2px 8px rgba(47,102,85,.12);transform:translateY(-1px)}.crm-today-item strong{font-size:22px}.crm-today-item span{font-size:12px;color:var(--muted)}
+
+/* V1.69 — optimisation de tournée */
+#tourOptimizeBtn{border-color:rgba(47,102,85,.25)}
