@@ -402,7 +402,7 @@ $("dashboardTerrain").onclick=e=>{
  else if(action==="tour"){$("ct-annonces-panel")?.scrollIntoView({behavior:"smooth",block:"start"});}
 };
 
-$("list").onclick=e=>{const edit=e.target.closest("[data-edit]"),del=e.target.closest("[data-delete]");if(edit){const p=prospects.find(x=>x.id===edit.dataset.edit);if(p)openForm(p)}if(del&&confirm("Supprimer ce prospect ?")){prospects=prospects.filter(x=>x.id!==del.dataset.delete);save()}};
+$("list").onclick=e=>{const sel=e.target.closest("[data-select-prospect]");if(sel){toggleProspectSelection(sel.dataset.selectProspect);return}const edit=e.target.closest("[data-edit]"),del=e.target.closest("[data-delete]");if(edit){const p=prospects.find(x=>x.id===edit.dataset.edit);if(p)openForm(p)}if(del&&confirm("Supprimer ce prospect ?")){prospects=prospects.filter(x=>x.id!==del.dataset.delete);selectedProspectIds=selectedProspectIds.filter(id=>id!==del.dataset.delete);saveSelectedProspects();save()}};
 
 function parseCSV(text){const rows=[];let row=[],cell="",quote=false;for(let i=0;i<text.length;i++){const c=text[i],n=text[i+1];if(c==='"'&&quote&&n==='"'){cell+='"';i++;continue}if(c==='"'){quote=!quote;continue}if(c===","&&!quote){row.push(cell);cell="";continue}if((c==="\n"||c==="\r")&&!quote){if(c==="\r"&&n==="\n")i++;row.push(cell);if(row.some(x=>x.trim()!==""))rows.push(row);row=[];cell="";continue}cell+=c}row.push(cell);if(row.some(x=>x.trim()!==""))rows.push(row);if(!rows.length)return[];const headers=rows.shift().map(h=>norm(h).replace(/ /g,""));const aliases={adresse:"address",rue:"address",codepostal:"postalCode",cp:"postalCode",commune:"city",ville:"city",quartier:"district",type:"type",surface:"area",surfacehabitable:"area",terrain:"land",terrainm2:"land",pieces:"rooms",chambres:"bedrooms",prix:"price",dpe:"dpe",statut:"status",detection:"detectionDate",datedetection:"detectionDate",prochainerelance:"nextFollow",source:"source",identifiantsource:"externalId",sourceurl:"sourceUrl",lien:"sourceUrl",description:"description",signal:"description",notes:"notes"};return rows.map(r=>{const o={};headers.forEach((h,i)=>{const k=aliases[h]||h;if(k)o[k]=(r[i]||"").trim()});o.area=numCSV(o.area);o.land=numCSV(o.land);o.rooms=numCSV(o.rooms);o.bedrooms=numCSV(o.bedrooms);o.price=numCSV(o.price);return o}).filter(o=>o.address&&o.city)}
 function numCSV(v){if(v===undefined||v==="")return 0;return Number(String(v).replace(/\s/g,"").replace(",","." ).replace(/€/g,""))||0}
@@ -1802,3 +1802,4 @@ if($("aiAssistantPanel")){
   const _jmlOriginalRender=render;
   render=function(){_jmlOriginalRender();aiRefreshProspects()};
 }
+$("navRouteShortcut")?.addEventListener("click",e=>{e.preventDefault();focusSelection()});
