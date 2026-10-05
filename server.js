@@ -1879,7 +1879,7 @@ async function api(pathname,url){
     const years=Number(url.searchParams.get("years"))||5;
     const perCommuneLimit=cleanLimit(url.searchParams.get("perCommuneLimit"),50);
     const offset=Math.max(0,Number(url.searchParams.get("offset"))||0);
-    const communeBatch=Math.max(1,Math.min(6,Number(url.searchParams.get("communeBatch"))||2));
+    const communeBatch=Math.max(1,Math.min(2,Number(url.searchParams.get("communeBatch"))||2));
     const selectedCodes=codes.slice(offset,offset+communeBatch);
     const aggregate=[],errors=[];
     // Les appels par zone restent courts pour Render, mais quatre communes sont traitées en parallèle afin de réduire le temps total sans saturer le serveur.
