@@ -1,5 +1,11 @@
 # JML Prospection
 
+## V1.68.0 — CRM piloté par les urgences
+- Les indicateurs « Relances en retard », « À faire aujourd’hui » et « Dans ma sélection » sont maintenant cliquables.
+- Un clic filtre immédiatement la liste CRM sur les dossiers concernés.
+- « Tous » réinitialise le focus et revient à la vue complète.
+- V1.68.0 + cache PWA v18 synchronisés.
+
 ## V1.67.0 — fiche prospect → préparation d'appel
 - Chaque fiche prospect dispose maintenant d'une action « 📞 Préparer l'appel ».
 - L'action ouvre directement l'Assistant IA JML sur le bon dossier et lance la préparation d'appel sans devoir rechercher à nouveau le prospect dans une liste.
