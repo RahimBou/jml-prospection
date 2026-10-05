@@ -454,6 +454,11 @@ function renderSectorSelectionBar(){
   const inSector=selected.filter(p=>String(p.autoSector||p.city||p.postalCode||"").trim().toLowerCase()===String(autoSectorFilter).trim().toLowerCase());
   const places=Math.max(0,10-selected.length);
   const ready=selected.length>=10;
+  const addBtn=$("sectorAddTopBtn");
+  if(addBtn){
+    addBtn.disabled=ready;
+    addBtn.textContent=ready?"✓ Sélection complète":(selected.length?"⚡ Compléter ma sélection ("+places+")":"⚡ Préparer mes 10 meilleurs");
+  }
   bar.innerHTML='<div class="sector-selection-status"><div><strong>🎯 '+selected.length+'/10 dossiers sélectionnés</strong><span>'+(inSector.length?' · '+inSector.length+' dans ce secteur':'')+'</span></div><small>'+(ready?'Sélection complète. Prête pour le travail commercial.':places+' place'+(places>1?'s':'')+' restante'+(places>1?'s':'')+' — les meilleurs scores seront ajoutés en priorité.')+'</small></div><div class="sector-selection-actions"><button type="button" class="ghost" data-sector-selection-action="crm">Voir mes 10</button><button type="button" class="primary" data-sector-selection-action="tour">Préparer la tournée</button></div>';
 }
 function renderSectorWork(sector){
