@@ -1,4 +1,4 @@
-const APP_VERSION = "1.59.1";
+const APP_VERSION = "1.60.1";
 /* V1.50 — le frontend Render web doit toujours viser le service API dédié. */
 const API_BASE = String(window.JML_API_BASE || "https://jml-prospection-web.onrender.com").replace(/\/$/,"");
 
@@ -8,6 +8,11 @@ window.addEventListener("error",e=>{
   if(box&&e?.message) box.textContent="⚠️ Erreur JavaScript : "+e.message;
 });
 document.addEventListener("click",e=>{
+ const navTour=e.target.closest("#navRouteShortcut");if(navTour){e.preventDefault();openTour();return;}
+ const tr=e.target.closest("[data-tour-remove]");if(tr){toggleProspectSelection(tr.dataset.tourRemove);renderTour();return;}
+ if(e.target.closest("#tourClearBtn")){clearProspectSelection();renderTour();return;}
+ if(e.target.closest("#tourBackBtn")){openTour();$("tourPanel").hidden=true;$("prospectsPanel").scrollIntoView({behavior:"smooth",block:"start"});return;}
+
   const b=e.target.closest("#futureRadarTreatBtn,#aiAnalyzeBtn,#aiWhyBtn,#aiPriorityBtn,#aiCallBtn,#aiReportBtn,#aiFollowupBtn,#futureRadarBtn,#futureRadarPrint,#futureRadarAddAll,#futureRadarAddPage,#futureRadarSelectAll,#futureRadarDeselectAll,#futureRadarRoute,#integrationsTestBtn,#sourcesRefreshBtn,#publicSearchBtn,#ctSearchBtn,#ctTourBtn,#ctSelect10Btn,#ctDeselectBtn,#ctPrepareSelectedBtn");
   if(!b)return;
   const tasks={aiAnalyzeBtn:"analyze",aiWhyBtn:"why",aiPriorityBtn:"priority",aiCallBtn:"call",aiReportBtn:"report",aiFollowupBtn:"followup"};
@@ -383,6 +388,15 @@ function renderSectorWork(sector){
     return '<article class="sector-prospect-card"><div class="sector-rank">'+(i+1)+'</div><div class="sector-prospect-main"><div class="sector-prospect-title"><strong>'+esc(p.address||"Adresse à compléter")+'</strong><span class="priority-'+esc(p.autoPriority||"D")+'">'+esc(p.autoPriority||"D")+'</span>'+(item.duplicates>1?'<span class="duplicate-chip">↻ '+item.duplicates+' occurrences</span>':"")+'</div><div class="sector-prospect-meta">'+esc(p.postalCode||"")+' '+esc(p.city||"")+' · '+esc(p.type||"Bien")+'</div><div class="sector-prospect-data"><span>📐 '+(Number(p.area)||0)+' m²</span><span>🚪 '+(Number(p.rooms)||0)+' pièces</span><span>🌳 '+(Number(p.land)||0)+' m² terrain</span><span>💶 '+(p.price?Number(p.price).toLocaleString("fr-FR")+" €":"Prix —")+'</span><span class="dpe-chip">DPE '+esc(p.dpe||"—")+'</span></div><div class="sector-prospect-signals">'+(signals||"Données à compléter")+'</div></div><div class="sector-score"><strong>'+Number(p.autoScore||0)+'</strong><small>/100</small></div><button type="button" class="ghost sector-select-btn '+(selected?"selected":"")+'" data-sector-select="'+esc(p.id)+'">'+(selected?"✓ Sélectionné":"＋ Sélectionner")+'</button><button type="button" class="ghost sector-open-btn" data-sector-open="'+esc(p.id)+'">Dossier →</button></article>';
   }).join(""):'<div class="empty-state">Aucun prospect dans ce filtre.</div>';
 }
+function renderTour(){
+ const panel=$("tourPanel");if(!panel)return;
+ const selected=selectedProspects();
+ const summary=$("tourSummary");summary.innerHTML='<div><strong>'+selected.length+'/10</strong><span>prospects</span></div><div><strong>'+selected.filter(p=>p.autoPriority==="A").length+'</strong><span>priorité A</span></div><div><strong>'+selected.filter(p=>p.status==="À relancer").length+'</strong><span>à relancer</span></div>';
+ const maps=selected.length? "https://www.google.com/maps/dir/?api=1&destination="+encodeURIComponent([selected[selected.length-1].address,selected[selected.length-1].postalCode,selected[selected.length-1].city].filter(Boolean).join(", "))+"&waypoints="+encodeURIComponent(selected.slice(0,-1).map(p=>[p.address,p.postalCode,p.city].filter(Boolean).join(", ")).join("|")) : "";
+ $("tourMapsBtn").href=maps||"#";$("tourMapsBtn").style.pointerEvents=maps?"auto":"none";$("tourMapsBtn").style.opacity=maps?"1":".5";
+ $("tourList").innerHTML=selected.length?selected.map((p,i)=>'<article class="tour-card"><div class="tour-num">'+(i+1)+'</div><div><strong>'+esc(p.address||"Adresse à compléter")+'</strong><span>'+esc([p.postalCode,p.city,p.type].filter(Boolean).join(" · "))+'</span><div class="tour-data"><b>⭐ '+Number(p.autoScore||0)+'</b><b>📐 '+(p.area||0)+' m²</b><b>🔤 DPE '+esc(p.dpe||"—")+'</b><b>📌 '+esc(p.status||"Nouveau")+'</b></div></div><button class="ghost" data-tour-remove="'+esc(p.id)+'">Retirer</button></article>').join(""):'<div class="empty-state">Aucun prospect sélectionné. Depuis un secteur, ajoute jusqu’à 10 dossiers à ta tournée.</div>';
+}
+function openTour(){ $("sectorWorkPanel").hidden=true;$("prospectDetailPanel").hidden=true;$("autoTreatmentPanel").hidden=true;$("tourPanel").hidden=false;renderTour();$("tourPanel").scrollIntoView({behavior:"smooth",block:"start"});}
 function renderProspectDetail(id){
  const p=prospects.find(x=>String(x.id)===String(id)),panel=$("prospectDetailPanel"),body=$("prospectDetailBody"); if(!p||!panel||!body)return;
  window.jmlDetailReturnSector=autoSectorFilter||p.autoSector||"";
