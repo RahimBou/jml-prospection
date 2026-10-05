@@ -475,29 +475,50 @@ function futureRadarRender(){
 async function runTerritoryRadar(){
   futureRadarTerritoryMode=true;
   const city=($("radarCity")?.value||"").trim();
-  futureRadarCandidates=[];
-  futureRadarSelectedIndices=new Set();
-  futureRadarPage=0;
-  futureRadarDetectedCount=0;
+  futureRadarCandidates=[];futureRadarSelectedIndices=new Set();futureRadarPage=0;futureRadarDetectedCount=0;
+  if(!city){
+    if($("futureRadarStatus"))$("futureRadarStatus").textContent="⚠️ Indique une ville avant de lancer le radar.";
+    if($("futureRadarReady"))$("futureRadarReady").textContent="⚠️ Ville requise";
+    return;
+  }
   if($("futureRadarBtn"))$("futureRadarBtn").disabled=true;
-  if($("futureRadarStatus"))$("futureRadarStatus").textContent=city?"🔎 Recherche à "+city+"…":"🔎 Recherche dans tout le département des Ardennes…";
-  if($("futureRadarReady"))$("futureRadarReady").textContent=city?"⏳ Analyse de "+city+"…":"⏳ Croisement DVF + DPE + Radar en cours…";
+  if($("futureRadarStatus"))$("futureRadarStatus").textContent="🔎 Préparation de "+city+" + 25 km…";
+  if($("futureRadarReady"))$("futureRadarReady").textContent="⏳ Recherche locale en cours…";
   try{
-    const cityParam=city?"&ville="+encodeURIComponent(city):"";
-    const data=await publicJson("/api/radar-territory?department=08&years=5&perCommuneLimit=60&communeBatch=6"+cityParam);
-    futureRadarCandidates=(data.results||[]).sort((a,b)=>
-      String(a.territorySector||a.city||"").localeCompare(String(b.territorySector||b.city||""),"fr")||
-      (Number(b.priorityProspectionScore??0)-Number(a.priorityProspectionScore??0))
+    const sectors=encodeURIComponent(JSON.stringify([{id:"terrain",label:city,q:city,radiusKm:25}]));
+    const seen=new Map();
+    let offset=0,totalCommunes=0,analyzed=0,failed=0,dpeCount=0,dvfCount=0,complete=false;
+    while(!complete){
+      const data=await publicJson("/api/radar-zone?sectors="+sectors+"&years=5&perCommuneLimit=60&communeBatch=4&offset="+offset+"&limit=200");
+      totalCommunes=Number(data.totalCommuneCount||data.communeCount||totalCommunes)||totalCommunes;
+      analyzed+=Number(data.communesAnalyzed||0);
+      failed+=Array.isArray(data.failedCommunes)?data.failedCommunes.length:0;
+      dpeCount+=Number(data.dpeCount||0);dvfCount+=Number(data.dvfCount||0);
+      for(const row of (Array.isArray(data.results)?data.results:[])){
+        const key=[row.externalId||row.reference||"",row.address||"",row.postalCode||row.city||"",row.type||"",row.area||"",row.rooms||""].join("|").toLowerCase();
+        const old=seen.get(key);
+        const score=Number(row.priorityProspectionScore??row.priorityScore??0);
+        if(!old||score>Number(old.priorityProspectionScore??old.priorityScore??0))seen.set(key,{...row,territorySector:city+" + 25 km"});
+      }
+      complete=Boolean(data.complete);
+      const next=Number(data.nextOffset);
+      if(!complete&&(!Number.isFinite(next)||next<=offset))throw new Error("Progression du radar interrompue");
+      offset=next;
+      if($("futureRadarStatus"))$("futureRadarStatus").textContent="🔎 "+city+" + 25 km · "+Math.min(analyzed,totalCommunes||analyzed)+"/"+(totalCommunes||"?")+" communes analysées…";
+      if($("futureRadarReady"))$("futureRadarReady").textContent="⏳ "+seen.size+" dossiers trouvés";
+    }
+    futureRadarCandidates=Array.from(seen.values()).sort((a,b)=>
+      (Number(b.priorityProspectionScore??b.priorityScore??0)-Number(a.priorityProspectionScore??a.priorityScore??0))||
+      String(a.address||"").localeCompare(String(b.address||""),"fr")
     );
     futureRadarDetectedCount=futureRadarCandidates.length;
     futureRadarRender();
-    const failed=Number(data.failedCommunes?.length||0);
-    if($("futureRadarStatus"))$("futureRadarStatus").innerHTML=(city?"<strong>"+apiEsc(city)+"</strong> analysée":"<strong>Ardennes analysées</strong>")+" · "+Number(data.communesAnalyzed||0)+"/"+Number(data.communeCount||0)+" communes · <strong>"+futureRadarCandidates.length+"</strong> dossiers · <strong>"+Number(data.sectorCount||0)+" secteurs</strong> · "+Number(data.dvfCount||0)+" transactions · "+Number(data.dpeCount||0)+" DPE"+(failed?" · "+failed+" commune(s) indisponible(s)":"")+" · classement secteur → priorité.";
+    if($("futureRadarStatus"))$("futureRadarStatus").innerHTML="<strong>"+apiEsc(city)+" + 25 km</strong> · "+analyzed+"/"+totalCommunes+" communes · <strong>"+futureRadarCandidates.length+"</strong> dossiers · "+dvfCount+" transactions · "+dpeCount+" DPE"+(failed?" · "+failed+" commune(s) partiellement indisponible(s)":"")+" · classés par priorité.";
     if($("futureRadarReady"))$("futureRadarReady").textContent="✅ "+futureRadarCandidates.length+" dossiers disponibles";
-    if($("publicQuery"))$("publicQuery").value="Ardennes";
+    if($("publicQuery"))$("publicQuery").value=city;
   }catch(e){
     futureRadarCandidates=[];futureRadarSelectedIndices=new Set();futureRadarRender();
-    if($("futureRadarStatus"))$("futureRadarStatus").textContent="❌ Recherche territoriale interrompue : "+e.message;
+    if($("futureRadarStatus"))$("futureRadarStatus").textContent="❌ Recherche interrompue : "+e.message;
     if($("futureRadarReady"))$("futureRadarReady").textContent="❌ Recherche interrompue";
   }finally{
     if($("futureRadarBtn"))$("futureRadarBtn").disabled=false;

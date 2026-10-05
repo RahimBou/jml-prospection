@@ -2114,80 +2114,25 @@ async function api(pathname,url){
     return {source:"ADEME + DVF comparables locaux",codeInsee,dpeCount:dpeRows.length,dpeRawCount:dpeRowsRaw.length,dpeDuplicateCount:Math.max(0,dpeRowsRaw.length-dpeRows.length),dvfCount:dvfRows.length,dvfSource:dvf.source,dvfFallback:!!dvf.fallback,results:candidates};
   }
   if(pathname==="/api/radar-territory"){
-    const department=String(url.searchParams.get("department")||"08").trim();
-    const years=Math.max(2,Math.min(5,Number(url.searchParams.get("years"))||5));
-    const perCommuneLimit=Math.max(10,Math.min(100,Number(url.searchParams.get("perCommuneLimit"))||60));
-    const communeBatch=Math.max(1,Math.min(6,Number(url.searchParams.get("communeBatch"))||6));
+    // Le mode « tout le 08 » est désactivé : le radar terrain travaille autour d'une ville choisie.
     const ville=String(url.searchParams.get("ville")||"").trim();
-    let communes;
-    if(ville){
-      const resolved=await resolveCommune(ville);
-      if(!resolved?.cityCode)throw new Error("Ville introuvable : "+ville);
-      const allCommunes=await getDepartmentCommunes(department);
-      const match=allCommunes.find(c=>c.cityCode===resolved.cityCode)||allCommunes.find(c=>norm(c.city)===norm(resolved.city));
-      if(!match)throw new Error("Ville introuvable dans le département "+department+" : "+ville);
-      communes=[match];
-    }else{
-      communes=(await getDepartmentCommunes(department)).slice().sort((a,b)=>(b.population-a.population)||a.city.localeCompare(b.city,"fr"));
-    }
-    const all=[];
-    const failed=[];
-    let dpeCount=0,dvfCount=0,dpeRawCount=0,dpeDuplicateCount=0;
-    for(let offset=0;offset<communes.length;offset+=communeBatch){
-      const batch=communes.slice(offset,offset+communeBatch);
-      const results=await Promise.allSettled(batch.map(async c=>{
-        const target="http://127.0.0.1:"+PORT+"/api/radar?codeInsee="+encodeURIComponent(c.cityCode)+"&limit="+perCommuneLimit+"&years="+years;
-        const response=await fetch(target,{headers:{Accept:"application/json"}});
-        const text=await response.text();
-        let data; try{data=JSON.parse(text)}catch{data={message:text}};
-        if(!response.ok) throw new Error(String(data?.error||data?.message||("HTTP "+response.status)));
-        return data;
-      }));
-      for(let i=0;i<results.length;i++){
-        const r=results[i], commune=batch[i];
-        if(r.status!=="fulfilled"){failed.push({city:commune.city,cityCode:commune.cityCode,error:r.reason?.message||"Source indisponible"});continue;}
-        const data=r.value||{};
-        dpeCount+=Number(data.dpeCount)||0;
-        dvfCount+=Number(data.dvfCount)||0;
-        dpeRawCount+=Number(data.dpeRawCount)||0;
-        dpeDuplicateCount+=Number(data.dpeDuplicateCount)||0;
-        for(const p of (data.results||[])){
-          all.push({...p,territorySector:commune.city,territorySectorCode:commune.cityCode,territoryPopulation:commune.population||0});
-        }
-      }
-    }
-    const key=p=>[norm(p.address||""),norm(p.postalCode||""),norm(p.city||""),norm(p.buildingRef||""),norm(p.apartmentRef||""),Number(p.area)||0,Number(p.rooms)||0].join("|");
-    const unique=new Map();
-    for(const p of all){
-      const k=key(p);
-      const old=unique.get(k);
-      if(!old || Number(p.priorityProspectionScore||0)>Number(old.priorityProspectionScore||0)) unique.set(k,p);
-    }
-    const results=Array.from(unique.values()).sort((a,b)=>
-      (Number(b.priorityProspectionScore??0)-Number(a.priorityProspectionScore??0))||
-      (Number(b.sellerOpportunityScore??0)-Number(a.sellerOpportunityScore??0))||
-      (Number(b.commercialSignalScore??0)-Number(a.commercialSignalScore??0))||
-      String(a.city||"").localeCompare(String(b.city||""),"fr")
-    );
-    const sectorMap=new Map();
-    for(const p of results){
-      const k=p.territorySectorCode||p.city||"";
-      if(!sectorMap.has(k))sectorMap.set(k,{id:k,label:p.territorySector||p.city||"Secteur",count:0,topPriority:Number(p.priorityProspectionScore)||0});
-      const s=sectorMap.get(k); s.count++; s.topPriority=Math.max(s.topPriority,Number(p.priorityProspectionScore)||0);
-    }
-    return {
-      source:"ADEME DPE + DVF · territoire Ardennes",
-      department,years,
-      communeCount:communes.length,
-      communesAnalyzed:communes.length-failed.length,
-      dpeCount,dvfCount,dpeRawCount,dpeDuplicateCount,
-      failedCommunes:failed,
-      sectorCount:sectorMap.size,
-      sectors:Array.from(sectorMap.values()).sort((a,b)=>(b.topPriority-a.topPriority)||a.label.localeCompare(b.label,"fr")),
-      results,
-      totalResults:results.length,
-      disclaimer:"Classement de prospection basé sur les mêmes règles Radar JML. Les données publiques ne permettent pas d'inférer une intention de vendre ni d'identifier un propriétaire."
-    };
+    if(!ville)throw new Error("Indique une ville pour lancer le radar (rayon 25 km)");
+    const resolved=await resolveCommune(ville);
+    if(!resolved?.cityCode)throw new Error("Ville introuvable : "+ville);
+    const radiusKm=Math.max(1,Math.min(25,Number(url.searchParams.get("radiusKm"))||25));
+    const sectors=JSON.stringify([{id:"terrain",label:resolved.city,q:resolved.city,radiusKm}]);
+    const target=new URL("http://127.0.0.1:"+PORT+"/api/radar-zone");
+    target.searchParams.set("sectors",sectors);
+    target.searchParams.set("years",String(Math.max(2,Math.min(5,Number(url.searchParams.get("years"))||5))));
+    target.searchParams.set("perCommuneLimit",String(Math.max(10,Math.min(100,Number(url.searchParams.get("perCommuneLimit"))||60))));
+    target.searchParams.set("communeBatch",String(Math.max(1,Math.min(6,Number(url.searchParams.get("communeBatch"))||4))));
+    target.searchParams.set("offset",String(Math.max(0,Number(url.searchParams.get("offset"))||0)));
+    target.searchParams.set("limit",String(Math.max(10,Math.min(200,Number(url.searchParams.get("limit"))||200))));
+    const response=await fetch(target,{headers:{Accept:"application/json"}});
+    const text=await response.text();
+    let data;try{data=JSON.parse(text)}catch{data={message:text}};
+    if(!response.ok)throw new Error(String(data?.error||data?.message||("HTTP "+response.status)));
+    return {...data,mode:"city-radius",city:resolved.city,cityCode:resolved.cityCode,radiusKm,disclaimer:"Radar terrain ciblé sur la ville choisie et un rayon maximal de 25 km. Aucun appel départemental général n'est effectué."};
   }
   if(pathname==="/api/backtest"){
     let codeInsee=url.searchParams.get("codeInsee")?.trim();
