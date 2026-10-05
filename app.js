@@ -49,7 +49,7 @@ document.addEventListener("click",e=>{
   const tour=e.target.closest("#navRouteShortcut");
   if(tour){e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();openTour();return;}
 },true);
-const APP_VERSION = "1.65.0";
+const APP_VERSION = "1.66.0";
 /* V1.50 — le frontend Render web doit toujours viser le service API dédié. */
 const API_BASE = String(window.JML_API_BASE || "https://jml-prospection-web.onrender.com").replace(/\/$/,"");
 
@@ -86,7 +86,27 @@ document.addEventListener("click",e=>{
 });
 let futureRadarTerritoryMode=false;let radarBucketFilter="";let radarSectorFilter="";let autoSectorFilter="";let selectedProspectIds=loadSelectedProspects();
 const KEY="jml_prospection_v1";let prospects=load(),pendingImport=[];let prospectPage=1;let prospectTotalPages=1;const DEFAULT_PROSPECT_PAGE_SIZE=8;const $=id=>document.getElementById(id);
-function load(){try{const x=JSON.parse(localStorage.getItem(KEY)||"[]");return Array.isArray(x)?x:[]}catch(e){return[]}}
+function load(){
+  try{
+    const x=JSON.parse(localStorage.getItem(KEY)||"[]");
+    if(!Array.isArray(x))return[];
+    const result=dedupeProspectBase(x);
+    if(result.removed){
+      localStorage.setItem(KEY,JSON.stringify(result.prospects));
+      try{
+        const ids=JSON.parse(localStorage.getItem("jml_prospection_selection_v1")||"[]");
+        if(Array.isArray(ids)){
+          const valid=new Set(result.prospects.map(p=>p.id));
+          const remap=result.idMap||{};
+          const cleaned=[...new Set(ids.map(id=>remap[id]||id).filter(id=>valid.has(id)))].slice(0,10);
+          localStorage.setItem("jml_prospection_selection_v1",JSON.stringify(cleaned));
+        }
+      }catch(_){}
+      console.info("[JML] Doublons fusionnés:",result.removed);
+    }
+    return result.prospects;
+  }catch(e){return[]}
+}
 function loadSelectedProspects(){try{const x=JSON.parse(localStorage.getItem("jml_prospection_selection_v1")||"[]");return Array.isArray(x)?x.slice(0,10):[]}catch(e){return[]}}
 function saveSelectedProspects(){localStorage.setItem("jml_prospection_selection_v1",JSON.stringify(selectedProspectIds))}
 function selectedProspects(){return selectedProspectIds.map(id=>prospects.find(p=>p.id===id)).filter(Boolean)}
@@ -100,7 +120,50 @@ function esc(v=""){return String(v).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt
 function now(){return new Date().toISOString()}
 function today(){return new Date().toISOString().slice(0,10)}
 function norm(v=""){return String(v).normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/œ/g,"oe").replace(/æ/g,"ae").replace(/[^a-z0-9]+/g," ").trim().replace(/\s+/g," ")}
-function dedupeKey(p){const ext=norm(p.externalId||"");if(ext)return "ext|"+norm(p.source||"")+"|"+ext;const cp=String(p.postalCode||"").replace(/\D/g,"");return [norm(p.address),cp,norm(p.city),norm(p.type)].filter(Boolean).join("|")}
+function propertyAddressKey(p){
+  const address=norm(p.address||"");
+  const cp=String(p.postalCode||"").replace(/\D/g,"");
+  const city=norm(p.city||"");
+  if(address && (cp||city)) return "addr|"+address+"|"+cp+"|"+city;
+  if(address) return "addr|"+address;
+  const ext=norm(p.externalId||"");
+  if(ext)return "ext|"+norm(p.source||"")+"|"+ext;
+  return "";
+}
+function dedupeKey(p){return propertyAddressKey(p)}
+function mergeDuplicateRecord(base,dup){
+  const out={...base};
+  const fields=["address","postalCode","city","district","type","area","land","rooms","bedrooms","price","dpe","status","detectionDate","nextFollow","source","externalId","sourceUrl","description","notes","autoScore","autoPriority","autoPriorityLabel","autoSector","sectorActivityScore","autoSignals","autoProcessedAt","autoProcessingVersion"];
+  const completeness=v=>fields.reduce((n,k)=>n+(v?.[k]!==undefined&&v?.[k]!==null&&String(v[k]).trim()!==""&&!(typeof v[k]==="number"&&v[k]===0)?1:0),0);
+  if(completeness(dup)>completeness(base)) fields.forEach(k=>{if(dup[k]!==undefined&&dup[k]!==null&&String(dup[k]).trim()!==""&&!(typeof dup[k]==="number"&&dup[k]===0))out[k]=dup[k]});
+  else fields.forEach(k=>{if((out[k]===undefined||out[k]===null||String(out[k]).trim()===""||(typeof out[k]==="number"&&out[k]===0))&&dup[k]!==undefined&&dup[k]!==null&&String(dup[k]).trim()!=="")out[k]=dup[k]});
+  const uniq=(arr,key)=>[...new Map((Array.isArray(arr)?arr:[]).filter(Boolean).map(x=>[key(x),x])).values()];
+  out.history=uniq([...(base.history||[]),...(dup.history||[])],x=>JSON.stringify(x)).sort((a,b)=>String(a.date||"").localeCompare(String(b.date||"")));
+  out.priceHistory=uniq([...(base.priceHistory||[]),...(dup.priceHistory||[])],x=>[x.date,x.price,x.source,x.reason].join("|")).sort((a,b)=>String(a.date||"").localeCompare(String(b.date||"")));
+  out.appearanceHistory=uniq([...(base.appearanceHistory||[]),...(dup.appearanceHistory||[])],x=>[x.date,x.source,x.sourceUrl,x.externalId].join("|")).sort((a,b)=>String(a.date||"").localeCompare(String(b.date||"")));
+  if((Number(dup.autoScore)||0)>(Number(out.autoScore)||0)){out.autoScore=dup.autoScore;out.autoPriority=dup.autoPriority;out.autoPriorityLabel=dup.autoPriorityLabel}
+  out.firstDetectedAt=[base.firstDetectedAt,dup.firstDetectedAt,base.detectionDate,dup.detectionDate].filter(Boolean).sort()[0]||base.firstDetectedAt||dup.firstDetectedAt;
+  out.lastSeenAt=[base.lastSeenAt,dup.lastSeenAt,base.updatedAt,dup.updatedAt].filter(Boolean).sort().slice(-1)[0]||base.lastSeenAt||dup.lastSeenAt;
+  out.createdAt=[base.createdAt,dup.createdAt].filter(Boolean).sort()[0]||base.createdAt||dup.createdAt;
+  out.updatedAt=[base.updatedAt,dup.updatedAt].filter(Boolean).sort().slice(-1)[0]||base.updatedAt||dup.updatedAt;
+  return out;
+}
+function dedupeProspectBase(list){
+  const groups=new Map(), idMap={}, source=Array.isArray(list)?list:[];
+  source.forEach((p,idx)=>{
+    const key=propertyAddressKey(p)||("row|"+idx);
+    if(!groups.has(key))groups.set(key,[]);
+    groups.get(key).push(p);
+  });
+  const cleaned=[];
+  let removed=0;
+  groups.forEach(group=>{
+    let base=group[0];
+    for(let i=1;i<group.length;i++){idMap[group[i].id]=base.id;base=mergeDuplicateRecord(base,group[i]);removed++}
+    cleaned.push(base);
+  });
+  return {prospects:cleaned,removed,idMap};
+}
 function num(v){return Number(v)||0}
 function openForm(item=null){$("prospectForm").reset();$("editId").value=item?.id||"";$("dialogTitle").textContent=item?"Modifier le prospect":"Nouveau prospect";$("history").innerHTML=item&&item.history?.length?item.history.slice().reverse().map(h=>'<div class="history-item"><strong>'+esc(h.type)+'</strong><span>'+new Date(h.date).toLocaleString("fr-FR")+'</span><p>'+esc(h.text)+'</p></div>').join(""):"<div class='meta'>Aucun historique.</div>";if(item){for(const k of ["address","postalCode","district","area","land","rooms","bedrooms","price","dpe","detectionDate","nextFollow","source","externalId","sourceUrl","description","notes"])if($(k))$(k).value=item[k]??"";$("formCity").value=item.city||"";$("formType").value=item.type||"Maison";$("formStatus").value=item.status||"Nouveau"}else $("detectionDate").value=today();$("dialog").showModal()}
 function closeForm(){$("dialog").close()}
@@ -361,7 +424,7 @@ function render(){
  renderSelectionPanel();bindSelectionControls();dashboardTerrain();const commercial=prospects.filter(isCommercialProspect),surveillance=prospects.filter(isRadarSurveillance);$("statTotal").textContent=commercial.length;$("statNew").textContent=commercial.filter(p=>p.status==="Nouveau").length;$("statFollow").textContent=commercial.filter(p=>p.status==="À relancer").length;$("statSignals").textContent=surveillance.length;const totalSignals=commercial.reduce((n,p)=>n+signalInfo(p).score,0),movementHigh=commercial.filter(p=>movement6mInfo(p).score>=65).length,movementMedium=commercial.filter(p=>movement6mInfo(p).score>=40&&movement6mInfo(p).score<65).length; const radarWatch=prospects.filter(isRadarSurveillance);const bucketCounts={A:0,B:0,C:0,D:0};radarWatch.forEach(p=>{const k=p.priorityProspectionBucket;if(bucketCounts[k]!=null)bucketCounts[k]++});const sectorCounts={};radarWatch.forEach(p=>{const k=p.territorySector||p.city||"Secteur non défini";sectorCounts[k]=(sectorCounts[k]||0)+1});const topSectors=Object.entries(sectorCounts).sort((a,b)=>b[1]-a[1]).slice(0,8);$("radarSummary").textContent=radarWatch.length+" biens surveillés · "+bucketCounts.A+" A / "+bucketCounts.B+" B / "+bucketCounts.C+" C / "+bucketCounts.D+" D";$("signalChips").innerHTML="<div class=\"radar-pilotage\"><div class=\"radar-priority-grid\">"+["A","B","C","D"].map(k=>"<button type=\"button\" class=\"radar-priority-card\" data-radar-bucket=\""+k+"\"><strong>"+bucketCounts[k]+"</strong><span>"+({A:"🔴 Urgent",B:"🟠 Prioritaire",C:"🟡 À traiter",D:"🔵 Surveillance"}[k])+"</span></button>").join("")+"</div><div class=\"radar-sector-title\">📍 Secteurs · clique pour travailler un secteur</div><div class=\"radar-sector-grid\">"+topSectors.map(([k,n])=>"<button type=\"button\" class=\"radar-sector-card\" data-radar-sector=\""+esc(k)+"\"><span>"+esc(k)+"</span><strong>"+n+"</strong></button>").join("")+"</div><button type=\"button\" class=\"radar-clear-filter\" data-radar-clear>Afficher tous les biens surveillés</button></div><div class=\"radar-signal-title\">Signaux complémentaires</div>"+["new","old","follow","dpe","land","multi","priceDown","incomplete","sufficient"].map(k=>{const n=commercial.filter(p=>signalInfo(p).tags.some(t=>t.key===k)).length;const label={new:"Nouveaux",old:"Anciens",follow:"Relances en retard",dpe:"DPE F/G",land:"Terrains importants",multi:"Sources multiples",priceDown:"Baisses de prix",incomplete:"Données à compléter",sufficient:"Données suffisantes"}[k];return n?"<button class=\"signal-chip\" data-signal=\""+k+"\">"+label+" · "+n+"</button>":""}).join("");if($("prospectsTitle"))$("prospectsTitle").textContent=prospectView==="watch"?"Biens à surveiller":prospectView==="all"?"Tous les biens":"Prospects commerciaux";if($("prospectsViewNote"))$("prospectsViewNote").textContent=prospectView==="watch"?"Ces biens proviennent principalement du Radar DPE/DVF. Ils sont à surveiller et ne constituent pas, à eux seuls, un signal de vente.":prospectView==="all"?"Vue complète du CRM : prospects commerciaux et biens de surveillance.":"Les biens issus du Radar sans signal commercial restent séparés dans « Biens à surveiller »."
 }
 function badgeClass(s){return s==="Mandat obtenu"?"green":s==="À relancer"?"hot":""}
-function mergeProspect(incoming){const key=dedupeKey(incoming),idx=prospects.findIndex(p=>dedupeKey(p)===key),date=now();if(idx<0){const created={id:crypto.randomUUID(),...incoming,detectionDate:incoming.detectionDate||today(),history:[{date,type:"Import CSV",text:"Bien importé dans la base."}],priceHistory:incoming.price?[{date,price:incoming.price,source:incoming.source||"",reason:"Création"}]:[],appearanceHistory:[{date,source:incoming.source||"",sourceUrl:incoming.sourceUrl||"",externalId:incoming.externalId||""}],firstDetectedAt:incoming.detectionDate||today(),lastSeenAt:date,createdAt:date,updatedAt:date};prospects.push(created);return"created"}const old=ensureHistory({...prospects[idx]}),history=[...(old.history||[])];history.push({date,type:"Mise à jour source",text:incoming.source?"Données reçues depuis "+incoming.source+".":"Données importées et fusionnées."});const merged={...old};const oldPrice=num(old.price),newPrice=num(incoming.price);for(const[k,v]of Object.entries(incoming)){if(v!==""&&v!==null&&v!==undefined&&(typeof v!=="number"||v!==0))merged[k]=v}if(newPrice&&newPrice!==oldPrice){merged.priceHistory=[...(old.priceHistory||[]),{date,price:newPrice,previousPrice:oldPrice,source:incoming.source||"",reason:"Changement de prix"}];history.push({date,type:"Changement de prix",text:(oldPrice?oldPrice.toLocaleString("fr-FR")+" € → ":"")+" "+newPrice.toLocaleString("fr-FR")+" €"});}const appearance={date,source:incoming.source||"",sourceUrl:incoming.sourceUrl||"",externalId:incoming.externalId||""};const last=(old.appearanceHistory||[])[(old.appearanceHistory||[]).length-1];if(!last||[appearance.source,appearance.sourceUrl,appearance.externalId].some((v,i)=>v!==[last.source,last.sourceUrl,last.externalId][i]))merged.appearanceHistory=[...(old.appearanceHistory||[]),appearance];merged.history=history;merged.lastSeenAt=date;merged.updatedAt=date;prospects[idx]=merged;return"merged"}
+function mergeProspect(incoming){const key=dedupeKey(incoming),idx=key?prospects.findIndex(p=>dedupeKey(p)===key):-1,date=now();if(idx<0){const created={id:crypto.randomUUID(),...incoming,detectionDate:incoming.detectionDate||today(),history:[{date,type:"Import CSV",text:"Bien importé dans la base."}],priceHistory:incoming.price?[{date,price:incoming.price,source:incoming.source||"",reason:"Création"}]:[],appearanceHistory:[{date,source:incoming.source||"",sourceUrl:incoming.sourceUrl||"",externalId:incoming.externalId||""}],firstDetectedAt:incoming.detectionDate||today(),lastSeenAt:date,createdAt:date,updatedAt:date};prospects.push(created);return"created"}const old=ensureHistory({...prospects[idx]}),history=[...(old.history||[])];history.push({date,type:"Mise à jour source",text:incoming.source?"Données reçues depuis "+incoming.source+".":"Données importées et fusionnées."});const merged={...old};const oldPrice=num(old.price),newPrice=num(incoming.price);for(const[k,v]of Object.entries(incoming)){if(v!==""&&v!==null&&v!==undefined&&(typeof v!=="number"||v!==0))merged[k]=v}if(newPrice&&newPrice!==oldPrice){merged.priceHistory=[...(old.priceHistory||[]),{date,price:newPrice,previousPrice:oldPrice,source:incoming.source||"",reason:"Changement de prix"}];history.push({date,type:"Changement de prix",text:(oldPrice?oldPrice.toLocaleString("fr-FR")+" € → ":"")+" "+newPrice.toLocaleString("fr-FR")+" €"});}const appearance={date,source:incoming.source||"",sourceUrl:incoming.sourceUrl||"",externalId:incoming.externalId||""};const last=(old.appearanceHistory||[])[(old.appearanceHistory||[]).length-1];if(!last||[appearance.source,appearance.sourceUrl,appearance.externalId].some((v,i)=>v!==[last.source,last.sourceUrl,last.externalId][i]))merged.appearanceHistory=[...(old.appearanceHistory||[]),appearance];merged.history=history;merged.lastSeenAt=date;merged.updatedAt=date;prospects[idx]=merged;return"merged"}
 
 /* V1.51 — traitement automatique des prospects en lots */
 function autoTreatmentForProspect(p){
