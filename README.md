@@ -1,5 +1,13 @@
 # JML Prospection
 
+## V1.72.0 — cockpit commercial et prochaines actions
+- Accueil ouvert directement sur une vue « À faire maintenant » plus opérationnelle.
+- CRM renforcé avec un pipeline cliquable en 5 étapes : À contacter, Contacté, Visité, À relancer, Mandat obtenu.
+- Chaque fiche CRM propose un contact/relance rapide et le changement d’étape commerciale.
+- Le suivi enregistré conserve les changements de statut et de relance dans l’historique.
+- V1.72.0 + cache PWA v22 synchronisés.
+
+
 ## V1.71.0 — refonte visuelle légère
 - Navigation principale simplifiée avec icône + libellé, état actif plus lisible et meilleure utilisation mobile.
 - Palette recentrée sur vert JML, blanc cassé et or comme accent, sans transformer les actions en éléments dorés.
