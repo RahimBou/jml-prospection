@@ -248,7 +248,7 @@ async function fetchChercherTrouver(params={}){
   }finally{clearTimeout(timer)}
 }
 
-async function fetchChercherTrouverPing(){
+async async function fetchChercherTrouverPing(){
   const apiKey=String(process.env.CHERCHERTROUVER_API_KEY||"").trim();
   if(!apiKey) throw new Error("CHERCHERTROUVER_API_KEY non configurée sur le serveur Render");
   const controller=new AbortController();
@@ -1623,6 +1623,48 @@ async function api(pathname,url){
     };
   }
 
+  if(pathname==="/api/connectors-sync"){
+    const department=String(url.searchParams.get("department")||"08").trim();
+    const sinceRaw=String(url.searchParams.get("since")||"").trim();
+    const fallbackSince=new Date(Date.now()-24*60*60*1000).toISOString();
+    const since=sinceRaw && Number.isFinite(Date.parse(sinceRaw)) ? new Date(sinceRaw).toISOString() : fallbackSince;
+    const sources=[];
+    let items=[];
+    // Connexion sans consommation : permet de distinguer une clé absente d'un quota/incident.
+    try{
+      const ping=await fetchChercherTrouverPing();
+      const params={dept:department,transaction:"vente",sort:"recent",updated_since:since,page_size:"50"};
+      const data=await fetchChercherTrouver(params);
+      const rows=Array.isArray(data?.items)?data.items:[];
+      items=rows.map(p=>({...p,source:p.source||"ChercherTrouver.immo"}));
+      sources.push({
+        id:"cherchertrouver",label:"ChercherTrouver.immo",ok:true,
+        tier:ping.tier||null,returned:items.length,total:Number(data?.total)||items.length,
+        hasMore:Boolean(data?.hasMore),nextCursor:data?.nextCursor||null
+      });
+    }catch(e){
+      sources.push({id:"cherchertrouver",label:"ChercherTrouver.immo",ok:false,error:e?.message||"Source indisponible",returned:0});
+    }
+    // Stream Estate reste surveillé mais n'est pas interrogé ici sans un périmètre départemental
+    // explicitement résolu : on évite toute requête nationale involontaire.
+    sources.push({
+      id:"streamestate",label:"Stream Estate",
+      ok:Boolean(String(process.env.STREAM_ESTATE_API_KEY||"").trim()),
+      configured:Boolean(String(process.env.STREAM_ESTATE_API_KEY||"").trim()),
+      skipped:true,
+      reason:"Synchronisation automatique départementale à brancher sur un périmètre géographique explicite."
+    });
+    return {
+      ok:sources.some(x=>x.ok),
+      department,
+      since,
+      checkedAt:new Date().toISOString(),
+      sources,
+      items,
+      count:items.length,
+      disclaimer:"Les annonces sont des données publiques de marché. Elles ne permettent pas d'identifier un propriétaire particulier ni d'inférer une intention de vendre."
+    };
+  }
   if(pathname==="/api/sources-health"){
     const ctKey=Boolean(String(process.env.CHERCHERTROUVER_API_KEY||"").trim());
     const stream=await pingStreamEstate();
