@@ -1,4 +1,4 @@
-const APP_VERSION = "1.58.1";
+const APP_VERSION = "1.59.1";
 /* V1.50 — le frontend Render web doit toujours viser le service API dédié. */
 const API_BASE = String(window.JML_API_BASE || "https://jml-prospection-web.onrender.com").replace(/\/$/,"");
 
@@ -369,15 +369,18 @@ function renderSectorWork(sector){
   const name=String(sector||"").trim()||"Secteur";
   const rows=prospects.filter(p=>String(p.autoSector||p.city||p.postalCode||"Secteur non renseigné").trim().toLowerCase()===name.toLowerCase())
     .sort((x,y)=>(Number(y.autoScore)||0)-(Number(x.autoScore)||0));
-  const filtered=sectorWorkPriority==="ALL"?rows:rows.filter(p=>(p.autoPriority||"D")===sectorWorkPriority);
+  const groups=new Map();
+  rows.forEach(p=>{const key=dedupeKey(p)||String(p.id);if(!groups.has(key))groups.set(key,[]);groups.get(key).push(p);});
+  const unique=[...groups.values()].map(g=>({p:g[0],duplicates:g.length}));
+  const filtered=sectorWorkPriority==="ALL"?unique:unique.filter(x=>(x.p.autoPriority||"D")===sectorWorkPriority);
   const counts={A:0,B:0,C:0,D:0};rows.forEach(p=>counts[p.autoPriority||"D"]++);
+  const duplicateCount=rows.length-unique.length;
   $("sectorWorkTitle").textContent=name;
-  $("sectorWorkSubtitle").textContent=rows.length+" prospect(s) dans ce secteur · priorité et score calculés automatiquement.";
+  $("sectorWorkSubtitle").textContent=rows.length+" dossier(s) · "+unique.length+" adresse(s) unique(s)"+(duplicateCount?" · "+duplicateCount+" doublon(s) regroupé(s)":"")+" · priorité et score calculés automatiquement.";
   $("sectorWorkStats").innerHTML=[["Total",rows.length,"dossiers"],["A",counts.A,"priorité immédiate"],["B",counts.B,"à travailler"],["C",counts.C,"à surveiller"],["D",counts.D,"faible priorité"]].map(x=>'<article><strong>'+x[1]+'</strong><span>'+x[0]+'</span><small>'+x[2]+'</small></article>').join("");
-  $("sectorWorkList").innerHTML=filtered.length?filtered.map((p,i)=>{
-    const selected=selectedProspectIds.includes(p.id);
-    const signals=(p.autoSignals||[]).slice(0,3).map(esc).join(" · ");
-    return '<article class="sector-prospect-card"><div class="sector-rank">'+(i+1)+'</div><div class="sector-prospect-main"><div class="sector-prospect-title"><strong>'+esc(p.address||"Adresse à compléter")+'</strong><span class="priority-'+esc(p.autoPriority||"D")+'">'+esc(p.autoPriority||"D")+'</span></div><div class="sector-prospect-meta">'+esc(p.postalCode||"")+' '+esc(p.city||"")+' · '+esc(p.type||"Bien")+'</div><div class="sector-prospect-data"><span>📐 '+(Number(p.area)||0)+' m²</span><span>🚪 '+(Number(p.rooms)||0)+' pièces</span><span>🌳 '+(Number(p.land)||0)+' m² terrain</span><span>💶 '+(p.price?Number(p.price).toLocaleString("fr-FR")+" €":"Prix —")+'</span><span class="dpe-chip">DPE '+esc(p.dpe||"—")+'</span></div><div class="sector-prospect-signals">'+(signals||"Données à compléter")+'</div></div><div class="sector-score"><strong>'+Number(p.autoScore||0)+'</strong><small>/100</small></div><button type="button" class="ghost sector-select-btn '+(selected?"selected":"")+'" data-sector-select="'+esc(p.id)+'">'+(selected?"✓ Sélectionné":"＋ Sélectionner")+'</button><button type="button" class="ghost" data-sector-open="'+esc(p.id)+'">Voir le dossier</button></article>';
+  $("sectorWorkList").innerHTML=filtered.length?filtered.map((item,i)=>{
+    const p=item.p, selected=selectedProspectIds.includes(p.id), signals=(p.autoSignals||[]).slice(0,3).map(esc).join(" · ");
+    return '<article class="sector-prospect-card"><div class="sector-rank">'+(i+1)+'</div><div class="sector-prospect-main"><div class="sector-prospect-title"><strong>'+esc(p.address||"Adresse à compléter")+'</strong><span class="priority-'+esc(p.autoPriority||"D")+'">'+esc(p.autoPriority||"D")+'</span>'+(item.duplicates>1?'<span class="duplicate-chip">↻ '+item.duplicates+' occurrences</span>':"")+'</div><div class="sector-prospect-meta">'+esc(p.postalCode||"")+' '+esc(p.city||"")+' · '+esc(p.type||"Bien")+'</div><div class="sector-prospect-data"><span>📐 '+(Number(p.area)||0)+' m²</span><span>🚪 '+(Number(p.rooms)||0)+' pièces</span><span>🌳 '+(Number(p.land)||0)+' m² terrain</span><span>💶 '+(p.price?Number(p.price).toLocaleString("fr-FR")+" €":"Prix —")+'</span><span class="dpe-chip">DPE '+esc(p.dpe||"—")+'</span></div><div class="sector-prospect-signals">'+(signals||"Données à compléter")+'</div></div><div class="sector-score"><strong>'+Number(p.autoScore||0)+'</strong><small>/100</small></div><button type="button" class="ghost sector-select-btn '+(selected?"selected":"")+'" data-sector-select="'+esc(p.id)+'">'+(selected?"✓ Sélectionné":"＋ Sélectionner")+'</button><button type="button" class="ghost sector-open-btn" data-sector-open="'+esc(p.id)+'">Dossier →</button></article>';
   }).join(""):'<div class="empty-state">Aucun prospect dans ce filtre.</div>';
 }
 function renderProspectDetail(id){
