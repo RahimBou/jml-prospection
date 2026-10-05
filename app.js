@@ -1,4 +1,4 @@
-const APP_VERSION = "1.50.0";
+const APP_VERSION = "1.50.1";
 /* V1.50 — le frontend Render web doit toujours viser le service API dédié. */
 const API_BASE = String(window.JML_API_BASE || "https://jml-prospection-web.onrender.com").replace(/\/$/,"");
 
@@ -490,7 +490,7 @@ async function runTerritoryRadar(){
     const seen=new Map();
     let offset=0,totalCommunes=0,analyzed=0,failed=0,dpeCount=0,dvfCount=0,complete=false;
     while(!complete){
-      const data=await publicJson("/api/radar-zone?sectors="+sectors+"&years=5&perCommuneLimit=60&communeBatch=8&includeRoadAxes=0&offset="+offset+"&limit=200");
+      const data=await publicJson("/api/radar-zone?sectors="+sectors+"&years=5&perCommuneLimit=60&communeBatch=4&includeRoadAxes=0&offset="+offset+"&limit=200");
       totalCommunes=Number(data.totalCommuneCount||data.communeCount||totalCommunes)||totalCommunes;
       analyzed+=Number(data.communesAnalyzed||0);
       failed+=Array.isArray(data.failedCommunes)?data.failedCommunes.length:0;
@@ -518,9 +518,18 @@ async function runTerritoryRadar(){
     if($("futureRadarReady"))$("futureRadarReady").textContent="✅ "+futureRadarCandidates.length+" dossiers disponibles";
     if($("publicQuery"))$("publicQuery").value=city;
   }catch(e){
-    futureRadarCandidates=[];futureRadarSelectedIndices=new Set();futureRadarRender();
-    if($("futureRadarStatus"))$("futureRadarStatus").textContent="❌ Recherche interrompue : "+e.message;
-    if($("futureRadarReady"))$("futureRadarReady").textContent="❌ Recherche interrompue";
+    /* V1.50.1 : ne jamais perdre les résultats partiels si une requête réseau tombe. */
+    futureRadarCandidates=Array.from(seen.values()).sort((a,b)=>
+      (Number(b.priorityProspectionScore??b.priorityScore??0)-Number(a.priorityProspectionScore??a.priorityScore??0))||
+      String(a.address||"").localeCompare(String(b.address||""),"fr")
+    );
+    futureRadarDetectedCount=futureRadarCandidates.length;
+    futureRadarSelectedIndices=new Set();
+    futureRadarRender();
+    if($("futureRadarStatus"))$("futureRadarStatus").textContent="⚠️ Recherche interrompue après "+analyzed+"/"+(totalCommunes||"?")+" communes · "+futureRadarCandidates.length+" dossiers conservés. "+e.message;
+    if($("futureRadarReady"))$("futureRadarReady").textContent=futureRadarCandidates.length
+      ?"⚠️ Résultats partiels conservés · relancer pour poursuivre"
+      :"❌ Recherche interrompue";
   }finally{
     if($("futureRadarBtn"))$("futureRadarBtn").disabled=false;
   }
