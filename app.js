@@ -8,7 +8,7 @@ window.addEventListener("error",e=>{
   if(box&&e?.message) box.textContent="⚠️ Erreur JavaScript : "+e.message;
 });
 document.addEventListener("click",e=>{
-  const b=e.target.closest("#aiAnalyzeBtn,#aiWhyBtn,#aiPriorityBtn,#aiCallBtn,#aiReportBtn,#aiFollowupBtn,#futureRadarBtn,#futureRadarPrint,#futureRadarAddAll,#futureRadarAddPage,#futureRadarSelectAll,#futureRadarDeselectAll,#futureRadarRoute,#integrationsTestBtn,#sourcesRefreshBtn,#publicSearchBtn,#ctSearchBtn,#ctTourBtn,#ctSelect10Btn,#ctDeselectBtn,#ctPrepareSelectedBtn");
+  const b=e.target.closest("#futureRadarTreatBtn,#aiAnalyzeBtn,#aiWhyBtn,#aiPriorityBtn,#aiCallBtn,#aiReportBtn,#aiFollowupBtn,#futureRadarBtn,#futureRadarPrint,#futureRadarAddAll,#futureRadarAddPage,#futureRadarSelectAll,#futureRadarDeselectAll,#futureRadarRoute,#integrationsTestBtn,#sourcesRefreshBtn,#publicSearchBtn,#ctSearchBtn,#ctTourBtn,#ctSelect10Btn,#ctDeselectBtn,#ctPrepareSelectedBtn");
   if(!b)return;
   const tasks={aiAnalyzeBtn:"analyze",aiWhyBtn:"why",aiPriorityBtn:"priority",aiCallBtn:"call",aiReportBtn:"report",aiFollowupBtn:"followup"};
   if(tasks[b.id]&&typeof aiRun==="function"){e.preventDefault();e.stopImmediatePropagation();aiRun(tasks[b.id]);}
