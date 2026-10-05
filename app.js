@@ -1,3 +1,33 @@
+document.addEventListener("click",e=>{
+ const nav=e.target.closest(".nav-main[data-page]");
+ if(!nav)return;
+ e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();
+ showJmlPage(nav.dataset.page||"home");
+},true);
+
+// V1.64 — navigation par espaces de travail
+const JML_PAGE_GROUPS={
+ home:["dashboardTerrain","prospectionWorkflow"],
+ find:["futureRadarPanel","advancedSearchPanel"],
+ crm:["prospectsPanel"],
+ watch:["ctAnnoncesPanel"],
+ tour:["tourPanel"],
+ treat:["autoTreatmentPanel"],
+ stats:["statsLab"]
+};
+function showJmlPage(page){
+  const ids=[...new Set(Object.values(JML_PAGE_GROUPS).flat())];
+  ids.forEach(id=>{const el=$(id);if(el)el.hidden=true;});
+  ["aiAssistantPanel","publicSourcesPanel","sourceConnectorsPanel","privateProspectPanel","dataAgentPanel","integrationsPanel","signalPanel"].forEach(id=>{const el=$(id);if(el)el.hidden=true;});
+  (JML_PAGE_GROUPS[page]||JML_PAGE_GROUPS.home).forEach(id=>{const el=$(id);if(el)el.hidden=false;});
+  document.querySelectorAll(".nav-main").forEach(a=>a.classList.toggle("active",a.dataset.page===page));
+  window.jmlCurrentPage=page;
+  const first=(JML_PAGE_GROUPS[page]||JML_PAGE_GROUPS.home).map(id=>$(id)).find(Boolean);
+  first?.scrollIntoView({behavior:"smooth",block:"start"});
+  if(page==="crm")render();
+  if(page==="tour")renderTour();
+  if(page==="watch")renderCtMemory?.();
+}
 
 // V1.61 — routeur d'actions robuste : les boutons de travail ne dépendent plus du bind local
 document.addEventListener("click",e=>{
@@ -13,7 +43,7 @@ document.addEventListener("click",e=>{
   const tour=e.target.closest("#navRouteShortcut");
   if(tour){e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();openTour();return;}
 },true);
-const APP_VERSION = "1.63.1";
+const APP_VERSION = "1.64.1";
 /* V1.50 — le frontend Render web doit toujours viser le service API dédié. */
 const API_BASE = String(window.JML_API_BASE || "https://jml-prospection-web.onrender.com").replace(/\/$/,"");
 
