@@ -1258,6 +1258,39 @@ async function api(pathname,url){
   pathname=String(pathname||"").replace(/\/+$/,"")||"/";
   if(pathname==="/api/veille-annonces") pathname="/api/annonces-multi";
   if(pathname==="/api/health") return {ok:true,sources:{dpe:"ADEME",dvf:"DVF+ Cerema",geocoding:"Géoplateforme",chercherTrouver:"ChercherTrouver.immo"},server:"jml-prospection",version:"1.50.0"};
+  if(pathname==="/api/diagnostic"){
+    const started=Date.now();
+    const probe=async(label,target,timeout=5000)=>{
+      const t=Date.now(),controller=new AbortController(),timer=setTimeout(()=>controller.abort(),timeout);
+      try{
+        const r=await fetch(target,{headers:{Accept:"application/json","User-Agent":"JML-Prospection-Diagnostic/1.0"},signal:controller.signal});
+        return {label,ok:r.ok,detail:"HTTP "+r.status+" · "+(Date.now()-t)+" ms"};
+      }catch(e){return {label,ok:false,detail:e?.name==="AbortError"?"Timeout "+timeout+" ms":(e?.message||"Connexion impossible")}}
+      finally{clearTimeout(timer)}
+    };
+    const hasCT=Boolean(String(process.env.CHERCHERTROUVER_API_KEY||"").trim());
+    const hasStream=Boolean(String(process.env.STREAM_ESTATE_API_KEY||"").trim());
+    const checks=[
+      {label:"Serveur Node / Render",ok:true,detail:"Uptime "+Math.round(process.uptime())+" s · Node "+process.version},
+      {label:"Mémoire serveur",ok:true,detail:Math.round(process.memoryUsage().rss/1024/1024)+" Mo RSS"},
+      await probe("DPE ADEME",DPE_URL+"?size=1"),
+      await probe("DVF+ Cerema",DVF_URL+"?code_insee=08105&page_size=1&anneemut_min=2025&anneemut_max=2025"),
+      await probe("BAN / Géoplateforme",ADDRESS_URL+"?q=Charleville-Mézières&limit=1"),
+      {label:"Fichier DVF local Ardennes",ok:fs.existsSync(DVF_LOCAL_FILE),detail:fs.existsSync(DVF_LOCAL_FILE)?"Présent":"Absent · secours data.gouv.fr prévu"},
+      {label:"Clé ChercherTrouver",ok:hasCT,detail:hasCT?"Configurée":"Absente"},
+      {label:"Clé Stream Estate",ok:hasStream,detail:hasStream?"Configurée":"Absente · non bloquante pour le Radar"}
+    ];
+    const failed=checks.filter(x=>x.ok===false&&x.label!=="Clé Stream Estate");
+    return {
+      ok:failed.length===0,
+      checkedAt:new Date().toISOString(),
+      durationMs:Date.now()-started,
+      checks,
+      summary:failed.length
+        ? {level:"KO",message:"Problème détecté : "+failed.map(x=>x.label).join(", ")+". Corrige ce point avant de relancer le Radar."}
+        : {level:"OK",message:"Serveur et sources essentielles accessibles. Si le Radar échoue encore, le problème est probablement côté navigateur/PWA ou sur une requête spécifique."}
+    };
+  }
   if(pathname==="/api/integrations-health"){
     const ct=await fetchChercherTrouverPing();
     return {ok:ct.ok===true,checkedAt:new Date().toISOString(),chercherTrouver:ct};
