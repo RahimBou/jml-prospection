@@ -1,5 +1,12 @@
 # JML Prospection
 
+## V1.65.0 — sélection secteur orientée action
+- « Préparer mes 10 meilleurs » remplace l'ancien bouton ambigu « Ajouter les meilleurs à ma sélection ».
+- Le classement privilégie la priorité A/B/C/D puis le score automatique, avec regroupement des doublons d'adresse.
+- La sélection est remplie jusqu'à 10 prospects sans dépasser la limite globale ni ajouter de doublon déjà sélectionné.
+- Un bandeau indique immédiatement combien de dossiers sont prêts et propose « Voir mes 10 » ou « Préparer la tournée ».
+- Version et cache PWA synchronisés en V1.65.0.
+
 ## V1.64.0 — refonte de la navigation et de la hiérarchie visuelle
 - Navigation principale structurée par espaces : Accueil, Trouver, Mes prospects, Veille, Ma tournée, Traiter, Stats.
 - Les espaces de travail sont affichés séparément pour éviter l'empilement de panneaux et faciliter l'usage mobile.
