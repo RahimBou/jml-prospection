@@ -1,4 +1,12 @@
-# JML Prospection — V1.42.0 GOLDEN
+# JML Prospection
+
+## V1.64.0 — refonte de la navigation et de la hiérarchie visuelle
+- Navigation principale structurée par espaces : Accueil, Trouver, Mes prospects, Veille, Ma tournée, Traiter, Stats.
+- Les espaces de travail sont affichés séparément pour éviter l'empilement de panneaux et faciliter l'usage mobile.
+- Palette affinée : vert JML pour les actions principales, or réservé aux accents, scores et priorités.
+- Navigation mobile horizontale et état actif clairement visible.
+
+— V1.42.0 GOLDEN
 
 Cette version est la **version de référence à conserver** pour le moteur de prospection.
 
