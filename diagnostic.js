@@ -86,6 +86,24 @@
       results.push(row("Serveur JML", "fail", "Impossible d’atteindre "+API+" : "+msg));
     }
 
+    const radarCity = ($("radarCity")?.value || "Charleville-Mézières").trim();
+    if (radarCity) {
+      const communeResult = await timedFetch(API + "/api/commune?q=" + encodeURIComponent(radarCity), 8000);
+      const commune = communeResult.data?.[0];
+      if (commune?.cityCode) {
+        const radarProbe = await timedFetch(API + "/api/radar?codeInsee=" + encodeURIComponent(commune.cityCode) + "&limit=1&years=2&zoneMode=1", 20000);
+        if (radarProbe.ok) {
+          results.push(row("Route Radar", "ok", "Test réel sur "+(commune.city || radarCity)+" · réponse en "+radarProbe.elapsed+" ms."));
+        } else if (radarProbe.status) {
+          results.push(row("Route Radar", "fail", "HTTP "+radarProbe.status+" après "+radarProbe.elapsed+" ms."));
+        } else {
+          results.push(row("Route Radar", "fail", "La route Radar ne répond pas : "+(radarProbe.error?.message || "Failed to fetch")+"."));
+        }
+      } else {
+        results.push(row("Ville du Radar", "warn", "Impossible de résoudre « "+radarCity+" » pour tester la route Radar."));
+      }
+    }
+
     const integrationResult = await timedFetch(API + "/api/integrations-health", 8000);
     if (integrationResult.ok) {
       results.push(row("Sources externes", "ok", "Le serveur répond au contrôle des intégrations en "+integrationResult.elapsed+" ms."));
