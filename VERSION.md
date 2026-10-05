@@ -1,3 +1,11 @@
+## V1.75.0 — Refonte architecture de navigation — 06/10/2026
+
+- Navigation principale réduite aux 5 espaces utiles : Accueil, Trouver, Prospects, Tournée, Plus.
+- Veille, Analyse/Secteurs et Stats déplacés dans un menu secondaire.
+- Coquille mobile plus compacte et orientée usage terrain.
+- Header simplifié sur mobile pour donner plus de place au travail.
+- Cartes et panneaux légèrement harmonisés.
+
 ## V1.73.1 — Protection des données + navigation mobile — 06/10/2026
 
 - Ajout d'une sauvegarde locale automatique des prospects.
