@@ -1,4 +1,4 @@
-const APP_VERSION = "1.51.0";
+const APP_VERSION = "1.54.1";
 /* V1.50 — le frontend Render web doit toujours viser le service API dédié. */
 const API_BASE = String(window.JML_API_BASE || "https://jml-prospection-web.onrender.com").replace(/\/$/,"");
 
@@ -357,13 +357,17 @@ function renderAutoTreatmentSummary(){
   table.innerHTML=sectors.map(x=>'<tr><td><strong>'+esc(x.sector)+'</strong></td><td>'+x.total+'</td><td>'+x.A+'</td><td>'+x.B+'</td><td>'+x.C+'</td><td>'+x.D+'</td><td>'+x.avg+'/100</td><td><button type="button" class="ghost autoSectorBtn" data-sector="'+esc(x.sector)+'">Travailler</button></td></tr>').join("");bindAutoSectorTable();
 }
 function bindAutoSectorTable(){
-  const table=$("autoSectorTable"); if(!table||table.dataset.bound==="1")return;
-  table.dataset.bound="1";
-  table.addEventListener("click",e=>{const b=e.target.closest(".autoSectorBtn");if(b)showAutoSector(b.dataset.sector)});
+  const table=$("autoSectorTable"); if(!table)return;
+  table.onclick=e=>{const b=e.target.closest(".autoSectorBtn");if(!b)return;e.preventDefault();e.stopPropagation();showAutoSector(b.dataset.sector||"");};
 }
 function showAutoSector(sector){
-  autoSectorFilter=String(sector||"");$("city").value="";$("q").value="";$("prospectView").value="all";$("sort").value="auto";$("prospectPageSize").value="20";prospectPage=1;render();
-  $("prospectsPanel")?.scrollIntoView({behavior:"smooth",block:"start"});
+  autoSectorFilter=String(sector||"").trim();
+  const city=$("city"),q=$("q"),view=$("prospectView"),sort=$("sort"),size=$("prospectPageSize");
+  if(city)city.value=""; if(q)q.value="";
+  if(view)view.value="all"; if(sort)sort.value="auto"; if(size)size.value="20";
+  prospectPage=1;
+  render();
+  const panel=$("prospectsPanel"); if(panel)panel.scrollIntoView({behavior:"smooth",block:"start"});
 }
 async function processAllProspectsAutomatically(){
   const btn=$("autoProcessBtn"),status=$("autoProcessStatus"),bar=$("autoProcessBar"),count=$("autoProcessCount");
