@@ -290,10 +290,37 @@ function dashboardTerrain(){
  const changes=work.filter(p=>{const t=new Date(p.updatedAt||p.createdAt||0).getTime();return Number.isFinite(t)&&nowMs-t<=recentMs&&signalInfo(p).tags.some(x=>x.key==="priceDown");}).length;
  const weekNew=work.filter(p=>{const t=new Date(p.detectionDate||p.createdAt||0).getTime();return Number.isFinite(t)&&nowMs-t<=weekMs;}).length;
  const weekFollow=work.reduce((n,p)=>n+(p.history||[]).filter(h=>{const t=new Date(h.date||0).getTime();const text=String((h.type||"")+" "+(h.text||"")).toLowerCase();return Number.isFinite(t)&&nowMs-t<=weekMs&&text.includes("relance");}).length,0);
- const readyVisit=Math.min(10,work.filter(p=>p.address&&p.postalCode&&p.city&&p.sourceUrl).length);
+ const readyVisit=Math.min(50,work.filter(p=>p.address&&p.postalCode&&p.city&&p.sourceUrl).length);
  const byCity={};work.forEach(p=>{const city=String(p.city||"").trim();if(city)byCity[city]=(byCity[city]||0)+1});
- const sectors=Object.entries(byCity).sort((a,b)=>b[1]-a[1]).slice(0,5);
- $("dashboardTerrain").innerHTML='<div class="dashboard-head"><div><h2>🎯 À faire maintenant</h2><p>Vue opérationnelle des prospects commerciaux. Les biens de surveillance restent séparés.</p></div><div class="dashboard-head-actions"><span class="dashboard-badge">'+priority+' priorité'+(priority>1?'s':'')+' terrain</span><button type="button" class="ghost dashboard-toggle" data-dashboard-toggle aria-expanded="true">✕ Fermer</button></div></div><div class="dashboard-collapsible"><div class="dashboard-actions-grid"><button class="dashboard-action action-hot" data-dashboard-action="priority"><strong>🔥 '+priority+'</strong><span>Priorités terrain</span><small>Indice ≥ 65</small></button><button class="dashboard-action" data-dashboard-action="recent"><strong>🆕 '+recent+'</strong><span>Nouveaux récents</span><small>Détectés ≤ 7 jours</small></button><button class="dashboard-action" data-dashboard-action="address"><strong>📍 '+addressMissing+'</strong><span>Adresses à compléter</span><small>Informations manquantes</small></button><button class="dashboard-action" data-dashboard-action="follow"><strong>📞 '+follow+'</strong><span>Relances en retard</span><small>À traiter maintenant</small></button><button class="dashboard-action" data-dashboard-action="changes"><strong>🔄 '+changes+'</strong><span>Baisses de prix récentes</span><small>Changement public détecté</small></button><button class="dashboard-action" data-dashboard-action="tour"><strong>🚗 '+readyVisit+'</strong><span>Biens prêts terrain</span><small>Adresse + source publique</small></button></div><div class="dashboard-lower"><div class="dashboard-box"><h3>🗺️ Secteurs actifs</h3>'+(sectors.length?sectors.map(([city,n])=>'<button class="sector-row" data-dashboard-city="'+esc(city)+'"><span>'+esc(city)+'</span><strong>'+n+'</strong></button>').join(""):'<div class="meta">Aucun prospect commercial renseigné.</div>')+'</div><div class="dashboard-box"><h3>📊 Activité récente</h3><div class="activity-row"><span>Nouveaux cette semaine</span><strong>'+weekNew+'</strong></div><div class="activity-row"><span>Fiches avec adresse exploitable</span><strong>'+addressReady+'</strong></div><div class="activity-row"><span>Relances enregistrées cette semaine</span><strong>'+weekFollow+'</strong></div><div class="activity-row"><span>Total prospects commerciaux actifs</span><strong>'+work.length+'</strong></div></div></div><div class="dashboard-note">Les biens issus du Radar sans signal commercial ne sont pas comptés comme prospects commerciaux : ils restent disponibles dans « Biens à surveiller ».</div></div>';
+ const sectors=Object.entries(byCity).sort((a,b)=>b[1]-a[1]).slice(0,6);
+ const primary=work.filter(p=>movement6mInfo(p).score>=65).sort((a,b)=>movement6mInfo(b).score-movement6mInfo(a).score).slice(0,5);
+ const todayLabel=new Intl.DateTimeFormat("fr-FR",{weekday:"long",day:"numeric",month:"long"}).format(new Date());
+ $("dashboardTerrain").innerHTML=
+ '<div class="home-hero">'+
+   '<div class="home-hero-main"><span class="eyebrow">POSTE DE PILOTAGE JML</span><h1>Ta prospection, <em>au bon endroit</em>.</h1><p>'+todayLabel+' · '+work.length+' dossiers commerciaux actifs dans ta base.</p></div>'+
+   '<div class="home-hero-kpi"><strong>'+priority+'</strong><span>priorités terrain</span><small>à traiter en premier</small></div>'+
+ '</div>'+
+ '<div class="home-primary-actions">'+
+   '<button class="home-primary-action" data-dashboard-action="find"><span>🔎</span><strong>Trouver des dossiers</strong><small>Radar + données publiques</small></button>'+
+   '<button class="home-primary-action" data-dashboard-action="tour"><span>🚗</span><strong>Préparer ma tournée</strong><small>'+readyVisit+' adresses exploitables</small></button>'+
+   '<button class="home-primary-action" data-dashboard-action="crm"><span>👤</span><strong>Gérer mes prospects</strong><small>'+follow+' relance'+(follow>1?'s':'')+' en retard</small></button>'+
+ '</div>'+
+ '<div class="home-section-head"><div><span class="eyebrow">ACTION DU JOUR</span><h2>Ce qui mérite ton attention</h2></div><span class="home-live-dot">● Base à jour</span></div>'+
+ '<div class="home-priority-grid">'+
+   '<button class="home-task task-hot" data-dashboard-action="priority"><strong>🔥 '+priority+'</strong><span>Priorités terrain</span><small>Indice déplacement ≥ 65</small></button>'+
+   '<button class="home-task" data-dashboard-action="recent"><strong>🆕 '+recent+'</strong><span>Nouveaux dossiers</span><small>Détectés récemment</small></button>'+
+   '<button class="home-task" data-dashboard-action="follow"><strong>📞 '+follow+'</strong><span>Relances à faire</span><small>Ne laisse pas refroidir les contacts</small></button>'+
+   '<button class="home-task" data-dashboard-action="changes"><strong>💶 '+changes+'</strong><span>Baisses de prix</span><small>Signaux récents</small></button>'+
+ '</div>'+
+ '<div class="home-columns">'+
+   '<section class="home-box"><div class="home-box-head"><div><span class="eyebrow">TERRAIN</span><h3>🔥 Les dossiers à visiter</h3></div><button class="ghost" data-dashboard-action="tour">Voir la tournée →</button></div>'+
+   (primary.length?primary.map((p,i)=>'<button class="home-prospect-row" data-dashboard-prospect="'+esc(p.id)+'"><span class="home-rank">'+(i+1)+'</span><span><strong>'+esc(p.address||"Adresse à compléter")+'</strong><small>'+esc((p.postalCode?p.postalCode+" ":"")+(p.city||""))+' · '+esc(p.type||"Bien")+(p.area?" · "+p.area+" m²":"")+'</small></span><b>'+movement6mInfo(p).score+'/100</b></button>').join(""):'<div class="home-empty">Aucun dossier prioritaire à visiter pour le moment.</div>')+
+   '</section>'+
+   '<section class="home-box"><div class="home-box-head"><div><span class="eyebrow">SECTEURS</span><h3>📍 Où travailler</h3></div><button class="ghost" data-dashboard-action="find">Radar →</button></div>'+
+   (sectors.length?sectors.map(([city,n])=>'<button class="home-sector-row" data-dashboard-city="'+esc(city)+'"><span>📍 '+esc(city)+'</span><strong>'+n+'</strong></button>').join(""):'<div class="home-empty">Aucun secteur renseigné.</div>')+
+   '</section>'+
+ '</div>'+
+ '<div class="home-footer-metrics"><div><strong>'+addressReady+'</strong><span>adresses exploitables</span></div><div><strong>'+weekNew+'</strong><span>nouveaux cette semaine</span></div><div><strong>'+weekFollow+'</strong><span>relances cette semaine</span></div><div><strong>'+addressMissing+'</strong><span>dossiers à compléter</span></div></div>';
 }
 
 
@@ -801,12 +828,15 @@ $("dashboardTerrain").onclick=e=>{
  if(city){$("city").value=city.dataset.dashboardCity;prospectPage=1;render();$("list").scrollIntoView({behavior:"smooth",block:"start"});return}
  if(!b)return;
  const action=b.dataset.dashboardAction;
- if(action==="priority"){$("movementFilter").value="high";prospectPage=1;render();$("list").scrollIntoView({behavior:"smooth",block:"start"});}
+ if(action==="find"){showJmlPage("find");return}
+ else if(action==="crm"){showJmlPage("crm");return}
+ else if(action==="tour"){showJmlPage("tour");return}
+ else if(action==="priority"){$("movementFilter").value="high";prospectPage=1;render();$("list").scrollIntoView({behavior:"smooth",block:"start"});}
  else if(action==="recent"){$("signalFilter").value="new";prospectPage=1;render();$("list").scrollIntoView({behavior:"smooth",block:"start"});}
  else if(action==="follow"){$("signalFilter").value="follow";prospectPage=1;render();$("list").scrollIntoView({behavior:"smooth",block:"start"});}
  else if(action==="changes"){$("signalFilter").value="priceDown";prospectPage=1;render();$("list").scrollIntoView({behavior:"smooth",block:"start"});}
  else if(action==="address"){$("q").value="";$("city").value="";$("signalFilter").value="incomplete";prospectPage=1;render();$("list").scrollIntoView({behavior:"smooth",block:"start"});}
- else if(action==="tour"){$("ct-annonces-panel")?.scrollIntoView({behavior:"smooth",block:"start"});}
+ 
 };
 
 $("list").onclick=e=>{const quick=e.target.closest("[data-quick-contact]");if(quick){setProspectStatus(quick.dataset.quickContact,"Contacté","Contact commercial lancé depuis le CRM");return}const sel=e.target.closest("[data-select-prospect]");if(sel){toggleProspectSelection(sel.dataset.selectProspect);return}const edit=e.target.closest("[data-edit]"),del=e.target.closest("[data-delete]");if(edit){const p=prospects.find(x=>x.id===edit.dataset.edit);if(p)openForm(p)}if(del&&confirm("Supprimer ce prospect ?")){prospects=prospects.filter(x=>x.id!==del.dataset.delete);selectedProspectIds=selectedProspectIds.filter(id=>id!==del.dataset.delete);saveSelectedProspects();save()}};
