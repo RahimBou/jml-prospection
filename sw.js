@@ -1,4 +1,4 @@
-const CACHE="jml-prospection-shell-v1";
+const CACHE="jml-prospection-shell-v2";
 const ASSETS=["./","./index.html","./styles.css","./prospection-flow.css","./pwa.css","./app.js","./stats.js","./dvf-radar.js","./prospection-flow.js","./jml-icon.svg","./manifest.webmanifest"];
 self.addEventListener("install",e=>e.waitUntil(caches.open(CACHE).then(c=>c.addAll(ASSETS)).then(()=>self.skipWaiting())));
 self.addEventListener("activate",e=>e.waitUntil(self.clients.claim()));
