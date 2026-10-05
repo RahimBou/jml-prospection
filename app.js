@@ -7,10 +7,11 @@ document.addEventListener("click",e=>{
   if(select){e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();toggleProspectSelection(select.dataset.sectorSelect);renderSectorWork(autoSectorFilter);return;}
   const add=e.target.closest("#sectorAddTopBtn");
   if(add){e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();const rows=prospects.filter(p=>String(p.autoSector||p.city||p.postalCode||"").trim().toLowerCase()===String(autoSectorFilter).trim().toLowerCase()).sort((a,b)=>(Number(b.autoScore)||0)-(Number(a.autoScore)||0));rows.forEach(p=>{if(selectedProspectIds.length<10&&!selectedProspectIds.includes(p.id))selectedProspectIds.push(p.id)});saveSelectedProspects();renderSectorWork(autoSectorFilter);renderSelectionPanel();return;}
+  const crm=e.target.closest('a[href="#prospectsPanel"]');if(crm){e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();openCRM();return;}
   const tour=e.target.closest("#navRouteShortcut");
   if(tour){e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();openTour();return;}
 },true);
-const APP_VERSION = "1.61.2";
+const APP_VERSION = "1.62.1";
 /* V1.50 — le frontend Render web doit toujours viser le service API dédié. */
 const API_BASE = String(window.JML_API_BASE || "https://jml-prospection-web.onrender.com").replace(/\/$/,"");
 
@@ -409,6 +410,12 @@ function renderTour(){
  $("tourList").innerHTML=selected.length?selected.map((p,i)=>'<article class="tour-card"><div class="tour-num">'+(i+1)+'</div><div><strong>'+esc(p.address||"Adresse à compléter")+'</strong><span>'+esc([p.postalCode,p.city,p.type].filter(Boolean).join(" · "))+'</span><div class="tour-data"><b>⭐ '+Number(p.autoScore||0)+'</b><b>📐 '+(p.area||0)+' m²</b><b>🔤 DPE '+esc(p.dpe||"—")+'</b><b>📌 '+esc(p.status||"Nouveau")+'</b></div></div><button class="ghost" data-tour-remove="'+esc(p.id)+'">Retirer</button></article>').join(""):'<div class="empty-state">Aucun prospect sélectionné. Depuis un secteur, ajoute jusqu’à 10 dossiers à ta tournée.</div>';
 }
 function openTour(){ $("sectorWorkPanel").hidden=true;$("prospectDetailPanel").hidden=true;$("autoTreatmentPanel").hidden=true;$("tourPanel").hidden=false;renderTour();$("tourPanel").scrollIntoView({behavior:"smooth",block:"start"});}
+function openCRM(){
+  ["tourPanel","sectorWorkPanel","prospectDetailPanel","autoTreatmentPanel"].forEach(id=>{const el=$(id);if(el)el.hidden=true;});
+  const p=$("prospectsPanel");if(p)p.hidden=false;
+  render();
+  p?.scrollIntoView({behavior:"smooth",block:"start"});
+}
 function renderProspectDetail(id){
  const p=prospects.find(x=>String(x.id)===String(id)),panel=$("prospectDetailPanel"),body=$("prospectDetailBody"); if(!p||!panel||!body)return;
  window.jmlDetailReturnSector=autoSectorFilter||p.autoSector||"";
