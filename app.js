@@ -324,6 +324,20 @@ function finalizeAutoPriorities(){
     else{p.autoPriority="D";p.autoPriorityLabel="Faible priorité";}
   });
 }
+function autoSectorStats(){
+  const map=new Map();
+  prospects.forEach(p=>{
+    const sector=String(p.autoSector||p.city||p.postalCode||"Secteur non renseigné").trim()||"Secteur non renseigné";
+    if(!map.has(sector))map.set(sector,{sector,total:0,A:0,B:0,C:0,D:0,scoreSum:0});
+    const x=map.get(sector), pr=p.autoPriority||"D";
+    x.total++;
+    x[pr]=(x[pr]||0)+1;
+    x.scoreSum+=Number(p.autoScore)||0;
+  });
+  return [...map.values()]
+    .map(x=>({...x,avg:x.total?Math.round(x.scoreSum/x.total):0}))
+    .sort((a,b)=>(b.A-a.A)||(b.B-a.B)||(b.avg-a.avg)||a.sector.localeCompare(b.sector,"fr"));
+}
 function renderAutoTreatmentSummary(){
   const el=$("autoProcessSummary"); if(!el)return;
   const counts={A:0,B:0,C:0,D:0};prospects.forEach(p=>counts[p.autoPriority||"D"]=(counts[p.autoPriority||"D"]||0)+1);
