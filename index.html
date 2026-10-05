@@ -10,7 +10,24 @@
 </nav>
 <main class="container">
 <section class="stats" hidden><article><strong id="statTotal">0</strong></article><article><strong id="statNew">0</strong></article><article><strong id="statFollow">0</strong></article><article><strong id="statSignals">0</strong></article></section><section id="dashboardTerrain" class="panel dashboard-terrain"></section><section id="prospectionWorkflow" class="panel prospection-workflow" aria-label="Parcours prospect vendeur"></section>
-<datalist id="communeSuggestions"><option value="Sedan"></option><option value="Charleville-Mézières"></option><option value="Rethel"></option><option value="Revin"></option><option value="Givet"></option><option value="Vouziers"></option></datalist><section id="autoTreatmentPanel" class="panel auto-treatment-panel">
+<datalist id="communeSuggestions"><option value="Sedan"></option><option value="Charleville-Mézières"></option><option value="Rethel"></option><option value="Revin"></option><option value="Givet"></option><option value="Vouziers"></option></datalist><section id="sectorWorkPanel" class="panel sector-work-panel" hidden>
+  <div class="sector-work-head">
+    <button id="sectorBackBtn" type="button" class="ghost">← Retour aux secteurs</button>
+    <div><span class="eyebrow">POSTE DE TRAVAIL</span><h1 id="sectorWorkTitle">Secteur</h1><p id="sectorWorkSubtitle">Préparation de la prospection.</p></div>
+  </div>
+  <div id="sectorWorkStats" class="sector-work-stats"></div>
+  <div class="sector-work-toolbar">
+    <div class="sector-priority-tabs">
+      <button type="button" class="ghost sector-filter active" data-priority="ALL">Tous</button>
+      <button type="button" class="ghost sector-filter" data-priority="A">🔴 A</button>
+      <button type="button" class="ghost sector-filter" data-priority="B">🟠 B</button>
+      <button type="button" class="ghost sector-filter" data-priority="C">🟡 C</button>
+      <button type="button" class="ghost sector-filter" data-priority="D">⚪ D</button>
+    </div>
+    <button id="sectorAddTopBtn" type="button" class="primary">🎯 Ajouter les meilleurs à ma sélection</button>
+  </div>
+  <div id="sectorWorkList" class="sector-work-list"></div>
+</section><section id="autoTreatmentPanel" class="panel auto-treatment-panel">
 <div class="panel-title"><div><h1>⚡ Traiter les données</h1><p>Analyse toute la base et organise automatiquement les prospects par priorité et secteur.</p></div><span class="radar-score">V1.54</span></div>
 <div class="auto-treatment-actions"><button id="autoProcessBtn" class="primary">⚡ Traiter toute la base</button><span id="autoProcessCount" class="meta">0 / 0</span></div>
 <progress id="autoProcessBar" value="0" max="100"></progress><div id="autoProcessStatus" class="source-note">Lance le traitement pour analyser tous les prospects.</div>
