@@ -575,3 +575,12 @@ body{background:linear-gradient(180deg,#f7f8f6 0%,#eef2ef 100%);color:var(--text
 
 /* V1.72 — cockpit commercial */
 .crm-pipeline{grid-template-columns:repeat(5,minmax(0,1fr))}.crm-stage{transition:.16s ease}.crm-stage:hover{transform:translateY(-1px);border-color:rgba(47,102,85,.28)}.crm-stage.active{background:#edf4f0;border-color:var(--action);box-shadow:inset 0 -2px 0 var(--gold)}.detail-stage-actions{display:flex;gap:6px;flex-wrap:wrap;width:100%;margin:8px 0}.detail-stage-actions button{font-size:11px;padding:7px 9px}.detail-stage-actions .selected{background:#edf4f0;border-color:var(--action);font-weight:800}@media(max-width:700px){.crm-pipeline{grid-template-columns:repeat(2,1fr)}.detail-stage-actions{display:grid;grid-template-columns:repeat(2,1fr)}}
+
+
+/* V1.73.1 — navigation mobile : tous les espaces restent accessibles sans couper les libellés */
+@media(max-width:700px){
+  .workspace-nav{overflow-x:auto;flex-wrap:nowrap;justify-content:flex-start;padding:6px 8px;gap:4px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+  .workspace-nav::-webkit-scrollbar{display:none}
+  .nav-main{flex:0 0 auto;min-width:max-content;white-space:nowrap;padding:8px 9px}
+  .nav-main b{font-size:11px}
+}
