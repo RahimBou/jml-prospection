@@ -1,0 +1,37 @@
+/* JML Prospection — interface terrain smartphone/tablette */
+:root{--safe-bottom:env(safe-area-inset-bottom,0px)}
+@media (max-width:900px){
+  body{padding-bottom:calc(72px + var(--safe-bottom))}
+  .topbar{position:sticky;top:0;z-index:50;padding:10px 12px}
+  .top-actions{gap:6px}
+  .top-actions .ghost{display:none}
+  .top-actions .primary{min-height:44px}
+  .workspace-nav{position:sticky;top:64px;z-index:40;overflow-x:auto;white-space:nowrap;padding:8px 10px;-webkit-overflow-scrolling:touch}
+  .workspace-nav a{display:inline-flex;min-height:40px;align-items:center}
+  .container{padding:10px}
+  .stats{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+  .terrain-guide-grid{grid-template-columns:1fr 1fr}
+  .terrain-step{min-height:108px;padding:12px}
+  .panel{border-radius:14px;margin-bottom:12px}
+  .panel-title{gap:10px;align-items:flex-start}
+  .panel-title h1{font-size:20px}
+  .future-radar-actions{width:100%}
+  #futureRadarBtn{width:100%;min-height:50px;font-size:16px}
+  .radar-simple-search{grid-template-columns:1fr 110px}
+  .radar-advanced-toggle{display:none}
+  .radar-advanced-body{display:none!important}
+  .cards{grid-template-columns:1fr}
+  .prospects-panel-actions{flex-wrap:wrap}
+  .prospects-toolbar,.prospects-panel-actions{gap:8px}
+  .dialog{width:calc(100vw - 20px);max-width:none}
+  .form-grid{grid-template-columns:1fr}
+  button,.ghost,.primary,select,input{min-height:44px}
+}
+@media (max-width:520px){
+  .brand{font-size:18px}
+  .subtitle{font-size:11px}
+  .terrain-guide-grid{grid-template-columns:1fr}
+  .radar-simple-search{grid-template-columns:1fr}
+  .stats article{padding:12px 10px}
+  .stats article strong{font-size:24px}
+}
