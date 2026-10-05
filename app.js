@@ -360,16 +360,38 @@ function bindAutoSectorTable(){
   const table=$("autoSectorTable"); if(!table)return;
   table.onclick=e=>{const b=e.target.closest(".autoSectorBtn");if(!b)return;e.preventDefault();e.stopPropagation();showAutoSector(b.dataset.sector||"");};
 }
+let sectorWorkPriority="ALL";
+function renderSectorWork(sector){
+  const panel=$("sectorWorkPanel"); if(!panel)return;
+  const name=String(sector||"").trim()||"Secteur";
+  const rows=prospects.filter(p=>String(p.autoSector||p.city||p.postalCode||"Secteur non renseigné").trim().toLowerCase()===name.toLowerCase())
+    .sort((x,y)=>(Number(y.autoScore)||0)-(Number(x.autoScore)||0));
+  const filtered=sectorWorkPriority==="ALL"?rows:rows.filter(p=>(p.autoPriority||"D")===sectorWorkPriority);
+  const counts={A:0,B:0,C:0,D:0};rows.forEach(p=>counts[p.autoPriority||"D"]++);
+  $("sectorWorkTitle").textContent=name;
+  $("sectorWorkSubtitle").textContent=rows.length+" prospect(s) dans ce secteur · priorité et score calculés automatiquement.";
+  $("sectorWorkStats").innerHTML=[["Total",rows.length,"dossiers"],["A",counts.A,"priorité immédiate"],["B",counts.B,"à travailler"],["C",counts.C,"à surveiller"],["D",counts.D,"faible priorité"]].map(x=>'<article><strong>'+x[1]+'</strong><span>'+x[0]+'</span><small>'+x[2]+'</small></article>').join("");
+  $("sectorWorkList").innerHTML=filtered.length?filtered.map((p,i)=>{
+    const selected=selectedProspectIds.includes(p.id);
+    const signals=(p.autoSignals||[]).slice(0,3).map(esc).join(" · ");
+    return '<article class="sector-prospect-card"><div class="sector-rank">'+(i+1)+'</div><div class="sector-prospect-main"><div class="sector-prospect-title"><strong>'+esc(p.address||"Adresse à compléter")+'</strong><span class="priority-'+esc(p.autoPriority||"D")+'">'+esc(p.autoPriority||"D")+'</span></div><div class="sector-prospect-meta">'+esc(p.postalCode||"")+' '+esc(p.city||"")+' · '+esc(p.type||"Bien")+' · '+(Number(p.area)||0)+' m²</div><div class="sector-prospect-signals">'+(signals||"Données à compléter")+'</div></div><div class="sector-score"><strong>'+Number(p.autoScore||0)+'</strong><small>/100</small></div><button type="button" class="ghost sector-select-btn '+(selected?"selected":"")+'" data-sector-select="'+esc(p.id)+'">'+(selected?"✓ Sélectionné":"＋ Sélectionner")+'</button><button type="button" class="ghost" data-sector-open="'+esc(p.id)+'">Voir le dossier</button></article>';
+  }).join(""):'<div class="empty-state">Aucun prospect dans ce filtre.</div>';
+}
+function bindSectorWork(){
+  $("sectorBackBtn")?.addEventListener("click",()=>{ $("sectorWorkPanel").hidden=true;$("autoTreatmentPanel").hidden=false;window.scrollTo({top:$("autoTreatmentPanel").offsetTop-20,behavior:"smooth"}); });
+  document.querySelectorAll(".sector-filter").forEach(b=>b.onclick=()=>{sectorWorkPriority=b.dataset.priority;document.querySelectorAll(".sector-filter").forEach(x=>x.classList.toggle("active",x===b));renderSectorWork(autoSectorFilter)});
+  $("sectorAddTopBtn")?.addEventListener("click",()=>{const rows=prospects.filter(p=>String(p.autoSector||p.city||p.postalCode||"").trim().toLowerCase()===String(autoSectorFilter).trim().toLowerCase()).sort((a,b)=>(Number(b.autoScore)||0)-(Number(a.autoScore)||0));rows.slice(0,10).forEach(p=>{if(selectedProspectIds.length<10&&!selectedProspectIds.includes(p.id))selectedProspectIds.push(p.id)});saveSelectedProspects();renderSectorWork(autoSectorFilter);renderSelectionPanel();bindSelectionControls();});
+  $("sectorWorkList")?.addEventListener("click",e=>{const b=e.target.closest("[data-sector-select]");if(b){toggleProspectSelection(b.dataset.sectorSelect);renderSectorWork(autoSectorFilter)}});
+}
 function showAutoSector(sector){
   autoSectorFilter=String(sector||"").trim();
-  const city=$("city"),q=$("q"),view=$("prospectView"),sort=$("sort"),size=$("prospectPageSize");
-  if(city)city.value=""; if(q)q.value="";
-  if(view)view.value="all"; if(sort)sort.value="auto"; if(size)size.value="20";
-  prospectPage=1;
-  render();
-  const panel=$("prospectsPanel"); if(panel)panel.scrollIntoView({behavior:"smooth",block:"start"});
-}
-async function processAllProspectsAutomatically(){
+  sectorWorkPriority="ALL";
+  $("autoTreatmentPanel").hidden=true;
+  $("sectorWorkPanel").hidden=false;
+  renderSectorWork(autoSectorFilter);
+  bindSectorWork();
+  $("sectorWorkPanel").scrollIntoView({behavior:"smooth",block:"start"});
+}\nasync function processAllProspectsAutomatically(){
   const btn=$("autoProcessBtn"),status=$("autoProcessStatus"),bar=$("autoProcessBar"),count=$("autoProcessCount");
   if(!prospects.length){status.textContent="Aucun prospect à traiter.";return}
   if(btn)btn.disabled=true;let done=0,total=prospects.length,batchSize=50;
