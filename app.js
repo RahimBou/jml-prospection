@@ -1,4 +1,9 @@
 document.addEventListener("click",e=>{
+ const focus=e.target.closest("[data-crm-focus]");
+ if(focus){e.preventDefault();crmFocus=focus.dataset.crmFocus||"all";prospectPage=1;render();return;}
+ const reset=e.target.closest("#crmResetStatus");
+ if(reset){e.preventDefault();crmFocus="all";prospectPage=1;render();return;}
+
  const nav=e.target.closest(".nav-main[data-page]");
  if(!nav)return;
  e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();
@@ -64,7 +69,7 @@ document.addEventListener("click",e=>{
   const tour=e.target.closest("#navRouteShortcut");
   if(tour){e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();openTour();return;}
 },true);
-const APP_VERSION = "1.67.0";
+const APP_VERSION = "1.68.0";
 /* V1.50 — le frontend Render web doit toujours viser le service API dédié. */
 const API_BASE = String(window.JML_API_BASE || "https://jml-prospection-web.onrender.com").replace(/\/$/,"");
 
@@ -419,6 +424,7 @@ function initCollapsiblePanels(){
  }
  initFutureRadarResultsToggle();
 }
+let crmFocus="all";
 function render(){
  const prospectView=$("prospectView")?.value||"commercial";
  const viewBase=prospectView==="watch"?prospects.filter(isRadarSurveillance):prospectView==="all"?prospects:prospects.filter(isCommercialProspect);
@@ -427,12 +433,17 @@ function render(){
  let rows=viewBase.filter(p=>{
   const hay=[p.address,p.postalCode,p.city,p.district,p.description,p.notes,p.source,p.externalId].join(" ").toLowerCase();
   const detected=p.detectionDate||String(p.createdAt||"").slice(0,10);
-  return (!q||hay.includes(q))&&(!city||String(p.city||"").toLowerCase().includes(city))&&(!autoSectorFilter||String(p.autoSector||p.city||"").toLowerCase()===autoSectorFilter.toLowerCase())&&(!district||String(p.district||"").toLowerCase().includes(district))&&(!type||p.type===type)&&(!status||p.status===status)&&(!dpe||(dpe==="Non renseigné"?!p.dpe:p.dpe===dpe))&&(!signal||(signal==="any"?hasSignal(p):signal==="none"?!hasSignal(p):signalInfo(p).tags.some(t=>t.key===signal)))&&(!movement||(movement==="high"?movement6mInfo(p).score>=65:movement==="medium"?movement6mInfo(p).score>=40&&movement6mInfo(p).score<65:movement==="watch"?movement6mInfo(p).score>=20&&movement6mInfo(p).score<40:movement6mInfo(p).score<20))&&inRange(p.price,priceMin,priceMax)&&inRange(p.area,areaMin,areaMax)&&inRange(p.land,landMin,landMax)&&inRange(p.rooms,roomsMin,roomsMax)&&(!from||detected>=from)&&(!to||detected<=to);
+  const todayStr=today(), commercial=isCommercialProspect(p), activeStatus=!["Mandat obtenu","Vendu / abandonné"].includes(p.status);
+  const focusOk=crmFocus==="all"||(crmFocus==="overdue"&&commercial&&p.nextFollow&&p.nextFollow<todayStr&&activeStatus)||(crmFocus==="today"&&commercial&&p.nextFollow===todayStr)||(crmFocus==="selected"&&selectedProspectIds.includes(p.id));
+  return focusOk&&(!q||hay.includes(q))&&(!city||String(p.city||"").toLowerCase().includes(city))&&(!autoSectorFilter||String(p.autoSector||p.city||"").toLowerCase()===autoSectorFilter.toLowerCase())&&(!district||String(p.district||"").toLowerCase().includes(district))&&(!type||p.type===type)&&(!status||p.status===status)&&(!dpe||(dpe==="Non renseigné"?!p.dpe:p.dpe===dpe))&&(!signal||(signal==="any"?hasSignal(p):signal==="none"?!hasSignal(p):signalInfo(p).tags.some(t=>t.key===signal)))&&(!movement||(movement==="high"?movement6mInfo(p).score>=65:movement==="medium"?movement6mInfo(p).score>=40&&movement6mInfo(p).score<65:movement==="watch"?movement6mInfo(p).score>=20&&movement6mInfo(p).score<40:movement6mInfo(p).score<20))&&inRange(p.price,priceMin,priceMax)&&inRange(p.area,areaMin,areaMax)&&inRange(p.land,landMin,landMax)&&inRange(p.rooms,roomsMin,roomsMax)&&(!from||detected>=from)&&(!to||detected<=to);
  });
  const crmStatuses=["Nouveau","À contacter","Visité","Pas encore en vente","À relancer","Mandat obtenu","Mandat refusé","Vendu / abandonné"];
  const crmPipeline=$("crmPipeline"),crmToday=$("crmToday");
  if(crmPipeline){crmPipeline.innerHTML=crmStatuses.map(st=>{const n=prospects.filter(p=>(p.status||"Nouveau")===st).length;return '<button type="button" class="crm-stage '+(status===st?"active":"")+'" data-crm-status="'+esc(st)+'"><strong>'+n+'</strong><span>'+esc(st)+'</span></button>';}).join("");}
- if(crmToday){const todayStr=today(), overdue=commercialCount=prospects.filter(p=>isCommercialProspect(p)&&p.nextFollow&&p.nextFollow<todayStr&&!["Mandat obtenu","Vendu / abandonné"].includes(p.status)).length, due=prospects.filter(p=>isCommercialProspect(p)&&p.nextFollow===todayStr).length, selected=selectedProspectIds.length;crmToday.innerHTML='<div><strong>'+overdue+'</strong><span>Relances en retard</span></div><div><strong>'+due+'</strong><span>À faire aujourd’hui</span></div><div><strong>'+selected+'</strong><span>Dans ma sélection</span></div>';} const sort=$("sort").value;
+ if(crmToday){
+  const todayStr=today(), overdue=prospects.filter(p=>isCommercialProspect(p)&&p.nextFollow&&p.nextFollow<todayStr&&!["Mandat obtenu","Vendu / abandonné"].includes(p.status)).length, due=prospects.filter(p=>isCommercialProspect(p)&&p.nextFollow===todayStr).length, selected=selectedProspectIds.length;
+  crmToday.innerHTML='<button type="button" class="crm-today-item '+(crmFocus==="overdue"?"active":"")+'" data-crm-focus="overdue"><strong>'+overdue+'</strong><span>Relances en retard</span></button><button type="button" class="crm-today-item '+(crmFocus==="today"?"active":"")+'" data-crm-focus="today"><strong>'+due+'</strong><span>À faire aujourd’hui</span></button><button type="button" class="crm-today-item '+(crmFocus==="selected"?"active":"")+'" data-crm-focus="selected"><strong>'+selected+'</strong><span>Dans ma sélection</span></button>';
+} const sort=$("sort").value;
  if(sort==="auto")rows.sort((a,b)=>Number(b.autoScore||0)-Number(a.autoScore||0));else if(sort==="signal")rows.sort((a,b)=>movement6mInfo(b).score-movement6mInfo(a).score||signalInfo(b).score-signalInfo(a).score||String(b.updatedAt||"").localeCompare(String(a.updatedAt||"")));else if(sort==="city")rows.sort((a,b)=>String(a.city).localeCompare(String(b.city)));else if(sort==="price")rows.sort((a,b)=>b.price-a.price);else if(sort==="priceM2")rows.sort((a,b)=>priceM2(b)-priceM2(a));else if(sort==="area")rows.sort((a,b)=>b.area-a.area);else if(sort==="follow")rows.sort((a,b)=>(a.nextFollow||"9999").localeCompare(b.nextFollow||"9999"));else if(sort==="detection")rows.sort((a,b)=>(b.detectionDate||b.createdAt||"").localeCompare(a.detectionDate||a.createdAt||""));else rows.sort((a,b)=>(b.updatedAt||"").localeCompare(a.updatedAt||""));
  const pageSize=Math.max(1,Number($("prospectPageSize")?.value)||DEFAULT_PROSPECT_PAGE_SIZE);const totalPages=Math.max(1,Math.ceil(rows.length/pageSize));prospectTotalPages=totalPages;if(prospectPage>totalPages)prospectPage=totalPages;const pageStart=(prospectPage-1)*pageSize;const pageRows=rows.slice(pageStart,pageStart+pageSize);$("resultCount").textContent=rows.length+" résultat"+(rows.length>1?"s":"");$("prospectRange").textContent=rows.length?("Affichage "+(pageStart+1)+"–"+Math.min(pageStart+pageRows.length,rows.length)+" sur "+rows.length):"0 résultat affiché";$("empty").style.display=rows.length?"none":"block";
  $("list").innerHTML=pageRows.map(p=>'<article class="card"><div class="card-head"><div><div class="address">'+esc(p.address)+'</div><div class="meta">'+esc(p.postalCode?p.postalCode+" ":"")+esc(p.city)+(p.district?" · "+esc(p.district):"")+" · "+esc(p.type)+'</div></div><span class="badge '+badgeClass(p.status)+'">'+esc(p.status)+'</span></div>'+(p.price?'<div class="price">'+p.price.toLocaleString("fr-FR")+' €</div>':"")+'<div class="details">'+(p.area?'<span class="detail">'+p.area+' m²</span>':"")+(p.land?'<span class="detail">Terrain '+p.land+' m²</span>':"")+(p.rooms?'<span class="detail">'+p.rooms+' pièces</span>':"")+(p.bedrooms?'<span class="detail">'+p.bedrooms+' ch.</span>':"")+(p.dpe?'<span class="detail">DPE '+esc(p.dpe)+'</span>':'<span class="detail">DPE —</span>')+(priceM2(p)?'<span class="detail">'+Math.round(priceM2(p)).toLocaleString("fr-FR")+' €/m²</span>':"")+(p.source?'<span class="detail">'+esc(p.source)+'</span>':"")+'</div>'+(p.description?'<div class="signal">'+esc(p.description)+'</div>':"")+'<div class="meta">Détection : '+(p.detectionDate?new Date(p.detectionDate+"T00:00:00").toLocaleDateString("fr-FR"):"non définie")+' · Relance : '+(p.nextFollow?new Date(p.nextFollow+"T00:00:00").toLocaleDateString("fr-FR"):"non définie")+'</div>'+signalInfo(p).tags.filter(t=>t.points>0).map(t=>'<span class="signal-tag">'+esc(t.label)+(t.key==="priceDown"&&signalInfo(p).priceChange?' · '+Math.abs(signalInfo(p).priceChange.pct).toFixed(1)+' %':"")+'</span>').join("")+movement6mHtml(p)+priceHistoryHtml(p)+'<div class="card-actions"><button class="ghost '+(selectedProspectIds.includes(p.id)?"selected":"")+'" data-select-prospect="'+p.id+'">'+(selectedProspectIds.includes(p.id)?"✓ Dans ma sélection":"＋ Ajouter à ma sélection")+'</button><button class="ghost" data-edit="'+p.id+'">Ouvrir / modifier</button>'+(p.sourceUrl?'<a class="ghost" href="'+esc(p.sourceUrl)+'" target="_blank" rel="noopener">Source</a>':"")+'<button class="ghost" data-delete="'+p.id+'">Supprimer</button></div></article>').join("");
