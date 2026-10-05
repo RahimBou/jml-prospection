@@ -1258,6 +1258,27 @@ async function api(pathname,url){
   pathname=String(pathname||"").replace(/\/+$/,"")||"/";
   if(pathname==="/api/veille-annonces") pathname="/api/annonces-multi";
   if(pathname==="/api/health") return {ok:true,sources:{dpe:"ADEME",dvf:"DVF+ Cerema",geocoding:"Géoplateforme",chercherTrouver:"ChercherTrouver.immo"},server:"jml-prospection",version:"1.50.0"};
+  if(pathname==="/api/diagnostic"){
+    const city=String(url.searchParams.get("city")||"Charleville-Mézières").trim(),checks=[];
+    const check=async(label,target,detailOk)=>{
+      const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),6000);
+      try{const r=await fetch(target,{headers:{"Accept":"application/json","User-Agent":"JML-Prospection-Diagnostic/1.0"},signal:controller.signal});if(!r.ok)throw new Error("HTTP "+r.status);checks.push({label,ok:true,detail:detailOk});}
+      catch(e){checks.push({label,ok:false,detail:"Indisponible : "+(e.message||"connexion impossible")});}
+      finally{clearTimeout(timer)}
+    };
+    await Promise.all([
+      check("Serveur JML","https://jml-prospection-web.onrender.com/api/health","Le service JML répond."),
+      check("ADEME DPE",DPE_URL+"?size=1&code_insee_ban_eq=08105","La source DPE répond."),
+      check("DVF+ Cerema",DVF_URL+"?code_insee=08105&page_size=1&anneemut_min=2025&anneemut_max=2025","La source DVF+ répond."),
+      check("Géoplateforme BAN",ADDRESS_URL+"?q="+encodeURIComponent(city)+"&limit=1","Le géocodage répond pour la ville demandée.")
+    ]);
+    const configured=Boolean(String(process.env.CHERCHERTROUVER_API_KEY||"").trim());
+    checks.push({label:"ChercherTrouver",ok:configured,detail:configured?"Clé API configurée côté serveur.":"Clé API absente : ce connecteur n'empêche pas le Radar ADEME/DVF de fonctionner."});
+    const critical=checks.filter(x=>["Serveur JML","ADEME DPE","DVF+ Cerema","Géoplateforme BAN"].includes(x.label));
+    const ok=critical.every(x=>x.ok);
+    const recommendation=ok?"Le serveur et les sources critiques répondent. Si le Radar échoue encore, recharge l'application mobile pour actualiser le service worker.":"Une source critique ne répond pas. Le problème est côté serveur/source et non dans le classement du Radar.";
+    return {ok,checkedAt:new Date().toISOString(),city,checks,recommendation};
+  }
   if(pathname==="/api/integrations-health"){
     const ct=await fetchChercherTrouverPing();
     return {ok:ct.ok===true,checkedAt:new Date().toISOString(),chercherTrouver:ct};

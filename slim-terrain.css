@@ -120,3 +120,16 @@ body.jml-slim .radar-city-search{display:block;margin-top:9px}
 body.jml-slim .radar-city-search span{display:block;font-size:11px;font-weight:800;margin-bottom:4px;color:#5b554d}
 body.jml-slim .radar-city-search input{width:100%;box-sizing:border-box;min-height:42px;border:1px solid #ddd3c4;border-radius:10px;padding:9px 11px;background:#fff;font-size:15px}
 @media(max-width:760px){body.jml-slim .radar-territory-title{display:block}body.jml-slim .radar-territory-title small{display:block;text-align:left;margin-top:3px}}
+
+/* Diagnostiqueur terrain : compact, visible uniquement à la demande. */
+body.jml-slim .radar-diagnostic-trigger{margin:8px 0 0}
+body.jml-slim .radar-diagnostic-trigger button{width:100%;font-size:12px;padding:9px 10px}
+body.jml-slim .radar-diagnostic{margin-top:8px;padding:10px;border:1px solid #e2d9ca;border-radius:12px;background:#fbfaf7}
+body.jml-slim .radar-diagnostic-status{font-size:12px;font-weight:800;margin-bottom:7px}
+body.jml-slim .radar-diagnostic-results{display:grid;gap:5px}
+body.jml-slim .radar-diag-row{display:flex;gap:8px;align-items:flex-start;padding:7px 8px;border-radius:8px;background:#fff;font-size:11px}
+body.jml-slim .radar-diag-row strong{white-space:nowrap}
+body.jml-slim .radar-diag-row span{color:#5b554d}
+body.jml-slim .radar-diag-row.error{border-left:3px solid #b5483d}
+body.jml-slim .radar-diag-row.warn{border-left:3px solid #b58b43}
+body.jml-slim .radar-diag-row.ok{border-left:3px solid #4f8067}

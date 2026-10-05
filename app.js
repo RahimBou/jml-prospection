@@ -8,11 +8,12 @@ window.addEventListener("error",e=>{
   if(box&&e?.message) box.textContent="⚠️ Erreur JavaScript : "+e.message;
 });
 document.addEventListener("click",e=>{
-  const b=e.target.closest("#aiAnalyzeBtn,#aiWhyBtn,#aiPriorityBtn,#aiCallBtn,#aiReportBtn,#aiFollowupBtn,#futureRadarBtn,#futureRadarPrint,#futureRadarAddAll,#futureRadarAddPage,#futureRadarSelectAll,#futureRadarDeselectAll,#futureRadarRoute,#integrationsTestBtn,#sourcesRefreshBtn,#publicSearchBtn,#ctSearchBtn,#ctTourBtn,#ctSelect10Btn,#ctDeselectBtn,#ctPrepareSelectedBtn");
+  const b=e.target.closest("#aiAnalyzeBtn,#aiWhyBtn,#aiPriorityBtn,#aiCallBtn,#aiReportBtn,#aiFollowupBtn,#futureRadarBtn,#radarDiagnoseBtn,#futureRadarPrint,#futureRadarAddAll,#futureRadarAddPage,#futureRadarSelectAll,#futureRadarDeselectAll,#futureRadarRoute,#integrationsTestBtn,#sourcesRefreshBtn,#publicSearchBtn,#ctSearchBtn,#ctTourBtn,#ctSelect10Btn,#ctDeselectBtn,#ctPrepareSelectedBtn");
   if(!b)return;
   const tasks={aiAnalyzeBtn:"analyze",aiWhyBtn:"why",aiPriorityBtn:"priority",aiCallBtn:"call",aiReportBtn:"report",aiFollowupBtn:"followup"};
   if(tasks[b.id]&&typeof aiRun==="function"){e.preventDefault();e.stopImmediatePropagation();aiRun(tasks[b.id]);}
   else if(b.id==="futureRadarBtn"&&typeof runFutureRadar==="function"){e.preventDefault();e.stopImmediatePropagation();runFutureRadar();}
+  else if(b.id==="radarDiagnoseBtn"&&typeof runRadarDiagnostic==="function"){e.preventDefault();e.stopImmediatePropagation();runRadarDiagnostic();}
   else if(b.id==="futureRadarPrint"&&typeof printFutureRadarSelection==="function"){e.preventDefault();e.stopImmediatePropagation();printFutureRadarSelection();}
   else if(b.id==="futureRadarAddAll"&&typeof addFutureRadarCandidates==="function"){e.preventDefault();e.stopImmediatePropagation();addFutureRadarCandidates();}
   else if(b.id==="futureRadarAddPage"&&typeof addFutureRadarVisiblePage==="function"){e.preventDefault();e.stopImmediatePropagation();addFutureRadarVisiblePage();}
@@ -816,6 +817,22 @@ if($("futureRadarResults"))$("futureRadarResults").onclick=e=>{
 let publicDpeResults=[],publicDvfResults=[];
 function apiEsc(v=""){return esc(v)}
 async function publicJson(url){const targets=[String(url)];if(API_BASE&&String(url).startsWith("/"))targets.push(API_BASE+String(url));let lastError=null;for(let i=0;i<targets.length;i++){const target=targets[i];for(let attempt=1;attempt<=3;attempt++){let r;try{r=await fetch(target,{cache:"no-store"});}catch(e){lastError=e;if(attempt<3){await new Promise(resolve=>setTimeout(resolve,800*attempt));continue}if(i<targets.length-1)break;throw new Error("Connexion au serveur JML impossible après plusieurs tentatives : "+(e.message||"fetch failed"))}if(!r.ok&&i<targets.length-1&&(r.status===404||r.status===502||r.status===503)){lastError=new Error("HTTP "+r.status);break}let d;try{d=await r.json()}catch(e){if(attempt<3){lastError=e;await new Promise(resolve=>setTimeout(resolve,800*attempt));continue}if(i<targets.length-1){lastError=e;break}throw new Error("Réponse serveur invalide (HTTP "+r.status+")")}if(!r.ok)throw new Error(d.error||("Erreur serveur HTTP "+r.status));return d}}throw new Error("Serveur JML indisponible : "+(lastError?.message||"erreur inconnue"))}
+async function runRadarDiagnostic(){
+  const box=$("radarDiagnostic"),status=$("radarDiagnosticStatus"),results=$("radarDiagnosticResults"),btn=$("radarDiagnoseBtn");
+  if(box)box.hidden=false;if(status)status.textContent="🩺 Diagnostic en cours…";if(results)results.innerHTML="";if(btn)btn.disabled=true;
+  const checks=[],add=(label,state,detail)=>checks.push({label,state,detail});
+  add("Connexion du téléphone",navigator.onLine!==false?"ok":"error",navigator.onLine!==false?"Le navigateur signale une connexion réseau active.":"Le navigateur est hors ligne.");
+  try{localStorage.setItem("__jml_diag","1");localStorage.removeItem("__jml_diag");add("Stockage local","ok","Le stockage du CRM est accessible.");}catch(e){add("Stockage local","error","Le stockage local est bloqué ou indisponible.");}
+  try{const regs=await navigator.serviceWorker?.getRegistrations?.()||[];add("Application mobile (PWA)",regs.some(r=>r.active)?"ok":"warn",regs.some(r=>r.active)?"Service worker actif.":"Aucun service worker actif : recharge l'application.");}catch(e){add("Application mobile (PWA)","warn","Impossible de vérifier le service worker.");}
+  try{
+    const city=String($("radarCity")?.value||"Charleville-Mézières").trim(),d=await publicJson("/api/diagnostic?city="+encodeURIComponent(city));
+    for(const c of (d.checks||[]))add(c.label,c.ok?"ok":"error",c.detail||"");
+    if(d.recommendation)add("Conclusion",d.ok?"ok":"warn",d.recommendation);
+  }catch(e){add("Serveur JML","error",e.message||"Le serveur JML ne répond pas.");add("API utilisée","warn",API_BASE+" · vérifie le déploiement Render si le problème persiste.");}
+  if(results){const icon={ok:"✅",warn:"⚠️",error:"❌"};results.innerHTML=checks.map(c=>'<div class="radar-diag-row '+c.state+'"><strong>'+icon[c.state]+' '+esc(c.label)+'</strong><span>'+esc(c.detail)+'</span></div>').join("");}
+  if(status)status.textContent=checks.some(c=>c.state==="error")?"❌ Problème détecté · voir le détail ci-dessous":"✅ Diagnostic terminé · aucun blocage détecté";
+  if(btn)btn.disabled=false;
+}
 function publicDpeKey(p){
   return [norm(p.address),norm(p.postalCode),norm(p.city)].join("|");
 }
