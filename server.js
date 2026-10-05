@@ -4,6 +4,7 @@ const path = require("node:path");
 
 const PORT = Number(process.env.PORT || 10000);
 const ROOT = __dirname;
+const APP_SERVER_VERSION = "1.50.1";
 const DPE_URL = "https://data.ademe.fr/data-fair/api/v1/datasets/dpe03existant/lines";
 const DVF_URL = "https://apidf-preprod.cerema.fr/dvf_opendata/mutations/";
 const DVF_GEO_BASE = "https://files.data.gouv.fr/geo-dvf/latest/csv";
@@ -1260,7 +1261,7 @@ function groupPublicDvfRows(rows){
 async function api(pathname,url){
   pathname=String(pathname||"").replace(/\/+$/,"")||"/";
   if(pathname==="/api/veille-annonces") pathname="/api/annonces-multi";
-  if(pathname==="/api/health") return {ok:true,sources:{dpe:"ADEME",dvf:"DVF+ Cerema",geocoding:"Géoplateforme",chercherTrouver:"ChercherTrouver.immo"},server:"jml-prospection",version:"1.50.0"};
+  if(pathname==="/api/health") return {ok:true,sources:{dpe:"ADEME",dvf:"DVF+ Cerema",geocoding:"Géoplateforme",chercherTrouver:"ChercherTrouver.immo"},server:"jml-prospection",version:APP_SERVER_VERSION};
   if(pathname==="/api/diagnostic"){
     const city=String(url.searchParams.get("city")||"Charleville-Mézières").trim(),checks=[];
     const check=async(label,target,detailOk)=>{
@@ -1878,12 +1879,12 @@ async function api(pathname,url){
     const years=Number(url.searchParams.get("years"))||5;
     const perCommuneLimit=cleanLimit(url.searchParams.get("perCommuneLimit"),50);
     const offset=Math.max(0,Number(url.searchParams.get("offset"))||0);
-    const communeBatch=Math.max(1,Math.min(12,Number(url.searchParams.get("communeBatch"))||12));
+    const communeBatch=Math.max(1,Math.min(8,Number(url.searchParams.get("communeBatch"))||4));
     const selectedCodes=codes.slice(offset,offset+communeBatch);
     const aggregate=[],errors=[];
     // Les appels par zone restent courts pour Render, mais quatre communes sont traitées en parallèle afin de réduire le temps total sans saturer le serveur.
-    for(let i=0;i<selectedCodes.length;i+=6){
-      const batch=selectedCodes.slice(i,i+6);
+    for(let i=0;i<selectedCodes.length;i+=3){
+      const batch=selectedCodes.slice(i,i+3);
       const results=await Promise.all(batch.map(async code=>{
         const cacheKey="radar|"+code+"|"+years+"|"+perCommuneLimit;
         const cached=radarCommuneCache.get(cacheKey);
