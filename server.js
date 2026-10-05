@@ -2083,7 +2083,14 @@ async function api(pathname,url){
     let dpeCount=0,dvfCount=0,dpeRawCount=0,dpeDuplicateCount=0;
     for(let offset=0;offset<communes.length;offset+=communeBatch){
       const batch=communes.slice(offset,offset+communeBatch);
-      const results=await Promise.allSettled(batch.map(c=>api("/api/radar?codeInsee="+encodeURIComponent(c.cityCode)+"&limit="+perCommuneLimit+"&years="+years)));
+      const results=await Promise.allSettled(batch.map(async c=>{
+        const target="http://127.0.0.1:"+PORT+"/api/radar?codeInsee="+encodeURIComponent(c.cityCode)+"&limit="+perCommuneLimit+"&years="+years;
+        const response=await fetch(target,{headers:{Accept:"application/json"}});
+        const text=await response.text();
+        let data; try{data=JSON.parse(text)}catch{data={message:text}};
+        if(!response.ok) throw new Error(String(data?.error||data?.message||("HTTP "+response.status)));
+        return data;
+      }));
       for(let i=0;i<results.length;i++){
         const r=results[i], commune=batch[i];
         if(r.status!=="fulfilled"){failed.push({city:commune.city,cityCode:commune.cityCode,error:r.reason?.message||"Source indisponible"});continue;}
