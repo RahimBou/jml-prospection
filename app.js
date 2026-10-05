@@ -1,5 +1,6 @@
 document.addEventListener("click",e=>{
- const stage=e.target.closest("[data-crm-status]"); if(stage){e.preventDefault();crmFocus="all"; $("status").value=stage.dataset.crmStatus||""; prospectPage=1; render(); return;}\n const focus=e.target.closest("[data-crm-focus]");
+ const stage=e.target.closest("[data-crm-status]"); if(stage){e.preventDefault();crmFocus="all"; $("status").value=stage.dataset.crmStatus||""; prospectPage=1; render(); return;}
+ const focus=e.target.closest("[data-crm-focus]");
  if(focus){e.preventDefault();crmFocus=focus.dataset.crmFocus||"all";prospectPage=1;render();return;}
  const reset=e.target.closest("#crmResetStatus");
  if(reset){e.preventDefault();crmFocus="all";prospectPage=1;render();return;}
@@ -681,7 +682,8 @@ function renderTour(){
  $("tourMapsBtn").href=maps||"#";$("tourMapsBtn").style.pointerEvents=maps?"auto":"none";$("tourMapsBtn").style.opacity=maps?"1":".5";
  $("tourList").innerHTML=selected.length?selected.map((p,i)=>'<article class="tour-card"><div class="tour-num">'+(i+1)+'</div><div><strong>'+esc(p.address||"Adresse à compléter")+'</strong><span>'+esc([p.postalCode,p.city,p.type].filter(Boolean).join(" · "))+'</span><div class="tour-data"><b>⭐ '+Number(p.autoScore||0)+'</b><b>📐 '+(p.area||0)+' m²</b><b>🔤 DPE '+esc(p.dpe||"—")+'</b><b>📌 '+esc(p.status||"Nouveau")+'</b></div><div class="tour-card-actions"><button class="ghost" data-tour-open="'+esc(p.id)+'">Dossier</button><button class="ghost '+(p.status==="Visité"?"selected":"")+'" data-tour-visited="'+esc(p.id)+'">'+(p.status==="Visité"?"✓ Visité":"Marquer visité")+'</button></div></div><button class="ghost" data-tour-remove="'+esc(p.id)+'">Retirer</button></article>').join(""):'<div class="empty-state">Aucun prospect sélectionné. Depuis un secteur, ajoute jusqu’à 10 dossiers à ta tournée.</div>';
 }
-function setProspectStatus(id,status,text){const p=prospects.find(x=>String(x.id)===String(id));if(!p)return;const previous=p.status||"Nouveau";if(previous===status)return;const date=now();p.status=status;p.updatedAt=date;ensureHistory(p);p.history.push({date,type:"Changement de statut",text:text||previous+" → "+status});save();renderProspectDetail(id);}\nfunction openTour(){ $("sectorWorkPanel").hidden=true;$("prospectDetailPanel").hidden=true;$("autoTreatmentPanel").hidden=true;$("tourPanel").hidden=false;renderTour();$("tourPanel").scrollIntoView({behavior:"smooth",block:"start"});}
+function setProspectStatus(id,status,text){const p=prospects.find(x=>String(x.id)===String(id));if(!p)return;const previous=p.status||"Nouveau";if(previous===status)return;const date=now();p.status=status;p.updatedAt=date;ensureHistory(p);p.history.push({date,type:"Changement de statut",text:text||previous+" → "+status});save();renderProspectDetail(id);}
+function openTour(){ $("sectorWorkPanel").hidden=true;$("prospectDetailPanel").hidden=true;$("autoTreatmentPanel").hidden=true;$("tourPanel").hidden=false;renderTour();$("tourPanel").scrollIntoView({behavior:"smooth",block:"start"});}
 function openWatch(){
   ["tourPanel","sectorWorkPanel","prospectDetailPanel","autoTreatmentPanel","prospectsPanel"].forEach(id=>{const el=$(id);if(el)el.hidden=true;});
   const p=$("ctAnnoncesPanel");if(p)p.hidden=false;
