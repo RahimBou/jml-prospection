@@ -1939,7 +1939,7 @@ async function api(pathname,url){
       (b.priorityScore-a.priorityScore)||
       (b.sellerOpportunityScore-a.sellerOpportunityScore)||
       (b.marketContextScore-a.marketContextScore)
-    ).slice(0,cleanLimit(url.searchParams.get("limit"),100));
+    ).slice(0,cleanLimit(url.searchParams.get("limit"),200));
     const sectorSummary=sectorPlans.map(sector=>{
       const sectorCandidates=results.filter(x=>(x.sectorIds||[]).includes(sector.id));
       const communeCount=codes.filter(code=>(communeMembership.get(code)||[]).some(x=>x.sectorId===sector.id)).length;
