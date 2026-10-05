@@ -607,3 +607,71 @@ body{background:linear-gradient(180deg,#f7f8f6 0%,#eef2ef 100%);color:var(--text
   .auto-summary-sectors .sector-row-main strong{font-size:20px;white-space:nowrap}
   .auto-summary-sectors .sector-tour-btn{width:100%;box-sizing:border-box}
 }
+
+
+/* V1.75.0 — nouvelle architecture d'application mobile JML */
+.workspace-nav{
+  position:sticky;top:0;z-index:30;
+  display:flex;align-items:center;gap:6px;
+  padding:8px max(12px,calc((100vw - 1160px)/2));
+  background:rgba(36,33,29,.97);
+  border-bottom:1px solid rgba(255,255,255,.08);
+  box-shadow:0 5px 18px rgba(0,0,0,.12);
+}
+.workspace-nav .nav-main{
+  flex:0 0 auto;
+  display:flex;align-items:center;justify-content:center;gap:6px;
+  min-height:42px;padding:9px 13px;
+  border-radius:12px;
+  color:#eee8df;text-decoration:none;
+  background:transparent;
+  font-size:13px;
+}
+.workspace-nav .nav-main span{font-size:16px}
+.workspace-nav .nav-main b{font-weight:700}
+.workspace-nav .nav-main.active{background:#356b59;color:#fff}
+.workspace-nav .nav-main.active:after{display:none}
+.nav-more-btn{border:0;color:#eee8df}
+.nav-more-menu{
+  position:absolute;right:12px;top:58px;z-index:50;
+  min-width:220px;padding:8px;
+  background:#292621;border:1px solid rgba(255,255,255,.1);
+  border-radius:14px;box-shadow:0 18px 45px rgba(0,0,0,.25);
+}
+.nav-secondary{
+  display:flex;align-items:center;gap:9px;
+  padding:11px 12px;border-radius:9px;
+  color:#eee8df;text-decoration:none;font-size:13px;
+}
+.nav-secondary:hover{background:rgba(255,255,255,.08)}
+.nav-secondary span{width:22px;text-align:center}
+
+.topbar{
+  padding:15px max(18px,calc((100vw - 1160px)/2));
+  min-height:72px;
+}
+.brand{font-size:17px}
+.brand small{font-size:10px;letter-spacing:.04em;color:#b9b0a5}
+.subtitle{font-size:11px}
+.container{max-width:1160px;margin:18px auto;padding:0 14px}
+.panel{border-radius:18px;box-shadow:0 8px 24px rgba(40,30,20,.055)}
+.panel-title h1{font-size:21px}
+.dashboard-terrain,.prospection-workflow{border-radius:20px}
+
+@media(max-width:700px){
+  .topbar{padding:12px 14px;min-height:62px}
+  .top-actions{display:none}
+  .brand{font-size:15px}
+  .subtitle{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:310px}
+  .workspace-nav{
+    top:0;overflow-x:auto;justify-content:flex-start;
+    padding:6px 8px;gap:4px;scrollbar-width:none;
+  }
+  .workspace-nav::-webkit-scrollbar{display:none}
+  .workspace-nav .nav-main{min-height:40px;padding:8px 11px}
+  .workspace-nav .nav-main b{font-size:11px}
+  .workspace-nav .nav-main span{font-size:15px}
+  .nav-more-menu{position:fixed;right:10px;top:126px}
+  .container{margin-top:10px;padding:0 10px}
+  .panel{padding:15px;border-radius:16px}
+}
