@@ -28,6 +28,7 @@ document.addEventListener("click",e=>{
   else if(b.id==="ctDeselectBtn"&&typeof ctDeselectAll==="function"){e.preventDefault();e.stopImmediatePropagation();ctDeselectAll();}
   else if(b.id==="ctPrepareSelectedBtn"&&typeof ctPrepareSelectedTour==="function"){e.preventDefault();e.stopImmediatePropagation();ctPrepareSelectedTour();}
 });
+let futureRadarTerritoryMode=false;
 const KEY="jml_prospection_v1";let prospects=load(),pendingImport=[];let prospectPage=1;let prospectTotalPages=1;const DEFAULT_PROSPECT_PAGE_SIZE=8;const $=id=>document.getElementById(id);
 function load(){try{const x=JSON.parse(localStorage.getItem(KEY)||"[]");return Array.isArray(x)?x:[]}catch(e){return[]}}
 function save(){localStorage.setItem(KEY,JSON.stringify(prospects));render();if(typeof statsSync==="function")statsSync()}
@@ -425,7 +426,8 @@ function futureRadarRender(){
   const selectedCount=futureRadarSelectedIndices.size;
   const priorityCount=Math.min(10,futureRadarCandidates.length);
   const selectedText=selectedCount?selectedCount+" prêt(s) à ajouter":"Aucune sélection";
-  const summary='<div class="radar-worklist-summary"><strong>🎯 TOP '+priorityCount+' · À PROSPECTER</strong><span>'+apiEsc(selectedText)+' · '+(futureRadarDetectedCount||futureRadarCandidates.length)+' biens détectés</span></div>';
+  const heading=futureRadarTerritoryMode?"🗺️ TOUS LES DOSSIERS DU TERRITOIRE":"🎯 TOP "+priorityCount+" · À PROSPECTER";
+  const summary='<div class="radar-worklist-summary"><strong>'+heading+'</strong><span>'+apiEsc(selectedText)+' · '+(futureRadarDetectedCount||futureRadarCandidates.length)+' biens détectés · classés par secteur et priorité</span></div>';
   const controls='<div class="radar-selection-toolbar"><strong>📋 '+apiEsc(selectedText)+'</strong><button type="button" class="ghost" data-radar-page="prev" '+(futureRadarPage===0?"disabled":"")+'>&larr; 10 précédents</button><button type="button" class="ghost" data-radar-page="next" '+(futureRadarPage>=totalPages-1?"disabled":"")+'>'+ (futureRadarPage>=totalPages-1?"Fin":"10 suivants &rarr;")+'</button><span class="meta">Le score sert à classer les dossiers ; il ne prédit pas une vente.</span></div>';
   const tourButton=selectedCount?'<button type="button" class="primary" id="futureRadarRoute">🚗 Préparer ma tournée</button>':'';
   const actionBar='<div class="radar-top-actions">'+tourButton+'<button type="button" class="ghost" data-radar-scroll-top>↑ Retour au début</button></div>';
@@ -456,7 +458,7 @@ function futureRadarRender(){
       '<div class="future-candidate-main">'+
         '<label class="future-check"><input type="checkbox" data-future-check="'+i+'" '+(futureRadarSelectedIndices.has(i)?"checked":"")+'><span></span></label>'+
         '<div class="future-candidate-content">'+
-          '<div class="future-card-head"><div><span class="future-rank">#'+(i+1)+'</span><strong>'+apiEsc(p.address||"Adresse non renseignée")+'</strong><div class="meta">'+apiEsc((p.postalCode?p.postalCode+" ":"")+(p.city||""))+' · '+apiEsc(futureRadarType(p.buildingType))+(p.area?" · "+p.area+" m²":"")+'</div></div>'+
+          '<div class="future-card-head"><div>'+(p.territorySector?'<span class="future-sector">📍 Secteur : '+apiEsc(p.territorySector)+'</span>':"")+'<span class="future-rank">#'+(i+1)+'</span><strong>'+apiEsc(p.address||"Adresse non renseignée")+'</strong><div class="meta">'+apiEsc((p.postalCode?p.postalCode+" ":"")+(p.city||""))+' · '+apiEsc(futureRadarType(p.buildingType))+(p.area?" · "+p.area+" m²":"")+'</div></div>'+
           '<div class="future-priority '+levelClass+'"><strong>'+workPriorityDisplay+'/100</strong><span>'+apiEsc(levelLabel)+'</span><small>Priorité terrain</small><div class="future-potential"><b>'+opportunity+'/100</b><span>Potentiel vendeur</span></div></div></div>'+
           '<div class="future-why"><strong>💡 Pourquoi maintenant ?</strong><span>'+apiEsc(whyNow)+'</span></div>'+
           '<div class="future-key-signals"><span class="dpe-match '+(dpeConfirmed?"confirmed":p.dpeAddressStatus==="uncertain"?"uncertain":"none")+'">⚡ '+apiEsc(dpeText)+'</span><span>📊 '+apiEsc(saleText)+'</span><span>📢 '+apiEsc(signalText)+'</span></div>'+
@@ -470,8 +472,38 @@ function futureRadarRender(){
   if(selectBtn)selectBtn.disabled=false;if(deselectBtn)deselectBtn.disabled=selectedCount===0;
   if(toggle){toggle.disabled=false;toggle.setAttribute("aria-expanded","true");toggle.textContent="✕ Masquer les "+futureRadarCandidates.length+" biens détectés";box.hidden=false;}
 }
+async function runTerritoryRadar(){
+  futureRadarTerritoryMode=true;
+  futureRadarCandidates=[];
+  futureRadarSelectedIndices=new Set();
+  futureRadarPage=0;
+  futureRadarDetectedCount=0;
+  if($("futureRadarBtn"))$("futureRadarBtn").disabled=true;
+  if($("futureRadarStatus"))$("futureRadarStatus").textContent="🔎 Recherche dans tout le département des Ardennes…";
+  if($("futureRadarReady"))$("futureRadarReady").textContent="⏳ Croisement DVF + DPE + Radar en cours…";
+  try{
+    const data=await publicJson("/api/radar-territory?department=08&years=5&perCommuneLimit=60&communeBatch=6");
+    futureRadarCandidates=(data.results||[]).sort((a,b)=>
+      String(a.territorySector||a.city||"").localeCompare(String(b.territorySector||b.city||""),"fr")||
+      (Number(b.priorityProspectionScore??0)-Number(a.priorityProspectionScore??0))
+    );
+    futureRadarDetectedCount=futureRadarCandidates.length;
+    futureRadarRender();
+    const failed=Number(data.failedCommunes?.length||0);
+    if($("futureRadarStatus"))$("futureRadarStatus").innerHTML="<strong>Ardennes analysées</strong> · "+Number(data.communesAnalyzed||0)+"/"+Number(data.communeCount||0)+" communes · <strong>"+futureRadarCandidates.length+"</strong> dossiers · <strong>"+Number(data.sectorCount||0)+" secteurs</strong> · "+Number(data.dvfCount||0)+" transactions · "+Number(data.dpeCount||0)+" DPE"+(failed?" · "+failed+" commune(s) indisponible(s)":"")+" · classement secteur → priorité.";
+    if($("futureRadarReady"))$("futureRadarReady").textContent="✅ "+futureRadarCandidates.length+" dossiers disponibles";
+    if($("publicQuery"))$("publicQuery").value="Ardennes";
+  }catch(e){
+    futureRadarCandidates=[];futureRadarSelectedIndices=new Set();futureRadarRender();
+    if($("futureRadarStatus"))$("futureRadarStatus").textContent="❌ Recherche territoriale interrompue : "+e.message;
+    if($("futureRadarReady"))$("futureRadarReady").textContent="❌ Recherche interrompue";
+  }finally{
+    if($("futureRadarBtn"))$("futureRadarBtn").disabled=false;
+  }
+}
 async function runFutureRadar(){
   const advancedOpen=$("radarAdvancedBody")&&!$("radarAdvancedBody").hidden;
+  if(!advancedOpen){ return runTerritoryRadar(); }
   let selected=advancedOpen?[...document.querySelectorAll("[data-radar-sector]:checked")].map(input=>{
     const row=input.closest("[data-radar-sector-row]");
     return {id:input.value,label:input.dataset.label||input.value,q:input.dataset.label||input.value,radiusKm:Number(row?.querySelector("[data-radar-radius]")?.value)||15};

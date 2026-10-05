@@ -35,3 +35,5 @@
   .stats article{padding:12px 10px}
   .stats article strong{font-size:24px}
 }
+
+.radar-territory-choice{min-height:44px;border:1px solid rgba(0,0,0,.12);border-radius:10px;padding:8px 12px;display:flex;flex-direction:column;justify-content:center;background:#fff}.radar-territory-choice strong{font-size:15px}.radar-territory-choice span{font-size:12px;opacity:.7}.future-sector{display:inline-block;margin-bottom:5px;padding:4px 8px;border-radius:999px;background:#f1eadb;font-size:12px;font-weight:700}@media(max-width:900px){.radar-simple-search{grid-template-columns:1fr}.radar-territory-choice{min-height:50px}}
