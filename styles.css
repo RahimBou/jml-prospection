@@ -584,3 +584,13 @@ body{background:linear-gradient(180deg,#f7f8f6 0%,#eef2ef 100%);color:var(--text
   .nav-main{flex:0 0 auto;min-width:max-content;white-space:nowrap;padding:8px 9px}
   .nav-main b{font-size:11px}
 }
+
+
+/* V1.74.0 — classement des secteurs pour tournées terrain */
+.auto-summary-sectors{display:grid;gap:10px}
+.auto-summary-sectors .sector-row{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:stretch}
+.auto-summary-sectors .sector-row-main{display:flex;align-items:center;justify-content:space-between;gap:12px;text-align:left;padding:14px;border:1px solid #e7e0d4;border-radius:14px;background:#fff}
+.auto-summary-sectors .sector-row-main span{display:grid;gap:4px}
+.auto-summary-sectors .sector-row-main small{font-size:12px;opacity:.7}
+.auto-summary-sectors .sector-tour-btn{white-space:nowrap;min-width:120px}
+@media(max-width:700px){.auto-summary-sectors .sector-row{grid-template-columns:1fr}.auto-summary-sectors .sector-tour-btn{width:100%}}
