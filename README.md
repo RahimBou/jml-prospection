@@ -1,5 +1,11 @@
 # JML Prospection
 
+## V1.67.0 — fiche prospect → préparation d'appel
+- Chaque fiche prospect dispose maintenant d'une action « 📞 Préparer l'appel ».
+- L'action ouvre directement l'Assistant IA JML sur le bon dossier et lance la préparation d'appel sans devoir rechercher à nouveau le prospect dans une liste.
+- Le contexte transmis rappelle le statut, la priorité et le secteur du dossier.
+- Version et cache PWA synchronisés en V1.67.0.
+
 ## V1.66.0 — nettoyage global des doublons
 - La base locale est nettoyée automatiquement au chargement : les dossiers portant la même adresse, code postal et commune sont fusionnés en un seul dossier.
 - Les informations les plus complètes sont conservées ; historique, prix, apparitions de sources et signaux sont fusionnés au lieu d'être supprimés.
