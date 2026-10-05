@@ -501,3 +501,12 @@ body{background:linear-gradient(180deg,#f3efe8 0,#f7f5f1 42%,#f5f2ec 100%)}
 @media(max-width:700px){.auto-process-summary{grid-template-columns:repeat(2,minmax(0,1fr))}.auto-treatment-actions{flex-wrap:wrap}}
 
 .auto-sector-wrap{margin-top:20px}.auto-sector-wrap h3{margin:0 0 10px}.auto-sector-table-scroll{overflow:auto;border:1px solid rgba(23,63,53,.12);border-radius:12px}.auto-sector-table-scroll table{width:100%;min-width:720px;border-collapse:collapse}.auto-sector-table-scroll th,.auto-sector-table-scroll td{padding:10px;border-bottom:1px solid rgba(23,63,53,.08);text-align:left}.auto-sector-table-scroll th{font-size:12px;text-transform:uppercase;opacity:.7}.auto-sector-table-scroll .ghost{padding:7px 12px}
+
+.selection-panel{margin:12px 0;padding:12px;border:1px solid rgba(23,63,53,.14);border-radius:14px;background:#fbf8f1}
+.selection-head{display:flex;justify-content:space-between;gap:10px;align-items:center}
+.selection-head>div:first-child{display:flex;flex-direction:column;gap:3px}.selection-head span{font-size:12px;color:var(--muted)}
+.selection-actions{display:flex;gap:8px;align-items:center}.selection-actions a{color:#fff;text-decoration:none;padding:8px 12px;border-radius:9px;font-weight:700}
+.selection-list{display:grid;gap:7px;margin-top:10px}.selection-item{display:grid;grid-template-columns:24px 1fr auto;gap:8px;align-items:center;padding:9px;background:#fff;border:1px solid var(--line);border-radius:10px}.selection-item small{display:block;color:var(--muted);margin-top:2px}.selection-item .icon{border:0;background:transparent;font-size:20px}
+.selection-empty{margin-top:9px;padding:10px;background:#fff;border-radius:10px;color:var(--muted);font-size:13px}
+.card-actions .selected{border-color:var(--gold);background:#f7efe0;font-weight:800}
+@media(max-width:600px){.selection-head{align-items:stretch;flex-direction:column}.selection-actions{width:100%}.selection-actions>*{flex:1;text-align:center}.card-actions{display:grid;grid-template-columns:1fr 1fr}.card-actions .selected{grid-column:1/-1}}
