@@ -5,11 +5,23 @@ document.addEventListener("click",e=>{
  const reset=e.target.closest("#crmResetStatus");
  if(reset){e.preventDefault();crmFocus="all";prospectPage=1;render();return;}
 
- const nav=e.target.closest(".nav-main[data-page]");
+ const more=e.target.closest("#navMoreBtn");
+ if(more){
+   e.preventDefault();e.stopPropagation();
+   const menu=$("navMoreMenu");if(menu){const open=menu.hidden;menu.hidden=!open;more.setAttribute("aria-expanded",String(open));}
+   return;
+ }
+ const nav=e.target.closest(".nav-main[data-page],.nav-secondary[data-page]");
  if(!nav)return;
  e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();
+ const menu=$("navMoreMenu");const moreBtn=$("navMoreBtn");if(menu)menu.hidden=true;if(moreBtn)moreBtn.setAttribute("aria-expanded","false");
  showJmlPage(nav.dataset.page||"home");
 },true);
+
+document.addEventListener("click",e=>{
+ if(e.target.closest("#navMoreBtn,.nav-more-menu"))return;
+ const menu=$("navMoreMenu"),btn=$("navMoreBtn");if(menu&&!menu.hidden){menu.hidden=true;if(btn)btn.setAttribute("aria-expanded","false");}
+});
 
 // V1.64 — navigation par espaces de travail
 const JML_PAGE_GROUPS={
@@ -70,7 +82,7 @@ document.addEventListener("click",e=>{
   const tour=e.target.closest("#navRouteShortcut");
   if(tour){e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();openTour();return;}
 },true);
-const APP_VERSION = "1.74.1";
+const APP_VERSION = "1.75.0";
 /* V1.50 — le frontend Render web doit toujours viser le service API dédié. */
 const API_BASE = String(window.JML_API_BASE || "https://jml-prospection-web.onrender.com").replace(/\/$/,"");
 
