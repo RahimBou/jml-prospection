@@ -512,9 +512,10 @@ async function runTerritoryRadar(){
       String(a.address||"").localeCompare(String(b.address||""),"fr")
     );
     futureRadarDetectedCount=futureRadarCandidates.length;
+    const autoSaved=autoSaveRadarResults(futureRadarCandidates);
     futureRadarRender();
     if($("futureRadarStatus"))$("futureRadarStatus").innerHTML="<strong>"+apiEsc(city)+" + 15 km</strong> · "+analyzed+"/"+totalCommunes+" communes · <strong>"+futureRadarCandidates.length+"</strong> dossiers · "+dvfCount+" transactions · "+dpeCount+" DPE"+(failed?" · "+failed+" commune(s) partiellement indisponible(s)":"")+" · classés par priorité.";
-    if($("futureRadarReady"))$("futureRadarReady").textContent="✅ "+futureRadarCandidates.length+" dossiers disponibles";
+    if($("futureRadarReady"))$("futureRadarReady").textContent="✅ "+futureRadarCandidates.length+" dossiers disponibles · "+autoSaved.created+" nouveaux enregistrés";
     if($("publicQuery"))$("publicQuery").value=city;
   }catch(e){
     /* V1.50.1 : ne jamais perdre les résultats partiels si une requête réseau tombe. */
@@ -524,8 +525,9 @@ async function runTerritoryRadar(){
     );
     futureRadarDetectedCount=futureRadarCandidates.length;
     futureRadarSelectedIndices=new Set();
+    const autoPartial=autoSaveRadarResults(futureRadarCandidates);
     futureRadarRender();
-    if($("futureRadarStatus"))$("futureRadarStatus").textContent="⚠️ Recherche interrompue après "+analyzed+"/"+(totalCommunes||"?")+" communes · "+futureRadarCandidates.length+" dossiers conservés. "+e.message;
+    if($("futureRadarStatus"))$("futureRadarStatus").textContent="⚠️ Recherche interrompue après "+analyzed+"/"+(totalCommunes||"?")+" communes · "+futureRadarCandidates.length+" dossiers conservés · "+autoPartial.created+" nouveaux enregistrés. "+e.message;
     if($("futureRadarReady"))$("futureRadarReady").textContent=futureRadarCandidates.length
       ?"⚠️ Résultats partiels conservés · relancer pour poursuivre"
       :"❌ Recherche interrompue";
