@@ -1,0 +1,15 @@
+{
+  "name":"JML Prospection",
+  "short_name":"JML Prospection",
+  "description":"Outil terrain de prospection immobilière JML Immobilier",
+  "start_url":"./",
+  "scope":"./",
+  "display":"standalone",
+  "orientation":"any",
+  "background_color":"#f6f1e8",
+  "theme_color":"#173f35",
+  "lang":"fr-FR",
+  "icons":[
+    {"src":"./jml-icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any maskable"}
+  ]
+}
