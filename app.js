@@ -302,37 +302,27 @@ function autoTreatmentForProspect(p){
   const m=movement6mInfo(p), sig=signalInfo(p);
   const area=Number(p.area)||0, price=Number(p.price)||0;
   const completeness=[p.address,p.city,p.postalCode,p.type,area,price].filter(v=>v!==undefined&&v!==null&&String(v).trim()!=="").length;
-  let base=0;
-  if(area>0)base+=10;
-  if(price>0)base+=8;
-  if(p.postalCode)base+=5;
-  if(p.dpe)base+=4;
-  if(p.source)base+=3;
+  const qualityScore=Math.min(15,completeness*2.5);
   const signalScore=Math.min(25,sig.score*4);
   const movementScore=Math.min(45,m.score*0.65);
-  const qualityScore=Math.min(15,completeness*2.5);
+  const base=(area>0?10:0)+(price>0?8:0)+(p.postalCode?5:0)+(p.dpe?4:0)+(p.source?3:0);
   const sectorBonus=Math.min(10,Number(p.sectorActivityScore)||0);
-  const total=Math.max(0,Math.min(100,Math.round(signalScore+movementScore+qualityScore+base+sectorBonus)));
-  let priority="D",priorityLabel="Faible priorité";
-  if(total>=70){priority="A";priorityLabel="Priorité A — à contacter";}
-  else if(total>=50){priority="B";priorityLabel="Priorité B — intéressant";}
-  else if(total>=30){priority="C";priorityLabel="Priorité C — à surveiller";}
-  p.autoScore=total;p.autoPriority=priority;p.autoPriorityLabel=priorityLabel;
+  p.autoScore=Math.max(0,Math.min(100,Math.round(signalScore+movementScore+qualityScore+base+sectorBonus)));
   p.autoSignals=(m.tags||[]).map(x=>x.label);
   p.autoSector=String(p.city||"").trim() || (p.postalCode?"CP "+p.postalCode:"Secteur non renseigné");
   p.autoProcessedAt=now();p.autoProcessingVersion=APP_VERSION;
   return p;
 }
-function autoSectorStats(){
-  const map=new Map();
-  prospects.forEach(p=>{
-    const sector=p.autoSector||p.city||p.postalCode||"Secteur non renseigné";
-    if(!map.has(sector))map.set(sector,{sector,total:0,A:0,B:0,C:0,D:0,avg:0,scoreSum:0});
-    const x=map.get(sector),pr=p.autoPriority||"D";
-    x.total++;x[pr]=(x[pr]||0)+1;x.scoreSum+=Number(p.autoScore)||0;
+function finalizeAutoPriorities(){
+  const ranked=[...prospects].sort((a,b)=>(Number(b.autoScore)||0)-(Number(a.autoScore)||0));
+  const n=ranked.length;
+  ranked.forEach((p,i)=>{
+    const pct=n?i/n:1;
+    if(pct<0.05){p.autoPriority="A";p.autoPriorityLabel="Priorité A — à contacter";}
+    else if(pct<0.20){p.autoPriority="B";p.autoPriorityLabel="Priorité B — intéressant";}
+    else if(pct<0.50){p.autoPriority="C";p.autoPriorityLabel="Priorité C — à surveiller";}
+    else{p.autoPriority="D";p.autoPriorityLabel="Faible priorité";}
   });
-  return [...map.values()].map(x=>({...x,avg:x.total?Math.round(x.scoreSum/x.total):0}))
-    .sort((a,b)=>(b.A-a.A)||(b.B-a.B)||(b.avg-a.avg)||a.sector.localeCompare(b.sector,"fr"));
 }
 function renderAutoTreatmentSummary(){
   const el=$("autoProcessSummary"); if(!el)return;
