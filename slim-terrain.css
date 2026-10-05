@@ -1,34 +1,71 @@
-/* JML Prospection — interface terrain simplifiée
-   Les moteurs restent actifs ; seuls les écrans techniques sont retirés du parcours principal. */
-.workspace-nav{grid-template-columns:repeat(3,minmax(0,1fr))!important}
-.workspace-nav .nav-secondary{grid-column:auto!important}
-body.jml-slim .top-actions{display:none}
-.jml-slim .stats{display:none!important}
-.jml-slim .terrain-guide{margin-top:10px}
-.jml-slim .terrain-guide-note{display:none}
-.jml-slim .terrain-guide-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
-.jml-slim .terrain-step{min-height:120px}
-.jml-slim .terrain-step:nth-child(4){display:none}
-.jml-slim #aiAssistantPanel,
-.jml-slim #publicSourcesPanel,
-.jml-slim #sourceConnectorsPanel,
-.jml-slim #ctAnnoncesPanel,
-.jml-slim #privateProspectPanel,
-.jml-slim #dataAgentPanel,
-.jml-slim #statsLab,
-.jml-slim #signalPanel,
-.jml-slim #advancedSearchPanel{display:none!important}
-.jml-slim .dashboard-terrain{display:none!important}
-.jml-slim .prospection-workflow{display:none!important}
-.jml-slim .radar-advanced-toggle{display:none!important}
-.jml-slim .radar-auto-filter{display:none!important}
-.jml-slim .radar-simple-goal{margin-bottom:12px}
-.jml-slim .radar-results-actions .jml-unwanted{display:none}
+/* JML Prospection — interface terrain v2
+   Objectif : ouvrir l'app et comprendre immédiatement : Trouver → Regarder → Partir. */
+body.jml-slim{--panel:#fff;--ink:#25221e}
+body.jml-slim .top-actions{display:none!important}
+body.jml-slim .container{max-width:980px;margin:14px auto;padding:0 12px}
+body.jml-slim .workspace-nav{position:sticky;top:0;z-index:20;grid-template-columns:repeat(3,1fr)!important;background:#24211d;border-top:1px solid rgba(255,255,255,.05);box-shadow:0 5px 18px rgba(0,0,0,.14);padding:4px 8px}
+body.jml-slim .workspace-nav a{padding:12px 8px;text-align:center;font-weight:800;text-decoration:none}
+body.jml-slim .workspace-nav .nav-secondary{display:none!important}
+body.jml-slim .stats,
+body.jml-slim #dashboardTerrain,
+body.jml-slim #prospectionWorkflow,
+body.jml-slim #aiAssistantPanel,
+body.jml-slim #publicSourcesPanel,
+body.jml-slim #ctAnnoncesPanel,
+body.jml-slim #privateProspectPanel,
+body.jml-slim #dataAgentPanel,
+body.jml-slim #statsLab,
+body.jml-slim #signalPanel,
+body.jml-slim #advancedSearchPanel{display:none!important}
+
+/* Le Radar devient le premier écran utile. */
+body.jml-slim #futureRadarPanel{margin-top:10px;padding:16px;border-radius:18px;border:1px solid #e2d9ca;box-shadow:0 8px 26px rgba(40,30,20,.06)}
+body.jml-slim #futureRadarPanel .panel-title{margin-bottom:10px;align-items:center}
+body.jml-slim #futureRadarPanel .panel-title h1{font-size:22px}
+body.jml-slim #futureRadarPanel .panel-title p{font-size:12px}
+body.jml-slim #futureRadarToggle{display:none!important}
+body.jml-slim .radar-compact-context{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:11px 13px;margin:0 0 12px;background:#faf7f1;border:1px solid #e9e0d3;border-radius:12px}
+body.jml-slim .radar-compact-context span{font-weight:800}
+body.jml-slim .radar-compact-context small{color:var(--muted);font-size:11px;text-align:right}
+body.jml-slim .radar-auto-filter,
+body.jml-slim .radar-advanced-toggle,
+body.jml-slim .radar-advanced-body,
+body.jml-slim .radar-query-bar{display:none!important}
+body.jml-slim .future-radar-actions{width:100%}
+body.jml-slim #futureRadarBtn{min-height:52px;font-size:17px;width:100%;border-radius:12px}
+body.jml-slim .radar-search-status{margin-top:10px;padding:9px 11px;border-radius:10px;background:#f8f5ef;font-size:11px}
+body.jml-slim .radar-search-status span:first-child{font-weight:800;color:#365f4d}
+body.jml-slim .radar-results-actions{display:flex;gap:7px;margin-top:10px}
+body.jml-slim .radar-results-actions button{font-size:11px;padding:9px 8px}
+body.jml-slim .radar-results-actions #futureRadarPrint{display:none}
+body.jml-slim .radar-results-actions #futureRadarDeselectAll{display:none}
+
+/* Résultats : lisibles et orientés décision. */
+body.jml-slim .future-radar-results{margin-top:12px}
+body.jml-slim .future-candidate{border-radius:14px;padding:13px;box-shadow:0 3px 12px rgba(40,30,20,.04)}
+body.jml-slim .future-score strong{font-size:24px}
+
+/* Mes prospects : pas de réglages inutiles dans le parcours quotidien. */
+body.jml-slim #prospectsPanel{margin-top:14px;border-radius:18px;padding:16px}
+body.jml-slim #prospectsPanel .prospects-panel-actions,
+body.jml-slim #prospectsPanel .prospects-toolbar .page-size-label,
+body.jml-slim #prospectsPanel .prospects-view-note{display:none!important}
+body.jml-slim #prospectsPanel .panel-title{margin-bottom:8px}
+body.jml-slim #prospectsPanel .panel-title h1{font-size:20px}
+body.jml-slim #prospectsPanel .sort{display:none!important}
+
+/* En mobile : aucun bloc inutile ne doit pousser l'action principale vers le bas. */
 @media(max-width:760px){
-  .workspace-nav{grid-template-columns:repeat(3,1fr)!important}
-  .workspace-nav a{padding:11px 5px;font-size:.82rem;text-align:center}
-  .jml-slim .terrain-guide-grid{grid-template-columns:1fr}
-  .jml-slim .terrain-step{min-height:86px}
-  .jml-slim .terrain-step:nth-child(4){display:none}
-  .jml-slim .future-radar-panel .panel-title{position:sticky;top:0;z-index:3}
+  body.jml-slim .topbar{padding:16px 18px}
+  body.jml-slim .brand{font-size:18px}
+  body.jml-slim .subtitle{font-size:11px}
+  body.jml-slim .workspace-nav{padding:2px 5px}
+  body.jml-slim .workspace-nav a{font-size:13px;padding:11px 3px}
+  body.jml-slim #futureRadarPanel{padding:13px;margin-top:8px}
+  body.jml-slim #futureRadarPanel .panel-title h1{font-size:20px}
+  body.jml-slim .radar-compact-context{display:block}
+  body.jml-slim .radar-compact-context small{display:block;text-align:left;margin-top:3px}
+  body.jml-slim .radar-results-actions{display:grid;grid-template-columns:1fr 1fr}
+  body.jml-slim .future-candidate{align-items:flex-start;flex-direction:column}
+  body.jml-slim .future-score{min-width:0;text-align:left}
 }
