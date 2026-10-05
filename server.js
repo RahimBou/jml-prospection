@@ -4,7 +4,7 @@ const path = require("node:path");
 
 const PORT = Number(process.env.PORT || 10000);
 const ROOT = __dirname;
-const APP_SERVER_VERSION = "1.50.4";
+const APP_SERVER_VERSION = "1.72.0";
 const DPE_URL = "https://data.ademe.fr/data-fair/api/v1/datasets/dpe03existant/lines";
 const DVF_URL = "https://apidf-preprod.cerema.fr/dvf_opendata/mutations/";
 const DVF_GEO_BASE = "https://files.data.gouv.fr/geo-dvf/latest/csv";
