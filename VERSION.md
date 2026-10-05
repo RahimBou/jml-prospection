@@ -1,3 +1,11 @@
+## V1.72.0 — Recherche des secteurs simplifiée — 06/10/2026
+
+- Classement des secteurs par défaut de A à Z.
+- Ajout d'une recherche instantanée par nom de ville/secteur.
+- Ajout de tris Score, Priorité A et Total.
+- Affichage du nombre de secteurs correspondant au filtre.
+- Le bouton « Travailler » conserve l'accès direct au traitement du secteur.
+
 ## V1.37.14 — Réparation des boutons de recherche — 25/09/2026
 
 - Les boutons ChercherTrouver, Sources publiques, récupération des annonces et tournée sont maintenant pilotés par la délégation globale.
