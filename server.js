@@ -248,7 +248,7 @@ async function fetchChercherTrouver(params={}){
   }finally{clearTimeout(timer)}
 }
 
-async async function fetchChercherTrouverPing(){
+async function fetchChercherTrouverPing(){
   const apiKey=String(process.env.CHERCHERTROUVER_API_KEY||"").trim();
   if(!apiKey) throw new Error("CHERCHERTROUVER_API_KEY non configurée sur le serveur Render");
   const controller=new AbortController();
@@ -2119,7 +2119,18 @@ async function api(pathname,url){
     const years=Math.max(2,Math.min(5,Number(url.searchParams.get("years"))||5));
     const perCommuneLimit=Math.max(10,Math.min(100,Number(url.searchParams.get("perCommuneLimit"))||60));
     const communeBatch=Math.max(1,Math.min(6,Number(url.searchParams.get("communeBatch"))||6));
-    const communes=(await getDepartmentCommunes(department)).slice().sort((a,b)=>(b.population-a.population)||a.city.localeCompare(b.city,"fr"));
+    const ville=String(url.searchParams.get("ville")||"").trim();
+    let communes;
+    if(ville){
+      const resolved=await resolveCommune(ville);
+      if(!resolved?.cityCode)throw new Error("Ville introuvable : "+ville);
+      const allCommunes=await getDepartmentCommunes(department);
+      const match=allCommunes.find(c=>c.cityCode===resolved.cityCode)||allCommunes.find(c=>norm(c.city)===norm(resolved.city));
+      if(!match)throw new Error("Ville introuvable dans le département "+department+" : "+ville);
+      communes=[match];
+    }else{
+      communes=(await getDepartmentCommunes(department)).slice().sort((a,b)=>(b.population-a.population)||a.city.localeCompare(b.city,"fr"));
+    }
     const all=[];
     const failed=[];
     let dpeCount=0,dvfCount=0,dpeRawCount=0,dpeDuplicateCount=0;
