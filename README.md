@@ -1,5 +1,11 @@
 # JML Prospection
 
+## V1.70.0 — suivi terrain en un clic
+- Depuis « Ma tournée », chaque prospect dispose maintenant de « Dossier » et « Marquer visité ».
+- « Marquer visité » met à jour immédiatement le statut CRM, conserve la date et ajoute une trace dans l'historique.
+- Le suivi peut donc être fait sur le terrain sans repasser par la fiche complète.
+- V1.70.0 + cache PWA v20 synchronisés.
+
 ## V1.69.0 — tournée optimisée
 - « Optimiser l’ordre » géolocalise les adresses sélectionnées via la BAN/Géoplateforme.
 - Un ordre de passage est calculé automatiquement par proximité entre les adresses géolocalisées, puis réinjecté dans la tournée et l’itinéraire Google Maps.
