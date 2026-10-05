@@ -1,0 +1,34 @@
+/* JML Prospection — interface terrain simplifiée
+   Les moteurs restent actifs ; seuls les écrans techniques sont retirés du parcours principal. */
+.workspace-nav{grid-template-columns:repeat(3,minmax(0,1fr))!important}
+.workspace-nav .nav-secondary{grid-column:auto!important}
+body.jml-slim .top-actions{display:none}
+.jml-slim .stats{display:none!important}
+.jml-slim .terrain-guide{margin-top:10px}
+.jml-slim .terrain-guide-note{display:none}
+.jml-slim .terrain-guide-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+.jml-slim .terrain-step{min-height:120px}
+.jml-slim .terrain-step:nth-child(4){display:none}
+.jml-slim #aiAssistantPanel,
+.jml-slim #publicSourcesPanel,
+.jml-slim #sourceConnectorsPanel,
+.jml-slim #ctAnnoncesPanel,
+.jml-slim #privateProspectPanel,
+.jml-slim #dataAgentPanel,
+.jml-slim #statsLab,
+.jml-slim #signalPanel,
+.jml-slim #advancedSearchPanel{display:none!important}
+.jml-slim .dashboard-terrain{display:none!important}
+.jml-slim .prospection-workflow{display:none!important}
+.jml-slim .radar-advanced-toggle{display:none!important}
+.jml-slim .radar-auto-filter{display:none!important}
+.jml-slim .radar-simple-goal{margin-bottom:12px}
+.jml-slim .radar-results-actions .jml-unwanted{display:none}
+@media(max-width:760px){
+  .workspace-nav{grid-template-columns:repeat(3,1fr)!important}
+  .workspace-nav a{padding:11px 5px;font-size:.82rem;text-align:center}
+  .jml-slim .terrain-guide-grid{grid-template-columns:1fr}
+  .jml-slim .terrain-step{min-height:86px}
+  .jml-slim .terrain-step:nth-child(4){display:none}
+  .jml-slim .future-radar-panel .panel-title{position:sticky;top:0;z-index:3}
+}
