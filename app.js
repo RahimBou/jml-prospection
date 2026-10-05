@@ -1,4 +1,4 @@
-const APP_VERSION = "1.50.1";
+const APP_VERSION = "1.50.2";
 /* V1.50 — le frontend Render web doit toujours viser le service API dédié. */
 const API_BASE = String(window.JML_API_BASE || "https://jml-prospection-web.onrender.com").replace(/\/$/,"");
 
@@ -486,7 +486,7 @@ async function runTerritoryRadar(){
   if($("futureRadarStatus"))$("futureRadarStatus").textContent="🔎 Préparation de "+city+" + 25 km…";
   if($("futureRadarReady"))$("futureRadarReady").textContent="⏳ Recherche locale en cours…";
   try{
-    const sectors=encodeURIComponent(JSON.stringify([{id:"terrain",label:city,q:city,radiusKm:25}]));
+    const sectors=encodeURIComponent(JSON.stringify([{id:"terrain",label:city,q:city,radiusKm:15}]));
     const seen=new Map();
     let offset=0,totalCommunes=0,analyzed=0,failed=0,dpeCount=0,dvfCount=0,complete=false;
     while(!complete){
@@ -505,7 +505,7 @@ async function runTerritoryRadar(){
       const next=Number(data.nextOffset);
       if(!complete&&(!Number.isFinite(next)||next<=offset))throw new Error("Progression du radar interrompue");
       offset=next;
-      if($("futureRadarStatus"))$("futureRadarStatus").textContent="🔎 "+city+" + 25 km · "+Math.min(analyzed,totalCommunes||analyzed)+"/"+(totalCommunes||"?")+" communes analysées…";
+      if($("futureRadarStatus"))$("futureRadarStatus").textContent="🔎 "+city+" + 15 km · "+Math.min(analyzed,totalCommunes||analyzed)+"/"+(totalCommunes||"?")+" communes analysées…";
       if($("futureRadarReady"))$("futureRadarReady").textContent="⏳ "+seen.size+" dossiers trouvés";
     }
     futureRadarCandidates=Array.from(seen.values()).sort((a,b)=>
@@ -514,7 +514,7 @@ async function runTerritoryRadar(){
     );
     futureRadarDetectedCount=futureRadarCandidates.length;
     futureRadarRender();
-    if($("futureRadarStatus"))$("futureRadarStatus").innerHTML="<strong>"+apiEsc(city)+" + 25 km</strong> · "+analyzed+"/"+totalCommunes+" communes · <strong>"+futureRadarCandidates.length+"</strong> dossiers · "+dvfCount+" transactions · "+dpeCount+" DPE"+(failed?" · "+failed+" commune(s) partiellement indisponible(s)":"")+" · classés par priorité.";
+    if($("futureRadarStatus"))$("futureRadarStatus").innerHTML="<strong>"+apiEsc(city)+" + 15 km</strong> · "+analyzed+"/"+totalCommunes+" communes · <strong>"+futureRadarCandidates.length+"</strong> dossiers · "+dvfCount+" transactions · "+dpeCount+" DPE"+(failed?" · "+failed+" commune(s) partiellement indisponible(s)":"")+" · classés par priorité.";
     if($("futureRadarReady"))$("futureRadarReady").textContent="✅ "+futureRadarCandidates.length+" dossiers disponibles";
     if($("publicQuery"))$("publicQuery").value=city;
   }catch(e){
