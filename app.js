@@ -110,10 +110,23 @@ document.addEventListener("click",e=>{
   else if(b.id==="ctPrepareSelectedBtn"&&typeof ctPrepareSelectedTour==="function"){e.preventDefault();e.stopImmediatePropagation();ctPrepareSelectedTour();}
 });
 let futureRadarTerritoryMode=false;let radarBucketFilter="";let radarSectorFilter="";let autoSectorFilter="";let selectedProspectIds=loadSelectedProspects();
-const KEY="jml_prospection_v1";let prospects=load(),pendingImport=[];let prospectPage=1;let prospectTotalPages=1;const DEFAULT_PROSPECT_PAGE_SIZE=8;const $=id=>document.getElementById(id);
+const KEY="jml_prospection_v1";const BACKUP_KEY="jml_prospection_backup_v1";let prospects=load(),pendingImport=[];let prospectPage=1;let prospectTotalPages=1;const DEFAULT_PROSPECT_PAGE_SIZE=8;const $=id=>document.getElementById(id);
 function load(){
   try{
-    const x=JSON.parse(localStorage.getItem(KEY)||"[]");
+    let raw=localStorage.getItem(KEY);
+    let x=raw?JSON.parse(raw):[];
+    if(!Array.isArray(x))x=[];
+    if(!x.length){
+      const backupRaw=localStorage.getItem(BACKUP_KEY);
+      if(backupRaw){
+        const backup=JSON.parse(backupRaw);
+        if(Array.isArray(backup)&&backup.length){
+          x=backup;
+          localStorage.setItem(KEY,JSON.stringify(backup));
+          console.info("[JML] Sauvegarde locale restaurée:",backup.length,"prospects");
+        }
+      }
+    }
     if(!Array.isArray(x))return[];
     const result=dedupeProspectBase(x);
     if(result.removed){
@@ -143,7 +156,7 @@ function clearProspectSelection(){selectedProspectIds=[];saveSelectedProspects()
 function renderSelectionPanel(){const box=$("selectionPanel");if(!box)return;const selected=selectedProspects();const limit=getTourLimit();const last=selected[selected.length-1];const route=selected.length>1?"https://www.google.com/maps/dir/?api=1&destination="+encodeURIComponent(last.address+", "+(last.postalCode||"")+" "+(last.city||""))+"&waypoints="+encodeURIComponent(selected.slice(0,-1).map(p=>p.address+", "+(p.postalCode||"")+" "+(p.city||"")).join("|")):"";box.innerHTML="<div class=\"selection-head\"><div><strong>🎯 Ma sélection</strong><span>"+selected.length+"/"+limit+" prospects</span></div><div class=\"selection-actions\"><button type=\"button\" class=\"ghost\" id=\"clearSelectionBtn\" "+(selected.length?"":"disabled")+">Vider</button>"+(route?"<a class=\"primary\" target=\"_blank\" rel=\"noopener\" href=\""+route+"\">🚗 Itinéraire</a>":"")+"</div></div>"+(selected.length?"<div class=\"selection-list\">"+selected.map((p,i)=>"<div class=\"selection-item\"><span>"+(i+1)+".</span><div><strong>"+esc(p.address)+"</strong><small>"+esc(p.postalCode||"")+" "+esc(p.city||"")+" · "+esc(p.autoPriority||"")+"</small></div><button type=\"button\" class=\"icon\" data-remove-selection=\""+esc(p.id)+"\">×</button></div>").join("")+"</div>":"<div class=\"selection-empty\">Ajoute jusqu'à 10 prospects depuis le secteur travaillé.</div>")}
 function bindSelectionControls(){const clear=$("clearSelectionBtn");if(clear)clear.onclick=clearProspectSelection;document.querySelectorAll("[data-remove-selection]").forEach(b=>b.onclick=()=>toggleProspectSelection(b.dataset.removeSelection))}
 
-function save(){localStorage.setItem(KEY,JSON.stringify(prospects));render();if(typeof statsSync==="function")statsSync()}
+function save(){const payload=JSON.stringify(prospects);localStorage.setItem(KEY,payload);try{localStorage.setItem(BACKUP_KEY,payload)}catch(e){}render();if(typeof statsSync==="function")statsSync()}
 function esc(v=""){return String(v).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
 function now(){return new Date().toISOString()}
 function today(){return new Date().toISOString().slice(0,10)}
