@@ -1,19 +1,18 @@
-const APP_VERSION = "1.50.2";
+const APP_VERSION = "1.50.3";
 /* V1.50 — le frontend Render web doit toujours viser le service API dédié. */
 const API_BASE = String(window.JML_API_BASE || "https://jml-prospection-web.onrender.com").replace(/\/$/,"");
 
-/* V1.37.3 — garde-fou des boutons : délégation globale + diagnostic JS */
+/* V1.37.3 — garde-fou des boutons */
 window.addEventListener("error",e=>{
   const box=document.getElementById("aiStatus");
   if(box&&e?.message) box.textContent="⚠️ Erreur JavaScript : "+e.message;
 });
 document.addEventListener("click",e=>{
-  const b=e.target.closest("#aiAnalyzeBtn,#aiWhyBtn,#aiPriorityBtn,#aiCallBtn,#aiReportBtn,#aiFollowupBtn,#futureRadarBtn,#radarDiagnoseBtn,#futureRadarPrint,#futureRadarAddAll,#futureRadarAddPage,#futureRadarSelectAll,#futureRadarDeselectAll,#futureRadarRoute,#integrationsTestBtn,#sourcesRefreshBtn,#publicSearchBtn,#ctSearchBtn,#ctTourBtn,#ctSelect10Btn,#ctDeselectBtn,#ctPrepareSelectedBtn");
+  const b=e.target.closest("#aiAnalyzeBtn,#aiWhyBtn,#aiPriorityBtn,#aiCallBtn,#aiReportBtn,#aiFollowupBtn,#futureRadarBtn,#futureRadarPrint,#futureRadarAddAll,#futureRadarAddPage,#futureRadarSelectAll,#futureRadarDeselectAll,#futureRadarRoute,#integrationsTestBtn,#sourcesRefreshBtn,#publicSearchBtn,#ctSearchBtn,#ctTourBtn,#ctSelect10Btn,#ctDeselectBtn,#ctPrepareSelectedBtn");
   if(!b)return;
   const tasks={aiAnalyzeBtn:"analyze",aiWhyBtn:"why",aiPriorityBtn:"priority",aiCallBtn:"call",aiReportBtn:"report",aiFollowupBtn:"followup"};
   if(tasks[b.id]&&typeof aiRun==="function"){e.preventDefault();e.stopImmediatePropagation();aiRun(tasks[b.id]);}
   else if(b.id==="futureRadarBtn"&&typeof runFutureRadar==="function"){e.preventDefault();e.stopImmediatePropagation();runFutureRadar();}
-  else if(b.id==="radarDiagnoseBtn"&&typeof runRadarDiagnostic==="function"){e.preventDefault();e.stopImmediatePropagation();runRadarDiagnostic();}
   else if(b.id==="futureRadarPrint"&&typeof printFutureRadarSelection==="function"){e.preventDefault();e.stopImmediatePropagation();printFutureRadarSelection();}
   else if(b.id==="futureRadarAddAll"&&typeof addFutureRadarCandidates==="function"){e.preventDefault();e.stopImmediatePropagation();addFutureRadarCandidates();}
   else if(b.id==="futureRadarAddPage"&&typeof addFutureRadarVisiblePage==="function"){e.preventDefault();e.stopImmediatePropagation();addFutureRadarVisiblePage();}
@@ -826,96 +825,6 @@ if($("futureRadarResults"))$("futureRadarResults").onclick=e=>{
 let publicDpeResults=[],publicDvfResults=[];
 function apiEsc(v=""){return esc(v)}
 async function publicJson(url){const targets=[String(url)];if(API_BASE&&String(url).startsWith("/"))targets.push(API_BASE+String(url));let lastError=null;for(let i=0;i<targets.length;i++){const target=targets[i];for(let attempt=1;attempt<=3;attempt++){let r;try{r=await fetch(target,{cache:"no-store"});}catch(e){lastError=e;if(attempt<3){await new Promise(resolve=>setTimeout(resolve,800*attempt));continue}if(i<targets.length-1)break;throw new Error("Connexion au serveur JML impossible après plusieurs tentatives : "+(e.message||"fetch failed"))}if(!r.ok&&i<targets.length-1&&(r.status===404||r.status===502||r.status===503)){lastError=new Error("HTTP "+r.status);break}let d;try{d=await r.json()}catch(e){if(attempt<3){lastError=e;await new Promise(resolve=>setTimeout(resolve,800*attempt));continue}if(i<targets.length-1){lastError=e;break}throw new Error("Réponse serveur invalide (HTTP "+r.status+")")}if(!r.ok)throw new Error(d.error||("Erreur serveur HTTP "+r.status));return d}}throw new Error("Serveur JML indisponible : "+(lastError?.message||"erreur inconnue"))}
-async function runRadarDiagnostic(){
-  const box=$("radarDiagnostic"),status=$("radarDiagnosticStatus"),results=$("radarDiagnosticResults"),btn=$("radarDiagnoseBtn");
-  if(box)box.hidden=false;if(status)status.textContent="🩺 Diagnostic en cours…";if(results)results.innerHTML="";if(btn)btn.disabled=true;
-  const checks=[],add=(label,state,detail)=>checks.push({label,state,detail});
-  add("Connexion du téléphone",navigator.onLine!==false?"ok":"error",navigator.onLine!==false?"Le navigateur signale une connexion réseau active.":"Le navigateur est hors ligne.");
-  try{localStorage.setItem("__jml_diag","1");localStorage.removeItem("__jml_diag");add("Stockage local","ok","Le stockage du CRM est accessible.");}catch(e){add("Stockage local","error","Le stockage local est bloqué ou indisponible.");}
-  try{const regs=await navigator.serviceWorker?.getRegistrations?.()||[];add("Application mobile (PWA)",regs.some(r=>r.active)?"ok":"warn",regs.some(r=>r.active)?"Service worker actif.":"Aucun service worker actif : recharge l'application.");}catch(e){add("Application mobile (PWA)","warn","Impossible de vérifier le service worker.");}
-  try{
-    const city=String($("radarCity")?.value||"Charleville-Mézières").trim(),d=await publicJson("/api/diagnostic?city="+encodeURIComponent(city));
-    for(const c of (d.checks||[]))add(c.label,c.ok?"ok":"error",c.detail||"");
-    if(d.recommendation)add("Conclusion",d.ok?"ok":"warn",d.recommendation);
-  }catch(e){add("Serveur JML","error",e.message||"Le serveur JML ne répond pas.");add("API utilisée","warn",API_BASE+" · vérifie le déploiement Render si le problème persiste.");}
-  if(results){const icon={ok:"✅",warn:"⚠️",error:"❌"};results.innerHTML=checks.map(c=>'<div class="radar-diag-row '+c.state+'"><strong>'+icon[c.state]+' '+esc(c.label)+'</strong><span>'+esc(c.detail)+'</span></div>').join("");}
-  if(status)status.textContent=checks.some(c=>c.state==="error")?"❌ Problème détecté · voir le détail ci-dessous":"✅ Diagnostic terminé · aucun blocage détecté";
-  if(btn)btn.disabled=false;
-}
-function publicDpeKey(p){
-  return [norm(p.address),norm(p.postalCode),norm(p.city)].join("|");
-}
-function groupPublicDpe(rows){
-  const groups=new Map();
-  for(const p of (rows||[])){
-    const key=publicDpeKey(p)||("unknown|"+(p.dpeNumber||Math.random()));
-    if(!groups.has(key))groups.set(key,{primary:p,items:[],grades:new Set(),areas:new Set(),types:new Set(),dates:[]});
-    const g=groups.get(key);
-    g.items.push(p);
-    if(p.dpe)g.grades.add(String(p.dpe));
-    if(Number(p.area)>0)g.areas.add(Number(p.area));
-    if(p.buildingType)g.types.add(String(p.buildingType));
-    if(p.date)g.dates.push(String(p.date));
-  }
-  return Array.from(groups.values()).map(g=>({
-    ...g.primary,
-    groupedCount:g.items.length,
-    groupedGrades:[...g.grades].sort(),
-    groupedAreas:[...g.areas].sort((a,b)=>a-b),
-    groupedTypes:[...g.types],
-    latestDpeDate:g.dates.sort().at(-1)||g.primary.date||"",
-    groupedDpeNumbers:g.items.map(x=>x.dpeNumber).filter(Boolean)
-  })).sort((a,b)=>String(b.latestDpeDate||"").localeCompare(String(a.latestDpeDate||"")));
-}
-function groupPublicDvf(rows){
-  const groups=new Map();
-  for(const p of (rows||[])){
-    const mutation=String(p.mutationId||"").trim();
-    const address=norm(p.address||"");
-    const value=Number(p.value)||0;
-    const key=mutation
-      ? "mutation|"+mutation+"|"+address
-      : "fallback|"+String(p.date||"")+"|"+address+"|"+value;
-    if(!groups.has(key))groups.set(key,{...p,groupedCount:0,groupedTypes:new Set(),groupedBuiltAreas:new Set(),groupedLandAreas:new Set(),groupedRooms:new Set()});
-    const g=groups.get(key);
-    g.groupedCount++;
-    if(p.type)g.groupedTypes.add(String(p.type));
-    if(Number(p.builtArea)>0)g.groupedBuiltAreas.add(Number(p.builtArea));
-    if(Number(p.landArea)>0)g.groupedLandAreas.add(Number(p.landArea));
-    if(Number(p.rooms)>0)g.groupedRooms.add(Number(p.rooms));
-  }
-  return Array.from(groups.values()).map(g=>({
-    ...g,
-    groupedTypes:[...g.groupedTypes],
-    groupedBuiltAreas:[...g.groupedBuiltAreas].sort((a,b)=>a-b),
-    groupedLandAreas:[...g.groupedLandAreas].sort((a,b)=>a-b),
-    groupedRooms:[...g.groupedRooms].sort((a,b)=>a-b)
-  }));
-}
-function renderPublicDpe(rows){
-  publicDpeResults=groupPublicDpe(rows);
-  $("publicDpeResults").innerHTML=publicDpeResults.length?publicDpeResults.slice(0,30).map((p,i)=>{
-    const areas=p.groupedAreas?.length?p.groupedAreas.map(x=>x+" m²").join(" / "):(p.area?p.area+" m²":"");
-    const grades=p.groupedGrades?.length?"DPE "+p.groupedGrades.join(" / "):"DPE —";
-    const types=p.groupedTypes?.length?p.groupedTypes.join(" / "):"";
-    const units=p.groupedCount>1?" · "+p.groupedCount+" DPE/logements regroupés":"";
-    return '<article class="source-result"><div><strong>'+apiEsc(p.address||"Adresse non renseignée")+'</strong><span>'+apiEsc((p.postalCode?p.postalCode+" ":"")+(p.city||""))+'</span></div><div class="source-result-details">'+areas+(areas?" · ":"")+grades+(p.ges?" · GES "+apiEsc(p.ges):"")+(types?" · "+apiEsc(types):"")+apiEsc(units)+'</div><div class="meta">'+(p.latestDpeDate?"DPE le plus récent : "+apiEsc(p.latestDpeDate):"Date DPE inconnue")+'</div><button class="ghost" data-dpe-index="'+i+'">Préparer une fiche</button></article>';
-  }).join(""):'<div class="meta">Aucun DPE trouvé pour cette recherche.</div>';
-}
-function renderPublicDvf(rows){
-  publicDvfResults=groupPublicDvf(rows);
-  $("publicDvfResults").innerHTML=publicDvfResults.length?publicDvfResults.slice(0,30).map(p=>{
-    const types=p.groupedTypes?.length?p.groupedTypes.join(" / "):(p.type||"Bien immobilier");
-    const areas=p.groupedBuiltAreas?.length?p.groupedBuiltAreas.map(x=>x+" m² bâti").join(" / "):(p.builtArea?p.builtArea+" m² bâti":"");
-    const lands=p.groupedLandAreas?.length?p.groupedLandAreas.map(x=>x+" m² terrain").join(" / "):(p.landArea?p.landArea+" m² terrain":"");
-    const rooms=p.groupedRooms?.length?" · "+p.groupedRooms.join(" / ")+" pièce(s)":"";
-    const grouped=p.groupedCount>1?" · "+p.groupedCount+" éléments regroupés":"";
-    return '<article class="source-result"><div><strong>'+apiEsc(p.date||"Date inconnue")+'</strong><span>'+apiEsc(types)+'</span></div><div class="source-result-details">'+(p.value?p.value.toLocaleString("fr-FR")+" € · ":"")+areas+(areas&&lands?" · ":"")+lands+rooms+apiEsc(grouped)+'</div><div class="meta">'+(p.address?apiEsc(p.address)+" · ":"")+"Source : "+apiEsc(p.source||"DVF open-data")+" · "+apiEsc(p.cityCode||"")+'</div></article>';
-  }).join(""):'<div class="meta">Aucune transaction trouvée.</div>';
-}
-function publicSourceQueryMode(q){
-  return /\\d/.test(String(q||"")) ? "adresse" : "commune";
-}
 async function searchPublicSources(){
   const q=$("publicQuery").value.trim();
   if(!q){$("publicStatus").textContent="Indique une commune ou une adresse.";return}
