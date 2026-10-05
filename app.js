@@ -35,14 +35,21 @@ document.addEventListener("click",e=>{
   const select=e.target.closest("[data-sector-select]");
   if(select){e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();toggleProspectSelection(select.dataset.sectorSelect);renderSectorWork(autoSectorFilter);return;}
   const add=e.target.closest("#sectorAddTopBtn");
-  if(add){e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();const rows=prospects.filter(p=>String(p.autoSector||p.city||p.postalCode||"").trim().toLowerCase()===String(autoSectorFilter).trim().toLowerCase()).sort((a,b)=>(Number(b.autoScore)||0)-(Number(a.autoScore)||0));rows.forEach(p=>{if(selectedProspectIds.length<10&&!selectedProspectIds.includes(p.id))selectedProspectIds.push(p.id)});saveSelectedProspects();renderSectorWork(autoSectorFilter);renderSelectionPanel();return;}
+  if(add){e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();prepareSectorSelection();return;}
+  const sectorSelAction=e.target.closest("[data-sector-selection-action]");
+  if(sectorSelAction){e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();
+    const action=sectorSelAction.dataset.sectorSelectionAction;
+    if(action==="crm"){showJmlPage("crm");setTimeout(()=>$("selectionPanel")?.scrollIntoView({behavior:"smooth",block:"start"}),60);}
+    if(action==="tour"){showJmlPage("tour");}
+    return;
+  }
   const crm=e.target.closest('a[href="#prospectsPanel"]');if(crm){e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();openCRM();return;}
   const watch=e.target.closest("#navWatchShortcut");if(watch){e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();openWatch();return;}
   const back=e.target.closest("#watchBackBtn");if(back){e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();openCRM();return;}
   const tour=e.target.closest("#navRouteShortcut");
   if(tour){e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();openTour();return;}
 },true);
-const APP_VERSION = "1.64.1";
+const APP_VERSION = "1.65.0";
 /* V1.50 — le frontend Render web doit toujours viser le service API dédié. */
 const API_BASE = String(window.JML_API_BASE || "https://jml-prospection-web.onrender.com").replace(/\/$/,"");
 
@@ -413,11 +420,51 @@ function bindAutoSectorTable(){
   table.onclick=e=>{const b=e.target.closest(".autoSectorBtn");if(!b)return;e.preventDefault();e.stopPropagation();showAutoSector(b.dataset.sector||"");};
 }
 let sectorWorkPriority="ALL";
+function sectorRowsForSelection(sector){
+  const name=String(sector||"").trim();
+  const rows=prospects.filter(p=>String(p.autoSector||p.city||p.postalCode||"").trim().toLowerCase()===name.toLowerCase());
+  const groups=new Map();
+  rows.forEach(p=>{const key=dedupeKey(p)||String(p.id);if(!groups.has(key))groups.set(key,[]);groups.get(key).push(p);});
+  return [...groups.values()].map(g=>g[0]).sort((a,b)=>{
+    const pa={A:4,B:3,C:2,D:1}[a.autoPriority||"D"]||0;
+    const pb={A:4,B:3,C:2,D:1}[b.autoPriority||"D"]||0;
+    return pb-pa || (Number(b.autoScore)||0)-(Number(a.autoScore)||0);
+  });
+}
+function prepareSectorSelection(){
+  const rows=sectorRowsForSelection(autoSectorFilter);
+  let added=0;
+  for(const p of rows){
+    if(selectedProspectIds.length>=10)break;
+    if(selectedProspectIds.includes(p.id))continue;
+    selectedProspectIds.push(p.id);added++;
+  }
+  saveSelectedProspects();
+  renderSectorWork(autoSectorFilter);
+  renderSelectionPanel();
+  if(added===0 && selectedProspectIds.length>=10){
+    const bar=$("sectorSelectionBar");
+    if(bar)bar.scrollIntoView({behavior:"smooth",block:"center"});
+  }
+}
+function renderSectorSelectionBar(){
+  const bar=$("sectorSelectionBar");
+  if(!bar)return;
+  const selected=selectedProspects();
+  const inSector=selected.filter(p=>String(p.autoSector||p.city||p.postalCode||"").trim().toLowerCase()===String(autoSectorFilter).trim().toLowerCase());
+  const places=Math.max(0,10-selected.length);
+  const ready=selected.length>=10;
+  bar.innerHTML='<div class="sector-selection-status"><div><strong>🎯 '+selected.length+'/10 dossiers sélectionnés</strong><span>'+(inSector.length?' · '+inSector.length+' dans ce secteur':'')+'</span></div><small>'+(ready?'Sélection complète. Prête pour le travail commercial.':places+' place'+(places>1?'s':'')+' restante'+(places>1?'s':'')+' — les meilleurs scores seront ajoutés en priorité.')+'</small></div><div class="sector-selection-actions"><button type="button" class="ghost" data-sector-selection-action="crm">Voir mes 10</button><button type="button" class="primary" data-sector-selection-action="tour">Préparer la tournée</button></div>';
+}
 function renderSectorWork(sector){
   const panel=$("sectorWorkPanel"); if(!panel)return;
   const name=String(sector||"").trim()||"Secteur";
   const rows=prospects.filter(p=>String(p.autoSector||p.city||p.postalCode||"Secteur non renseigné").trim().toLowerCase()===name.toLowerCase())
-    .sort((x,y)=>(Number(y.autoScore)||0)-(Number(x.autoScore)||0));
+    .sort((x,y)=>{
+      const px={A:4,B:3,C:2,D:1}[x.autoPriority||"D"]||0;
+      const py={A:4,B:3,C:2,D:1}[y.autoPriority||"D"]||0;
+      return py-px || (Number(y.autoScore)||0)-(Number(x.autoScore)||0);
+    });
   const groups=new Map();
   rows.forEach(p=>{const key=dedupeKey(p)||String(p.id);if(!groups.has(key))groups.set(key,[]);groups.get(key).push(p);});
   const unique=[...groups.values()].map(g=>({p:g[0],duplicates:g.length}));
@@ -427,6 +474,7 @@ function renderSectorWork(sector){
   $("sectorWorkTitle").textContent=name;
   $("sectorWorkSubtitle").textContent=rows.length+" dossier(s) · "+unique.length+" adresse(s) unique(s)"+(duplicateCount?" · "+duplicateCount+" doublon(s) regroupé(s)":"")+" · priorité et score calculés automatiquement.";
   $("sectorWorkStats").innerHTML=[["Total",rows.length,"dossiers"],["A",counts.A,"priorité immédiate"],["B",counts.B,"à travailler"],["C",counts.C,"à surveiller"],["D",counts.D,"faible priorité"]].map(x=>'<article><strong>'+x[1]+'</strong><span>'+x[0]+'</span><small>'+x[2]+'</small></article>').join("");
+  renderSectorSelectionBar();
   $("sectorWorkList").innerHTML=filtered.length?filtered.map((item,i)=>{
     const p=item.p, selected=selectedProspectIds.includes(p.id), signals=(p.autoSignals||[]).slice(0,3).map(esc).join(" · ");
     return '<article class="sector-prospect-card"><div class="sector-rank">'+(i+1)+'</div><div class="sector-prospect-main"><div class="sector-prospect-title"><strong>'+esc(p.address||"Adresse à compléter")+'</strong><span class="priority-'+esc(p.autoPriority||"D")+'">'+esc(p.autoPriority||"D")+'</span>'+(item.duplicates>1?'<span class="duplicate-chip">↻ '+item.duplicates+' occurrences</span>':"")+'</div><div class="sector-prospect-meta">'+esc(p.postalCode||"")+' '+esc(p.city||"")+' · '+esc(p.type||"Bien")+'</div><div class="sector-prospect-data"><span>📐 '+(Number(p.area)||0)+' m²</span><span>🚪 '+(Number(p.rooms)||0)+' pièces</span><span>🌳 '+(Number(p.land)||0)+' m² terrain</span><span>💶 '+(p.price?Number(p.price).toLocaleString("fr-FR")+" €":"Prix —")+'</span><span class="dpe-chip">DPE '+esc(p.dpe||"—")+'</span></div><div class="sector-prospect-signals">'+(signals||"Données à compléter")+'</div></div><div class="sector-score"><strong>'+Number(p.autoScore||0)+'</strong><small>/100</small></div><button type="button" class="ghost sector-select-btn '+(selected?"selected":"")+'" data-sector-select="'+esc(p.id)+'">'+(selected?"✓ Sélectionné":"＋ Sélectionner")+'</button><button type="button" class="ghost sector-open-btn" data-sector-open="'+esc(p.id)+'">Dossier →</button></article>';
@@ -464,12 +512,14 @@ function renderProspectDetail(id){
 function bindSectorWork(){
   const back=$("sectorBackBtn"); if(back) back.onclick=()=>{ $("sectorWorkPanel").hidden=true;$("autoTreatmentPanel").hidden=false;window.scrollTo({top:$("autoTreatmentPanel").offsetTop-20,behavior:"smooth"}); };
   document.querySelectorAll(".sector-filter").forEach(b=>b.onclick=()=>{sectorWorkPriority=b.dataset.priority||"ALL";document.querySelectorAll(".sector-filter").forEach(x=>x.classList.toggle("active",x===b));renderSectorWork(autoSectorFilter);});
-  const add=$("sectorAddTopBtn"); if(add) add.onclick=()=>{const rows=prospects.filter(p=>String(p.autoSector||p.city||p.postalCode||"").trim().toLowerCase()===String(autoSectorFilter).trim().toLowerCase()).sort((a,b)=>(Number(b.autoScore)||0)-(Number(a.autoScore)||0));rows.forEach(p=>{if(selectedProspectIds.length<10&&!selectedProspectIds.includes(p.id))selectedProspectIds.push(p.id)});saveSelectedProspects();renderSectorWork(autoSectorFilter);renderSelectionPanel();bindSelectionControls();};
+  const add=$("sectorAddTopBtn"); if(add) add.onclick=prepareSectorSelection;
 }
 function showAutoSector(sector){
   autoSectorFilter=String(sector||"").trim();
   sectorWorkPriority="ALL";
   $("autoTreatmentPanel").hidden=true;
+  $("prospectDetailPanel").hidden=true;
+  $("tourPanel").hidden=true;
   $("sectorWorkPanel").hidden=false;
   renderSectorWork(autoSectorFilter);
   bindSectorWork();
