@@ -943,6 +943,7 @@ $("publicDpeResults").onclick=e=>{
   openForm({address:p.address||"",postalCode:p.postalCode||"",city:p.city||"",type:"Maison",area:p.area||0,land:0,rooms:0,bedrooms:0,price:0,dpe:p.dpe||"",status:"Nouveau",detectionDate:today(),nextFollow:"",source:"DPE ADEME",externalId:p.dpeNumber||"",sourceUrl:"https://data.ademe.fr/datasets/dpe03existant",description:"Donnée technique publique DPE ADEME. À vérifier sur le terrain avant toute qualification commerciale.",notes:"DPE : "+(p.dpe||"—")+" · GES : "+(p.ges||"—")+" · Date : "+(p.date||"—")});
 };
 prospects.forEach(ensureHistory);render();initCollapsiblePanels();initRadarSimpleMode();initRadarCommuneInput();initRadarTerritory();
+syncImmobilierOnOpen();
 /* V1.13.0 — prospection annonce publique + carte + rapprochement DVF/DPE */
 let privateProspectMap=null;
 let privateProspectLayers=null;
@@ -1655,6 +1656,60 @@ async function aiRun(task){
     $("aiProviderStatus").textContent="🔴 IA à vérifier";
     $("aiStatus").textContent="Erreur IA : "+e.message;
   }finally{aiSetBusy(false)}
+}
+async function syncImmobilierOnOpen(){
+  const status=$("futureRadarStatus");
+  const key="jml_connectors_last_sync";
+  const previous=localStorage.getItem(key)||"";
+  // Une ouverture = une tentative, mais on évite de consommer inutilement le quota lors des
+  // rechargements rapides/PWA. Au-delà de 10 minutes, une nouvelle synchronisation est autorisée.
+  if(previous && Date.now()-new Date(previous).getTime()<10*60*1000)return;
+  if(status)status.textContent="🔄 Mise à jour des sources immobilières…";
+  try{
+    const since=previous&&Number.isFinite(new Date(previous).getTime())
+      ? new Date(previous).toISOString()
+      : new Date(Date.now()-24*60*60*1000).toISOString();
+    const response=await fetch(API_BASE+"/api/connectors-sync?department=08&since="+encodeURIComponent(since),{headers:{Accept:"application/json"},cache:"no-store"});
+    const data=await response.json().catch(()=>({}));
+    if(!response.ok)throw new Error(data?.error||"Synchronisation indisponible");
+    const rows=Array.isArray(data.items)?data.items:[];
+    let created=0,merged=0;
+    for(const p of rows){
+      const incoming={
+        address:p.address||"",
+        postalCode:p.postal_code||p.postalCode||"",
+        city:p.city||"",
+        district:p.district||"",
+        type:p.type||"Maison",
+        area:num(p.surface||p.area),
+        land:num(p.land_surface||p.landSurface),
+        rooms:num(p.rooms),
+        bedrooms:num(p.bedrooms),
+        price:num(p.price),
+        dpe:p.dpe||"",
+        status:"Nouveau",
+        detectionDate:today(),
+        nextFollow:"",
+        source:p.source||"ChercherTrouver.immo",
+        externalId:p.reference||p.externalId||"",
+        sourceUrl:p.external_url||p.sourceUrl||"",
+        description:p.description||p.title||"",
+        notes:"Annonce publique synchronisée automatiquement à l'ouverture de JML."
+      };
+      const result=mergeProspect(incoming);
+      if(result==="created")created++; else merged++;
+    }
+    if(rows.length)save();
+    localStorage.setItem(key,new Date().toISOString());
+    if(status){
+      const sourceOk=(data.sources||[]).filter(x=>x.ok).map(x=>x.label).join(" · ");
+      status.textContent=rows.length
+        ? "✅ Sources actualisées · "+rows.length+" annonce(s) · "+created+" nouvelle(s) · "+merged+" mise(s) à jour."
+        : "✅ Sources vérifiées · aucune nouvelle annonce depuis la dernière synchronisation."+(sourceOk?" · "+sourceOk:"");
+    }
+  }catch(e){
+    if(status)status.textContent="🟠 Sources immobilières : synchronisation indisponible · le Radar DPE/DVF reste disponible.";
+  }
 }
 if($("aiAssistantPanel")){
   /* Les boutons IA sont gérés par la délégation globale V1.37.3. */
