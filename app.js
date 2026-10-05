@@ -81,6 +81,7 @@ window.addEventListener("error",e=>{
 document.addEventListener("click",e=>{
  const navTour=e.target.closest("#navRouteShortcut");if(navTour){e.preventDefault();openTour();return;}
  const tr=e.target.closest("[data-tour-remove]");if(tr){toggleProspectSelection(tr.dataset.tourRemove);renderTour();return;}
+ if(e.target.closest("#tourOptimizeBtn")){optimizeTourOrder();return;}
  if(e.target.closest("#tourClearBtn")){clearProspectSelection();renderTour();return;}
  if(e.target.closest("#tourBackBtn")){openTour();$("tourPanel").hidden=true;$("prospectsPanel").scrollIntoView({behavior:"smooth",block:"start"});return;}
 
