@@ -4,7 +4,7 @@ const path = require("node:path");
 
 const PORT = Number(process.env.PORT || 10000);
 const ROOT = __dirname;
-const APP_SERVER_VERSION = "1.50.1";
+const APP_SERVER_VERSION = "1.50.4";
 const DPE_URL = "https://data.ademe.fr/data-fair/api/v1/datasets/dpe03existant/lines";
 const DVF_URL = "https://apidf-preprod.cerema.fr/dvf_opendata/mutations/";
 const DVF_GEO_BASE = "https://files.data.gouv.fr/geo-dvf/latest/csv";
@@ -1879,12 +1879,12 @@ async function api(pathname,url){
     const years=Number(url.searchParams.get("years"))||5;
     const perCommuneLimit=cleanLimit(url.searchParams.get("perCommuneLimit"),50);
     const offset=Math.max(0,Number(url.searchParams.get("offset"))||0);
-    const communeBatch=Math.max(1,Math.min(8,Number(url.searchParams.get("communeBatch"))||4));
+    const communeBatch=Math.max(1,Math.min(6,Number(url.searchParams.get("communeBatch"))||2));
     const selectedCodes=codes.slice(offset,offset+communeBatch);
     const aggregate=[],errors=[];
     // Les appels par zone restent courts pour Render, mais quatre communes sont traitées en parallèle afin de réduire le temps total sans saturer le serveur.
-    for(let i=0;i<selectedCodes.length;i+=3){
-      const batch=selectedCodes.slice(i,i+3);
+    for(let i=0;i<selectedCodes.length;i+=2){
+      const batch=selectedCodes.slice(i,i+2);
       const results=await Promise.all(batch.map(async code=>{
         const cacheKey="radar|"+code+"|"+years+"|"+perCommuneLimit;
         const cached=radarCommuneCache.get(cacheKey);
