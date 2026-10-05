@@ -299,67 +299,70 @@ function mergeProspect(incoming){const key=dedupeKey(incoming),idx=prospects.fin
 /* V1.51 — traitement automatique des prospects en lots */
 function autoTreatmentForProspect(p){
   ensureHistory(p);
-  const m=movement6mInfo(p);
-  const sig=signalInfo(p);
-  const completeness=[
-    p.address,p.city,p.postalCode,p.type,p.area,p.price
-  ].filter(v=>v!==undefined&&v!==null&&String(v).trim()!=="").length;
-  const dataScore=Math.round((completeness/6)*20);
-  const signalScore=Math.min(20,sig.score*3);
-  const movementScore=Math.min(50,m.score*0.5);
-  const total=Math.max(0,Math.min(100,Math.round(movementScore+signalScore+dataScore)));
+  const m=movement6mInfo(p), sig=signalInfo(p);
+  const area=Number(p.area)||0, price=Number(p.price)||0;
+  const completeness=[p.address,p.city,p.postalCode,p.type,area,price].filter(v=>v!==undefined&&v!==null&&String(v).trim()!=="").length;
+  let base=0;
+  if(area>0)base+=10;
+  if(price>0)base+=8;
+  if(p.postalCode)base+=5;
+  if(p.dpe)base+=4;
+  if(p.source)base+=3;
+  const signalScore=Math.min(25,sig.score*4);
+  const movementScore=Math.min(45,m.score*0.65);
+  const qualityScore=Math.min(15,completeness*2.5);
+  const sectorBonus=Math.min(10,Number(p.sectorActivityScore)||0);
+  const total=Math.max(0,Math.min(100,Math.round(signalScore+movementScore+qualityScore+base+sectorBonus)));
   let priority="D",priorityLabel="Faible priorité";
-  if(total>=75){priority="A";priorityLabel="Priorité A — à contacter";}
-  else if(total>=55){priority="B";priorityLabel="Priorité B — intéressant";}
-  else if(total>=35){priority="C";priorityLabel="Priorité C — à surveiller";}
-  const city=String(p.city||"").trim();
-  const postal=String(p.postalCode||"").trim();
-  p.autoScore=total;
-  p.autoPriority=priority;
-  p.autoPriorityLabel=priorityLabel;
+  if(total>=70){priority="A";priorityLabel="Priorité A — à contacter";}
+  else if(total>=50){priority="B";priorityLabel="Priorité B — intéressant";}
+  else if(total>=30){priority="C";priorityLabel="Priorité C — à surveiller";}
+  p.autoScore=total;p.autoPriority=priority;p.autoPriorityLabel=priorityLabel;
   p.autoSignals=(m.tags||[]).map(x=>x.label);
-  p.autoSector=city || (postal ? "CP "+postal : "Secteur non renseigné");
-  p.autoProcessedAt=now();
-  p.autoProcessingVersion=APP_VERSION;
+  p.autoSector=String(p.city||"").trim() || (p.postalCode?"CP "+p.postalCode:"Secteur non renseigné");
+  p.autoProcessedAt=now();p.autoProcessingVersion=APP_VERSION;
   return p;
+}
+function autoSectorStats(){
+  const map=new Map();
+  prospects.forEach(p=>{
+    const sector=p.autoSector||p.city||p.postalCode||"Secteur non renseigné";
+    if(!map.has(sector))map.set(sector,{sector,total:0,A:0,B:0,C:0,D:0,avg:0,scoreSum:0});
+    const x=map.get(sector),pr=p.autoPriority||"D";
+    x.total++;x[pr]=(x[pr]||0)+1;x.scoreSum+=Number(p.autoScore)||0;
+  });
+  return [...map.values()].map(x=>({...x,avg:x.total?Math.round(x.scoreSum/x.total):0}))
+    .sort((a,b)=>(b.A-b.A)||(b.B-b.B)||(b.avg-a.avg)||a.sector.localeCompare(b.sector,"fr"));
+}
+function renderAutoTreatmentSummary(){
+  const el=$("autoProcessSummary"); if(!el)return;
+  const counts={A:0,B:0,C:0,D:0};prospects.forEach(p=>counts[p.autoPriority||"D"]=(counts[p.autoPriority||"D"]||0)+1);
+  const sectors=autoSectorStats();
+  el.innerHTML=[["A",counts.A,"À contacter"],["B",counts.B,"Intéressants"],["C",counts.C,"À surveiller"],["D",counts.D,"Faible priorité"]]
+    .map(x=>'<div><strong>'+x[1]+'</strong><span>Priorité '+x[0]+'</span><small>'+x[2]+'</small></div>').join("")
+    +'<div><strong>'+sectors.length+'</strong><span>Secteurs</span><small>répartis automatiquement</small></div>';
+  const table=$("autoSectorTable"); if(!table)return;
+  table.innerHTML=sectors.map(x=>'<tr><td><strong>'+esc(x.sector)+'</strong></td><td>'+x.total+'</td><td>'+x.A+'</td><td>'+x.B+'</td><td>'+x.C+'</td><td>'+x.D+'</td><td>'+x.avg+'/100</td><td><button class="ghost autoSectorBtn" data-sector="'+esc(x.sector)+'">Travailler</button></td></tr>').join("");
+}
+function showAutoSector(sector){
+  $("city").value=sector;$("prospectView").value="watch";prospectPage=1;render();
+  $("prospectsPanel")?.scrollIntoView({behavior:"smooth",block:"start"});
 }
 async function processAllProspectsAutomatically(){
   const btn=$("autoProcessBtn"),status=$("autoProcessStatus"),bar=$("autoProcessBar"),count=$("autoProcessCount");
   if(!prospects.length){status.textContent="Aucun prospect à traiter.";return}
-  if(btn)btn.disabled=true;
-  let done=0;
-  const total=prospects.length;
-  const batchSize=50;
+  if(btn)btn.disabled=true;let done=0,total=prospects.length,batchSize=50;
   const runBatch=()=>{
     const end=Math.min(done+batchSize,total);
     for(let i=done;i<end;i++)autoTreatmentForProspect(prospects[i]);
-    done=end;
-    const pct=Math.round(done/total*100);
-    if(bar)bar.value=pct;
-    if(count)count.textContent=done+" / "+total;
-    if(status)status.textContent=done<total ? "Traitement en cours… "+pct+" %" : "Traitement terminé : "+total+" prospect(s) analysé(s).";
-    if(done<total) requestAnimationFrame(runBatch);
-    else {
-      save();
-      if(btn)btn.disabled=false;
-      renderAutoTreatmentSummary();
-      prospectPage=1;
-      render();
-    }
-  };
-  requestAnimationFrame(runBatch);
+    done=end;const pct=Math.round(done/total*100);
+    if(bar)bar.value=pct;if(count)count.textContent=done+" / "+total;
+    if(status)status.textContent=done<total?"Traitement en cours… "+pct+" %":"Traitement terminé : "+total+" prospect(s) analysé(s).";
+    if(done<total)requestAnimationFrame(runBatch);
+    else{save();if(btn)btn.disabled=false;renderAutoTreatmentSummary();
+$("autoSectorTable")?.addEventListener("click",e=>{const b=e.target.closest(".autoSectorBtn");if(b)showAutoSector(b.dataset.sector)});prospectPage=1;render();}
+  };requestAnimationFrame(runBatch);
 }
-function renderAutoTreatmentSummary(){
-  const el=$("autoProcessSummary"); if(!el)return;
-  const counts={A:0,B:0,C:0,D:0};
-  prospects.forEach(p=>{const k=p.autoPriority||"D";counts[k]=(counts[k]||0)+1});
-  const sectors=new Set(prospects.map(p=>p.autoSector).filter(Boolean)).size;
-  el.innerHTML=[
-    ["A",counts.A,"À contacter"],["B",counts.B,"Intéressants"],["C",counts.C,"À surveiller"],["D",counts.D,"Faible priorité"]
-  ].map(x=>'<div><strong>'+x[1]+'</strong><span>Priorité '+x[0]+'</span><small>'+x[2]+'</small></div>').join("")
-  +'<div><strong>'+sectors+'</strong><span>Secteurs</span><small>répartis automatiquement</small></div>';
-}
-
 $("addBtn").onclick=()=>openForm();$("closeBtn").onclick=closeForm;$("cancelBtn").onclick=closeForm;
 $("prospectForm").onsubmit=e=>{e.preventDefault();const d=formData(),id=$("editId").value,action=$("actionNote").value.trim(),date=now();if(!d.address||!d.city)return;if(id){const i=prospects.findIndex(p=>p.id===id);if(i<0)return;const old=prospects[i],history=[...(old.history||[])];if(old.status!==d.status)history.push({date,type:"Changement de statut",text:old.status+" → "+d.status});if(action)history.push({date,type:"Action / note",text:action});const updated=ensureHistory({...old,...d});if(num(old.price)!==num(d.price)&&num(d.price)){updated.priceHistory=[...(old.priceHistory||[]),{date,price:num(d.price),previousPrice:num(old.price),source:d.source||"",reason:"Changement de prix"}];history.push({date,type:"Changement de prix",text:(old.price?num(old.price).toLocaleString("fr-FR")+" € → ":"")+" "+num(d.price).toLocaleString("fr-FR")+" €"});}updated.appearanceHistory=old.appearanceHistory?.length?old.appearanceHistory:[{date,source:d.source||"",sourceUrl:d.sourceUrl||"",externalId:d.externalId||""}];updated.history=history;updated.updatedAt=date;updated.lastSeenAt=date;prospects[i]=updated}else{const duplicate=prospects.find(p=>dedupeKey(p)===dedupeKey(d));if(duplicate){alert("Ce bien existe déjà dans la base. Ouvre sa fiche pour le modifier.");openForm(duplicate);return}prospects.push({id:crypto.randomUUID(),...d,history:[{date,type:"Création",text:action||"Prospect créé"}],priceHistory:d.price?[{date,price:d.price,source:d.source||"",reason:"Création"}]:[],appearanceHistory:[{date,source:d.source||"",sourceUrl:d.sourceUrl||"",externalId:d.externalId||""}],firstDetectedAt:d.detectionDate||today(),lastSeenAt:date,createdAt:date,updatedAt:date})}save();closeForm()};
 $("resetBtn").onclick=()=>{["q","city","districtFilter","type","status","dpeFilter","signalFilter","movementFilter","priceMin","priceMax","areaMin","areaMax","landMin","landMax","roomsMin","roomsMax","detectedFrom","detectedTo"].forEach(id=>$(id).value="");prospectPage=1;render()};
