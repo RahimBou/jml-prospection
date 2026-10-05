@@ -27,7 +27,9 @@
     <button id="sectorAddTopBtn" type="button" class="primary">🎯 Ajouter les meilleurs à ma sélection</button>
   </div>
   <div id="sectorWorkList" class="sector-work-list"></div>
-</section><section id="autoTreatmentPanel" class="panel auto-treatment-panel">
+</section><section id="prospectDetailPanel" class="panel prospect-detail-panel" hidden>
+<div class="prospect-detail-head"><button id="prospectDetailBackBtn" type="button" class="ghost">← Retour au secteur</button><div><span class="eyebrow">FICHE PROSPECT</span><h1 id="prospectDetailTitle">Dossier prospect</h1><p id="prospectDetailSubtitle">Analyse et prochaine action.</p></div></div>
+<div id="prospectDetailBody" class="prospect-detail-body"></div></section><section id="autoTreatmentPanel" class="panel auto-treatment-panel">
 <div class="panel-title"><div><h1>⚡ Traiter les données</h1><p>Analyse toute la base et organise automatiquement les prospects par priorité et secteur.</p></div><span class="radar-score">V1.55</span></div>
 <div class="auto-treatment-actions"><button id="autoProcessBtn" class="primary">⚡ Traiter toute la base</button><span id="autoProcessCount" class="meta">0 / 0</span></div>
 <progress id="autoProcessBar" value="0" max="100"></progress><div id="autoProcessStatus" class="source-note">Lance le traitement pour analyser tous les prospects.</div>
