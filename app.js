@@ -513,7 +513,23 @@ function autoSectorStats(){
     x[pr]=(x[pr]||0)+1;
     x.scoreSum+=Number(p.autoScore)||0;
   });
-  return [...map.values()].map(x=>({...x,avg:x.total?Math.round(x.scoreSum/x.total):0}));
+  return [...map.values()].map(x=>{
+    const sectorProspects=prospects.filter(p=>String(p.autoSector||p.city||p.postalCode||"Secteur non renseigné").trim()===x.sector);
+    const geo=sectorProspects.filter(p=>Number.isFinite(Number(p.latitude))&&Number.isFinite(Number(p.longitude)));
+    let density=0;
+    if(geo.length>=3){
+      let nearestSum=0;
+      geo.forEach((p,i)=>{
+        let best=Infinity;
+        geo.forEach((q,j)=>{if(i!==j){const d=haversineKm(p,q);if(d<best)best=d;}});
+        if(Number.isFinite(best))nearestSum+=best;
+      });
+      const avgNearest=nearestSum/geo.length;
+      density=Math.max(0,Math.min(100,Math.round(100/(1+avgNearest*3))));
+    }else if(x.total>=15)density=60;
+    const raw=Math.round(x.A*6+x.B*2+x.avg*0.45+Math.min(20,x.total)*0.5+density*0.2);
+    return {...x,avg:x.total?Math.round(x.scoreSum/x.total):0,geoCount:geo.length,densityScore:density,tourScore:Math.min(100,raw)};
+  });
 }
 let sectorListSearch="";
 let sectorListSort="alpha";
@@ -533,10 +549,20 @@ function renderAutoTreatmentSummary(){
   const processed=prospects.filter(p=>p.autoProcessedAt).length;
   const counts={A:0,B:0,C:0,D:0};
   prospects.forEach(p=>{const k=p.autoPriority||"D";if(counts[k]!=null)counts[k]++;});
-  const top=sortSectorRows(all).slice().sort((a,b)=>(b.A-a.A)||(b.avg-a.avg)||String(a.sector).localeCompare(String(b.sector),"fr")).slice(0,5);
+  const top=all.slice().sort((a,b)=>(b.tourScore-a.tourScore)||(b.A-a.A)||(b.avg-a.avg)||String(a.sector).localeCompare(String(b.sector),"fr")).slice(0,5);
   box.innerHTML='<div class="auto-summary-grid"><article><strong>'+total+'</strong><span>prospects</span></article><article><strong>'+processed+'</strong><span>analysés</span></article><article><strong>'+counts.A+'</strong><span>priorité A</span></article><article><strong>'+all.length+'</strong><span>secteurs</span></article></div>'+
-    (top.length?'<div class="auto-summary-sectors"><strong>🔥 Secteurs à travailler en premier</strong>'+top.map(x=>'<button type="button" class="sector-row" data-sector-summary="'+esc(x.sector)+'"><span>'+esc(x.sector)+'</span><strong>'+x.A+' A · '+x.avg+'/100</strong></button>').join("")+'</div>':'');
-  box.onclick=e=>{const b=e.target.closest("[data-sector-summary]");if(!b)return;showAutoSector(b.dataset.sector||"");};
+    (top.length?'<div class="auto-summary-sectors"><strong>🔥 Secteurs recommandés pour une tournée</strong>'+top.map(x=>'<div class="sector-row"><button type="button" class="sector-row-main" data-sector-summary="'+esc(x.sector)+'"><span><b>'+esc(x.sector)+'</b><small>'+x.A+' A · '+x.B+' B · '+x.total+' dossiers</small></span><strong>🎯 '+x.tourScore+'/100</strong></button><button type="button" class="primary sector-tour-btn" data-sector-tour="'+esc(x.sector)+'">🚗 Préparer 30</button></div>').join("")+'</div>':'');
+  box.onclick=e=>{
+    const tour=e.target.closest("[data-sector-tour]");
+    if(tour){
+      autoSectorFilter=tour.dataset.sector||"";
+      sectorWorkPriority="ALL";
+      prepareSectorSelection();
+      openTour();
+      return;
+    }
+    const b=e.target.closest("[data-sector-summary]");if(!b)return;showAutoSector(b.dataset.sector||"");
+  };
 }
 function renderAutoSectorTable(){
   const table=$("autoSectorTable"); if(!table)return;
