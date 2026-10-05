@@ -664,6 +664,43 @@ function radarProspectionApproach(p){
   return "Approche douce : prise de contact informative, sans présenter le propriétaire comme vendeur.";
 }
 
+function radarPriorityBucket(p){
+  const score=Number(p?.priorityProspectionScore??p?.priorityScore??p?.score??0);
+  if(score>=85)return {key:"A",label:"A · Urgent",days:2};
+  if(score>=70)return {key:"B",label:"B · Prioritaire",days:7};
+  if(score>=55)return {key:"C",label:"C · À traiter",days:14};
+  return {key:"D",label:"D · Surveillance",days:30};
+}
+function autoSaveRadarResults(items){
+  if(!Array.isArray(items)||!items.length)return {created:0,merged:0};
+  let created=0,merged=0;
+  for(const p of items){
+    const bucket=radarPriorityBucket(p);
+    const sector=p.territorySector||p.city||"Secteur non défini";
+    const incoming={
+      address:p.address||"",postalCode:p.postalCode||"",city:p.city||"",district:p.district||"",
+      type:futureRadarType(p.buildingType),area:num(p.area),land:num(p.terrainArea||p.latestSale?.landArea),
+      rooms:num(p.sameAddressSale?.latest?.rooms||p.latestSale?.rooms),bedrooms:0,price:num(p.price),
+      dpe:p.dpe||"",futureRadarScore:num(p.priorityProspectionScore??p.priorityScore??p.score),
+      priorityProspectionScore:num(p.priorityProspectionScore??p.priorityScore??p.score),
+      priorityProspectionLevel:bucket.label,priorityProspectionBucket:bucket.key,
+      territorySector:sector,sellerOpportunityScore:num(p.sellerOpportunityScore),
+      sellerOpportunityLevel:p.sellerOpportunityLevel||"",sellerOpportunityAction:p.sellerOpportunityAction||"",
+      marketContextScore:num(p.marketContextScore),commercialSignalScore:num(p.commercialSignalScore),
+      dataQuality:p.dataQuality||null,status:"Pas encore en vente",
+      detectionDate:today(),nextFollow:radarFollowUpDate(bucket.days),
+      source:"Radar automatique · ADEME + DVF",externalId:p.id||"",
+      sourceUrl:"https://data.ademe.fr/datasets/dpe03existant",
+      description:"Secteur "+sector+" · Priorité "+bucket.key+" · Score "+num(p.priorityProspectionScore??p.priorityScore??p.score)+"/100.",
+      notes:"Enregistrement automatique du Radar. DPE "+(p.dpeConfirmed?"confirmé":"à confirmer")+" · DVF "+(p.sameAddressSaleConfirmed?"confirmée":"à confirmer")+" · "+(p.comparableCount||0)+" comparables."
+    };
+    const result=mergeProspect(incoming);
+    result==="created"?created++:merged++;
+  }
+  save();
+  return {created,merged};
+}
+
 function addFutureRadarVisiblePage(){
   const start=futureRadarPage*FUTURE_RADAR_PAGE_SIZE;
   const visible=futureRadarCandidates.slice(start,start+FUTURE_RADAR_PAGE_SIZE).filter(Boolean);
