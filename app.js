@@ -1,4 +1,4 @@
-const APP_VERSION = "1.54.1";
+const APP_VERSION = "1.56.1";
 /* V1.50 — le frontend Render web doit toujours viser le service API dédié. */
 const API_BASE = String(window.JML_API_BASE || "https://jml-prospection-web.onrender.com").replace(/\/$/,"");
 
