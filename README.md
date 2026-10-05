@@ -1,5 +1,12 @@
 # JML Prospection
 
+## V1.66.0 — nettoyage global des doublons
+- La base locale est nettoyée automatiquement au chargement : les dossiers portant la même adresse, code postal et commune sont fusionnés en un seul dossier.
+- Les informations les plus complètes sont conservées ; historique, prix, apparitions de sources et signaux sont fusionnés au lieu d'être supprimés.
+- La sélection des 10 prospects est remappée vers les dossiers conservés pour ne pas perdre le travail déjà réalisé.
+- Les nouveaux imports et enregistrements utilisent la même clé de dédoublonnage afin d'éviter le retour des doublons.
+- V1.66.0 + cache PWA v16 synchronisés.
+
 ## V1.65.0 — sélection secteur orientée action
 - « Préparer mes 10 meilleurs » remplace l'ancien bouton ambigu « Ajouter les meilleurs à ma sélection ».
 - Le classement privilégie la priorité A/B/C/D puis le score automatique, avec regroupement des doublons d'adresse.
