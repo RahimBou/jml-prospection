@@ -1,7 +1,18 @@
 services:
-  # Frontend statique public. Les appels /api/* sont proxifiés vers le serveur Node.
+  # API Node réelle : DVF / DPE / Radar / Annonces.
+  # Ce service existe déjà dans Render sous ce nom et est de type Node.
   - type: web
     name: jml-prospection
+    runtime: node
+    buildCommand: ""
+    startCommand: node server.js
+    autoDeploy: true
+    healthCheckPath: /api/health
+
+  # Frontend statique public.
+  # Les appels /api/* sont proxifiés vers l'API Node existante.
+  - type: web
+    name: jml-prospection-web
     runtime: static
     buildCommand: ""
     staticPublishPath: .
@@ -9,18 +20,9 @@ services:
     routes:
       - type: rewrite
         source: /api/*
-        destination: https://jml-prospection-api.onrender.com/api/*
-  
-  # API Node réelle : DVF / DPE / Radar / Annonces.
-  - type: web
-    name: jml-prospection-api
-    runtime: node
-    buildCommand: ""
-    startCommand: node server.js
-    autoDeploy: true
-    healthCheckPath: /api/health
+        destination: https://jml-prospection.onrender.com/api/*
 
-  # Nouvelle V2 propre, totalement séparée de la V1.
+  # V2 séparée de la V1.
   - type: web
     name: jml-prospection-v2
     runtime: node
