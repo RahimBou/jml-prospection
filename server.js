@@ -2072,6 +2072,64 @@ async function api(pathname,url){
     }).filter(x=>x.address).sort((a,b)=>(b.priorityScore-a.priorityScore)||(b.marketContextScore-a.marketContextScore)).slice(0,limit);
     return {source:"ADEME + DVF comparables locaux",codeInsee,dpeCount:dpeRows.length,dpeRawCount:dpeRowsRaw.length,dpeDuplicateCount:Math.max(0,dpeRowsRaw.length-dpeRows.length),dvfCount:dvfRows.length,dvfSource:dvf.source,dvfFallback:!!dvf.fallback,results:candidates};
   }
+  if(pathname==="/api/radar-territory"){
+    const department=String(url.searchParams.get("department")||"08").trim();
+    const years=Math.max(2,Math.min(5,Number(url.searchParams.get("years"))||5));
+    const perCommuneLimit=Math.max(10,Math.min(100,Number(url.searchParams.get("perCommuneLimit"))||60));
+    const communeBatch=Math.max(1,Math.min(6,Number(url.searchParams.get("communeBatch"))||6));
+    const communes=(await getDepartmentCommunes(department)).slice().sort((a,b)=>(b.population-a.population)||a.city.localeCompare(b.city,"fr"));
+    const all=[];
+    const failed=[];
+    let dpeCount=0,dvfCount=0,dpeRawCount=0,dpeDuplicateCount=0;
+    for(let offset=0;offset<communes.length;offset+=communeBatch){
+      const batch=communes.slice(offset,offset+communeBatch);
+      const results=await Promise.allSettled(batch.map(c=>api("/api/radar?codeInsee="+encodeURIComponent(c.cityCode)+"&limit="+perCommuneLimit+"&years="+years)));
+      for(let i=0;i<results.length;i++){
+        const r=results[i], commune=batch[i];
+        if(r.status!=="fulfilled"){failed.push({city:commune.city,cityCode:commune.cityCode,error:r.reason?.message||"Source indisponible"});continue;}
+        const data=r.value||{};
+        dpeCount+=Number(data.dpeCount)||0;
+        dvfCount+=Number(data.dvfCount)||0;
+        dpeRawCount+=Number(data.dpeRawCount)||0;
+        dpeDuplicateCount+=Number(data.dpeDuplicateCount)||0;
+        for(const p of (data.results||[])){
+          all.push({...p,territorySector:commune.city,territorySectorCode:commune.cityCode,territoryPopulation:commune.population||0});
+        }
+      }
+    }
+    const key=p=>[norm(p.address||""),norm(p.postalCode||""),norm(p.city||""),norm(p.buildingRef||""),norm(p.apartmentRef||""),Number(p.area)||0,Number(p.rooms)||0].join("|");
+    const unique=new Map();
+    for(const p of all){
+      const k=key(p);
+      const old=unique.get(k);
+      if(!old || Number(p.priorityProspectionScore||0)>Number(old.priorityProspectionScore||0)) unique.set(k,p);
+    }
+    const results=Array.from(unique.values()).sort((a,b)=>
+      (Number(b.priorityProspectionScore??0)-Number(a.priorityProspectionScore??0))||
+      (Number(b.sellerOpportunityScore??0)-Number(a.sellerOpportunityScore??0))||
+      (Number(b.commercialSignalScore??0)-Number(a.commercialSignalScore??0))||
+      String(a.city||"").localeCompare(String(b.city||""),"fr")
+    );
+    const sectorMap=new Map();
+    for(const p of results){
+      const k=p.territorySectorCode||p.city||"";
+      if(!sectorMap.has(k))sectorMap.set(k,{id:k,label:p.territorySector||p.city||"Secteur",count:0,topPriority:Number(p.priorityProspectionScore)||0});
+      const s=sectorMap.get(k); s.count++; s.topPriority=Math.max(s.topPriority,Number(p.priorityProspectionScore)||0);
+    }
+    return {
+      source:"ADEME DPE + DVF · territoire Ardennes",
+      department,years,
+      communeCount:communes.length,
+      communesAnalyzed:communes.length-failed.length,
+      dpeCount,dvfCount,dpeRawCount,dpeDuplicateCount,
+      failedCommunes:failed,
+      sectorCount:sectorMap.size,
+      sectors:Array.from(sectorMap.values()).sort((a,b)=>(b.topPriority-a.topPriority)||a.label.localeCompare(b.label,"fr")),
+      results,
+      totalResults:results.length,
+      disclaimer:"Classement de prospection basé sur les mêmes règles Radar JML. Les données publiques ne permettent pas d'inférer une intention de vendre ni d'identifier un propriétaire."
+    };
+  }
   if(pathname==="/api/backtest"){
     let codeInsee=url.searchParams.get("codeInsee")?.trim();
     const q=url.searchParams.get("q")?.trim();
