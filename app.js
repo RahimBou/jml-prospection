@@ -70,7 +70,7 @@ document.addEventListener("click",e=>{
   const tour=e.target.closest("#navRouteShortcut");
   if(tour){e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();openTour();return;}
 },true);
-const APP_VERSION = "1.74.0";
+const APP_VERSION = "1.74.1";
 /* V1.50 — le frontend Render web doit toujours viser le service API dédié. */
 const API_BASE = String(window.JML_API_BASE || "https://jml-prospection-web.onrender.com").replace(/\/$/,"");
 
@@ -527,8 +527,9 @@ function autoSectorStats(){
       const avgNearest=nearestSum/geo.length;
       density=Math.max(0,Math.min(100,Math.round(100/(1+avgNearest*3))));
     }else if(x.total>=15)density=60;
-    const raw=Math.round(x.A*6+x.B*2+x.avg*0.45+Math.min(20,x.total)*0.5+density*0.2);
-    return {...x,avg:x.total?Math.round(x.scoreSum/x.total):0,geoCount:geo.length,densityScore:density,tourScore:Math.min(100,raw)};
+    const avg=x.total?Math.round(x.scoreSum/x.total):0;
+    const raw=Math.round(x.A*6+x.B*2+avg*0.45+Math.min(20,x.total)*0.5+density*0.2);
+    return {...x,avg,geoCount:geo.length,densityScore:density,tourScore:Math.min(100,Math.max(0,raw))};
   });
 }
 let sectorListSearch="";
