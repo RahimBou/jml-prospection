@@ -1,3 +1,1632 @@
 const APP_VERSION = "1.50.0";
 /* V1.50 — le frontend Render web doit toujours viser le service API dédié. */
 const API_BASE = String(window.JML_API_BASE || ((location.hostname === "jml-prospection-web.onrender.com" || location.hostname === "jml-prospection.onrender.com") ? "https://jml-prospection-web.onrender.com" : "")).replace(/\/$/,"");
+
+/* V1.37.3 — garde-fou des boutons : délégation globale + diagnostic JS */
+window.addEventListener("error",e=>{
+  const box=document.getElementById("aiStatus");
+  if(box&&e?.message) box.textContent="⚠️ Erreur JavaScript : "+e.message;
+});
+document.addEventListener("click",e=>{
+  const b=e.target.closest("#aiAnalyzeBtn,#aiWhyBtn,#aiPriorityBtn,#aiCallBtn,#aiReportBtn,#aiFollowupBtn,#futureRadarBtn,#futureRadarPrint,#futureRadarAddAll,#futureRadarAddPage,#futureRadarSelectAll,#futureRadarDeselectAll,#futureRadarRoute,#integrationsTestBtn,#sourcesRefreshBtn,#publicSearchBtn,#ctSearchBtn,#ctTourBtn,#ctSelect10Btn,#ctDeselectBtn,#ctPrepareSelectedBtn");
+  if(!b)return;
+  const tasks={aiAnalyzeBtn:"analyze",aiWhyBtn:"why",aiPriorityBtn:"priority",aiCallBtn:"call",aiReportBtn:"report",aiFollowupBtn:"followup"};
+  if(tasks[b.id]&&typeof aiRun==="function"){e.preventDefault();e.stopImmediatePropagation();aiRun(tasks[b.id]);}
+  else if(b.id==="futureRadarBtn"&&typeof runFutureRadar==="function"){e.preventDefault();e.stopImmediatePropagation();runFutureRadar();}
+  else if(b.id==="futureRadarPrint"&&typeof printFutureRadarSelection==="function"){e.preventDefault();e.stopImmediatePropagation();printFutureRadarSelection();}
+  else if(b.id==="futureRadarAddAll"&&typeof addFutureRadarCandidates==="function"){e.preventDefault();e.stopImmediatePropagation();addFutureRadarCandidates();}
+  else if(b.id==="futureRadarAddPage"&&typeof addFutureRadarVisiblePage==="function"){e.preventDefault();e.stopImmediatePropagation();addFutureRadarVisiblePage();}
+  else if(b.id==="futureRadarSelectAll"&&typeof futureRadarRender==="function"){e.preventDefault();e.stopImmediatePropagation();futureRadarSelectCompactTen();}
+  else if(b.id==="futureRadarDeselectAll"&&typeof futureRadarRender==="function"){e.preventDefault();e.stopImmediatePropagation();const start=futureRadarPage*FUTURE_RADAR_PAGE_SIZE;for(let i=start;i<Math.min(start+FUTURE_RADAR_PAGE_SIZE,futureRadarCandidates.length);i++)futureRadarSelectedIndices.delete(i);futureRadarRender();}
+  else if(b.id==="futureRadarRoute"&&typeof prepareFutureRadarRoute==="function"){e.preventDefault();e.stopImmediatePropagation();prepareFutureRadarRoute();}
+  else if(b.id==="integrationsTestBtn"&&typeof testIntegrations==="function"){e.preventDefault();e.stopImmediatePropagation();testIntegrations();}
+  else if(b.id==="sourcesRefreshBtn"&&typeof refreshSourceConnectors==="function"){e.preventDefault();e.stopImmediatePropagation();refreshSourceConnectors();}
+  else if(b.id==="publicSearchBtn"&&typeof searchPublicSources==="function"){e.preventDefault();e.stopImmediatePropagation();searchPublicSources();}
+  else if(b.id==="ctSearchBtn"&&typeof ctSearch==="function"){e.preventDefault();e.stopImmediatePropagation();ctSearch();}
+  else if(b.id==="ctTourBtn"&&typeof ctSectorTour==="function"){e.preventDefault();e.stopImmediatePropagation();ctSectorTour();}
+  else if(b.id==="ctSelect10Btn"&&typeof ctSelect10==="function"){e.preventDefault();e.stopImmediatePropagation();ctSelect10();}
+  else if(b.id==="ctDeselectBtn"&&typeof ctDeselectAll==="function"){e.preventDefault();e.stopImmediatePropagation();ctDeselectAll();}
+  else if(b.id==="ctPrepareSelectedBtn"&&typeof ctPrepareSelectedTour==="function"){e.preventDefault();e.stopImmediatePropagation();ctPrepareSelectedTour();}
+});
+const KEY="jml_prospection_v1";let prospects=load(),pendingImport=[];let prospectPage=1;let prospectTotalPages=1;const DEFAULT_PROSPECT_PAGE_SIZE=8;const $=id=>document.getElementById(id);
+function load(){try{const x=JSON.parse(localStorage.getItem(KEY)||"[]");return Array.isArray(x)?x:[]}catch(e){return[]}}
+function save(){localStorage.setItem(KEY,JSON.stringify(prospects));render();if(typeof statsSync==="function")statsSync()}
+function esc(v=""){return String(v).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
+function now(){return new Date().toISOString()}
+function today(){return new Date().toISOString().slice(0,10)}
+function norm(v=""){return String(v).normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/œ/g,"oe").replace(/æ/g,"ae").replace(/[^a-z0-9]+/g," ").trim().replace(/\s+/g," ")}
+function dedupeKey(p){const ext=norm(p.externalId||"");if(ext)return "ext|"+norm(p.source||"")+"|"+ext;const cp=String(p.postalCode||"").replace(/\D/g,"");return [norm(p.address),cp,norm(p.city),norm(p.type)].filter(Boolean).join("|")}
+function num(v){return Number(v)||0}
+function openForm(item=null){$("prospectForm").reset();$("editId").value=item?.id||"";$("dialogTitle").textContent=item?"Modifier le prospect":"Nouveau prospect";$("history").innerHTML=item&&item.history?.length?item.history.slice().reverse().map(h=>'<div class="history-item"><strong>'+esc(h.type)+'</strong><span>'+new Date(h.date).toLocaleString("fr-FR")+'</span><p>'+esc(h.text)+'</p></div>').join(""):"<div class='meta'>Aucun historique.</div>";if(item){for(const k of ["address","postalCode","district","area","land","rooms","bedrooms","price","dpe","detectionDate","nextFollow","source","externalId","sourceUrl","description","notes"])if($(k))$(k).value=item[k]??"";$("formCity").value=item.city||"";$("formType").value=item.type||"Maison";$("formStatus").value=item.status||"Nouveau"}else $("detectionDate").value=today();$("dialog").showModal()}
+function closeForm(){$("dialog").close()}
+function formData(){return{address:$("address").value.trim(),postalCode:$("postalCode").value.trim(),city:$("formCity").value.trim(),district:$("district").value.trim(),type:$("formType").value,area:num($("area").value),land:num($("land").value),rooms:num($("rooms").value),bedrooms:num($("bedrooms").value),price:num($("price").value),dpe:$("dpe").value,status:$("formStatus").value,detectionDate:$("detectionDate").value,nextFollow:$("nextFollow").value,source:$("source").value.trim(),externalId:$("externalId").value.trim(),sourceUrl:$("sourceUrl").value.trim(),description:$("description").value.trim(),notes:$("notes").value.trim()}}
+function ensureHistory(p){p.priceHistory=Array.isArray(p.priceHistory)?p.priceHistory:[];p.appearanceHistory=Array.isArray(p.appearanceHistory)?p.appearanceHistory:[];if(p.price&&p.priceHistory.length===0)p.priceHistory.push({date:p.createdAt||now(),price:p.price,source:p.source||"",reason:"Création"});if(!p.firstDetectedAt)p.firstDetectedAt=p.detectionDate||String(p.createdAt||now()).slice(0,10);if(!p.lastSeenAt)p.lastSeenAt=p.updatedAt||p.createdAt||now();return p}
+function priceChangeInfo(p){ensureHistory(p);const h=p.priceHistory||[];if(h.length<2)return null;const prev=h[h.length-2],cur=h[h.length-1];if(!prev.price||!cur.price||prev.price===cur.price)return null;return{previous:prev.price,current:cur.price,delta:cur.price-prev.price,pct:((cur.price-prev.price)/prev.price)*100,date:cur.date}}
+function signalInfo(p){ensureHistory(p);const tags=[],nowMs=Date.now(),detected=p.detectionDate?new Date(p.detectionDate+"T00:00:00").getTime():p.createdAt?new Date(p.createdAt).getTime():nowMs,age=Math.max(0,Math.floor((nowMs-detected)/86400000));if(age<=7)tags.push({key:"new",label:"Nouveau détecté",points:3});if(age>=60)tags.push({key:"old",label:"Fiche ancienne",points:2});if(p.nextFollow&&new Date(p.nextFollow+"T23:59:59").getTime()<nowMs&&!["Vendu / abandonné","Mandat obtenu"].includes(p.status))tags.push({key:"follow",label:"Relance en retard",points:3});if(["F","G"].includes(p.dpe))tags.push({key:"dpe",label:"DPE F/G",points:2});if(p.land>=1000)tags.push({key:"land",label:"Terrain important",points:2});const sources=new Set((p.appearanceHistory||[]).map(a=>a.source).filter(Boolean));if(sources.size>=2)tags.push({key:"multi",label:"Sources multiples",points:3});const pc=priceChangeInfo(p);if(pc&&pc.delta<0)tags.push({key:"priceDown",label:"Baisse de prix",points:4});if(pc&&pc.delta>0)tags.push({key:"priceUp",label:"Hausse de prix",points:0});const quality=p.dataQuality?.level||((p.futureRadarScore!=null&&p.address&&p.postalCode&&p.area&&p.dpe)?"sufficient":((p.price&&p.area&&p.postalCode)?"complete":"incomplete"));if(quality==="incomplete")tags.push({key:"incomplete",label:"Données à compléter",points:1});else if(quality==="sufficient")tags.push({key:"sufficient",label:"Données suffisantes",points:0});return{tags,score:tags.reduce((n,t)=>n+t.points,0),priceChange:pc}}
+function priceM2(p){return p.price&&p.area?p.price/p.area:0}
+function movement6mInfo(p){
+ ensureHistory(p);
+ const tags=[], h=p.priceHistory||[], a=p.appearanceHistory||[], nowMs=Date.now();
+ const detected=p.detectionDate?new Date(p.detectionDate+"T00:00:00").getTime():p.createdAt?new Date(p.createdAt).getTime():nowMs;
+ const age=Math.max(0,Math.floor((nowMs-detected)/86400000));
+ const pc=priceChangeInfo(p);
+ const priceChanges=Math.max(0,h.length-1);
+ const sources=new Set(a.map(x=>x.source).filter(Boolean));
+ if(pc&&pc.delta<0){
+   const pct=Math.abs(pc.pct);
+   tags.push({key:"priceDown",label:"Baisse de prix",points:pct>=10?22:15});
+ }
+ if(priceChanges>=2)tags.push({key:"repeatedPrice",label:"Plusieurs changements de prix",points:15});
+ const appearanceDates=a.map(x=>new Date(x.date||0).getTime()).filter(Number.isFinite).sort((x,y)=>x-y);
+ const distinctAppearanceDays=new Set(a.map(x=>String(x.date||"").slice(0,10)).filter(Boolean)).size;
+ if(a.length>=3&&distinctAppearanceDays>=2&&appearanceDates[appearanceDates.length-1]-appearanceDates[0]>=7*86400000)tags.push({key:"repeatedAppearance",label:"Présence répétée dans les sources",points:10});
+ if(sources.size>=2)tags.push({key:"multiSource",label:"Présent sur plusieurs sources",points:10});
+ if(age>=90)tags.push({key:"old",label:"Bien ancien dans le suivi",points:10});
+ if(p.dpe&&["F","G"].includes(p.dpe))tags.push({key:"dpe",label:"DPE F/G",points:8});
+ if(p.nextFollow&&new Date(p.nextFollow+"T23:59:59").getTime()<nowMs&&!["Vendu / abandonné","Mandat obtenu"].includes(p.status))tags.push({key:"follow",label:"Relance à traiter",points:5});
+ if(a.length>=2){
+   const dates=a.map(x=>new Date(x.date||0).getTime()).filter(Number.isFinite).sort((x,y)=>x-y);
+   if(dates.length>=2&&dates[dates.length-1]-dates[0]>=90*86400000)tags.push({key:"longHistory",label:"Historique sur plusieurs mois",points:10});
+ }
+ const score=Math.min(100,tags.reduce((n,t)=>n+t.points,0));
+ let level="Faible signal",cls="low";
+ if(score>=65){level="Priorité de suivi";cls="high"}
+ else if(score>=40){level="Potentiel de mouvement";cls="medium"}
+ else if(score>=20){level="À surveiller";cls="watch"}
+ return {score,level,cls,tags,priceChange:pc,historyCount:h.length,appearanceCount:a.length};
+}
+function movement6mHtml(p){
+ const m=movement6mInfo(p);
+ if(!m.score)return '<div class="movement-box low"><div><strong>Indice comportemental à 6 mois</strong><span>Faible signal</span></div><div class="movement-score">0/100</div></div>';
+ return '<div class="movement-box '+m.cls+'"><div><strong>Indice comportemental à 6 mois</strong><span>'+esc(m.level)+'</span><small>Indice basé sur l’historique du prospect — il ne s’agit pas d’une prédiction de vente.</small></div><div class="movement-score">'+m.score+'/100</div></div>'+(Number.isFinite(Number(p.futureRadarScore))?'<div class="meta">Score radar : <strong>'+Math.round(Number(p.futureRadarScore))+'/100</strong></div>':'')+'<div class="movement-reasons">'+m.tags.map(t=>'<span>'+esc(t.label)+' · +'+t.points+'</span>').join("")+'</div>';
+}
+function hasSignal(p){return signalInfo(p).tags.some(t=>t.points>0)||Boolean(String(p.description||"").trim())}
+function priceHistoryHtml(p){ensureHistory(p);const pc=priceChangeInfo(p);if(!p.priceHistory?.length)return"";return '<section class="price-history"><div class="price-history-head"><strong>Historique du prix</strong>'+(pc?(pc.delta<0?'<span class="price-down">▼ Baisse de '+Math.abs(pc.pct).toFixed(1)+' %</span>':'<span class="price-up">▲ Hausse de '+pc.pct.toFixed(1)+' %</span>'):"")+'</div><div class="price-history-list">'+p.priceHistory.slice().reverse().map(h=>'<div><span>'+new Date(h.date).toLocaleDateString("fr-FR")+'</span><strong>'+Number(h.price).toLocaleString("fr-FR")+' €</strong><em>'+esc(h.reason||"")+'</em></div>').join("")+'</div></section>'}
+function inRange(value,min,max){if(min!==""&&value<num(min))return false;if(max!==""&&value>num(max))return false;return true}
+function isRadarSurveillance(p){
+ const source=String(p?.source||"").toLowerCase();
+ const status=String(p?.status||"");
+ const description=String(p?.description||"").toLowerCase();
+ const notes=String(p?.notes||"").toLowerCase();
+ const radarSource=source.includes("radar surveillance")||source.includes("radar futur");
+ const radarText=description.includes("cible de surveillance")||description.includes("aucun signal commercial public")||notes.includes("cible de surveillance");
+ const radarScore=Number(p?.futureRadarScore);
+ const commercialScore=Number(p?.commercialSignalScore||0);
+ return radarSource || (status==="Pas encore en vente" && commercialScore<=0 && Number.isFinite(radarScore) && (radarText||source.includes("ademe")||source.includes("dvf")));
+}
+function isCommercialProspect(p){return !isRadarSurveillance(p)}
+function dashboardTerrain(){
+ const nowMs=Date.now(), weekMs=7*86400000, recentMs=14*86400000;
+ const active=p=>!["Vendu / abandonné","Mandat obtenu"].includes(p.status);
+ const work=prospects.filter(p=>active(p)&&isCommercialProspect(p));
+ const priority=work.filter(p=>movement6mInfo(p).score>=65).length;
+ const recent=work.filter(p=>signalInfo(p).tags.some(t=>t.key==="new")).length;
+ const addressReady=work.filter(p=>p.address&&p.postalCode&&p.city).length;
+ const addressMissing=work.filter(p=>!p.address||!p.postalCode||!p.city).length;
+ const follow=work.filter(p=>p.nextFollow&&new Date(p.nextFollow+"T23:59:59").getTime()<nowMs).length;
+ const changes=work.filter(p=>{const t=new Date(p.updatedAt||p.createdAt||0).getTime();return Number.isFinite(t)&&nowMs-t<=recentMs&&signalInfo(p).tags.some(x=>x.key==="priceDown");}).length;
+ const weekNew=work.filter(p=>{const t=new Date(p.detectionDate||p.createdAt||0).getTime();return Number.isFinite(t)&&nowMs-t<=weekMs;}).length;
+ const weekFollow=work.reduce((n,p)=>n+(p.history||[]).filter(h=>{const t=new Date(h.date||0).getTime();const text=String((h.type||"")+" "+(h.text||"")).toLowerCase();return Number.isFinite(t)&&nowMs-t<=weekMs&&text.includes("relance");}).length,0);
+ const readyVisit=Math.min(10,work.filter(p=>p.address&&p.postalCode&&p.city&&p.sourceUrl).length);
+ const byCity={};work.forEach(p=>{const city=String(p.city||"").trim();if(city)byCity[city]=(byCity[city]||0)+1});
+ const sectors=Object.entries(byCity).sort((a,b)=>b[1]-a[1]).slice(0,5);
+ $("dashboardTerrain").innerHTML='<div class="dashboard-head"><div><h2>🎯 À faire maintenant</h2><p>Vue opérationnelle des prospects commerciaux. Les biens de surveillance restent séparés.</p></div><div class="dashboard-head-actions"><span class="dashboard-badge">'+priority+' priorité'+(priority>1?'s':'')+' terrain</span><button type="button" class="ghost dashboard-toggle" data-dashboard-toggle aria-expanded="false">▸ Afficher</button></div></div><div class="dashboard-collapsible" hidden><div class="dashboard-actions-grid"><button class="dashboard-action action-hot" data-dashboard-action="priority"><strong>🔥 '+priority+'</strong><span>Priorités terrain</span><small>Indice ≥ 65</small></button><button class="dashboard-action" data-dashboard-action="recent"><strong>🆕 '+recent+'</strong><span>Nouveaux récents</span><small>Détectés ≤ 7 jours</small></button><button class="dashboard-action" data-dashboard-action="address"><strong>📍 '+addressMissing+'</strong><span>Adresses à compléter</span><small>Informations manquantes</small></button><button class="dashboard-action" data-dashboard-action="follow"><strong>📞 '+follow+'</strong><span>Relances en retard</span><small>À traiter maintenant</small></button><button class="dashboard-action" data-dashboard-action="changes"><strong>🔄 '+changes+'</strong><span>Baisses de prix récentes</span><small>Changement public détecté</small></button><button class="dashboard-action" data-dashboard-action="tour"><strong>🚗 '+readyVisit+'</strong><span>Biens prêts terrain</span><small>Adresse + source publique</small></button></div><div class="dashboard-lower"><div class="dashboard-box"><h3>🗺️ Secteurs actifs</h3>'+(sectors.length?sectors.map(([city,n])=>'<button class="sector-row" data-dashboard-city="'+esc(city)+'"><span>'+esc(city)+'</span><strong>'+n+'</strong></button>').join(""):'<div class="meta">Aucun prospect commercial renseigné.</div>')+'</div><div class="dashboard-box"><h3>📊 Activité récente</h3><div class="activity-row"><span>Nouveaux cette semaine</span><strong>'+weekNew+'</strong></div><div class="activity-row"><span>Fiches avec adresse exploitable</span><strong>'+addressReady+'</strong></div><div class="activity-row"><span>Relances enregistrées cette semaine</span><strong>'+weekFollow+'</strong></div><div class="activity-row"><span>Total prospects commerciaux actifs</span><strong>'+work.length+'</strong></div></div></div><div class="dashboard-note">Les biens issus du Radar sans signal commercial ne sont pas comptés comme prospects commerciaux : ils restent disponibles dans « Biens à surveiller ».</div></div>';
+}
+
+
+async function initRadarTerritory(){
+  const select=$("radarTerritoryCity"),simple=$("radarSimpleCity"),add=$("radarAddSector"),count=$("radarTerritoryCount"),list=$("radarSectorList");
+  if((!select&&!simple)||(!simple&&(!select||!add||!list)))return;
+  if(simple&&!simple.dataset.ready)simple.dataset.ready="1";
+  if(select&&!select.dataset.ready)select.dataset.ready="1";
+
+  const fallback=[
+    {city:"Charleville-Mézières",cityCode:"08105",postalCode:"08000",population:46000},
+    {city:"Sedan",cityCode:"08409",postalCode:"08200",population:16000},
+    {city:"Rethel",cityCode:"08362",postalCode:"08300",population:7500},
+    {city:"Revin",cityCode:"08363",postalCode:"08500",population:6000},
+    {city:"Givet",cityCode:"08190",postalCode:"08600",population:6500},
+    {city:"Vouziers",cityCode:"08490",postalCode:"08400",population:4000}
+  ];
+
+  const renderCommunes=(communes,label)=>{
+    const currentSimple=simple?.value||"";
+    const currentSelect=select?.value||"";
+    window.radarTerritoryCommunes=Array.isArray(communes)?communes:[];
+    if(count)count.textContent=label||((window.radarTerritoryCommunes.length)+" communes disponibles");
+    const sorted=window.radarTerritoryCommunes.slice().sort((a,b)=>norm(a.city).localeCompare(norm(b.city),"fr"));
+    const options='<option value="">Choisir une commune…</option>'+sorted.map(c=>'<option value="'+apiEsc(c.city)+'">'+apiEsc(c.city)+(c.population?" · "+Number(c.population).toLocaleString("fr-FR")+" hab.":"")+'</option>').join("");
+    if(simple){
+      simple.innerHTML=options;
+      if(currentSimple && sorted.some(c=>norm(c.city)===norm(currentSimple))) simple.value=currentSimple;
+      if(!simple.value){
+        const preferred=sorted.find(c=>norm(c.city)==="charleville-mezieres")||sorted[0];
+        if(preferred)simple.value=preferred.city;
+      }
+    }
+    if(select){
+      select.innerHTML='<option value="">+ Ajouter une commune comme secteur…</option>'+sorted.map(c=>'<option value="'+apiEsc(c.city)+'">'+apiEsc(c.city)+(c.population?" · "+Number(c.population).toLocaleString("fr-FR")+" hab.":"")+'</option>').join("");
+      if(currentSelect && sorted.some(c=>norm(c.city)===norm(currentSelect))) select.value=currentSelect;
+    }
+  };
+
+  // Premier affichage immédiat : évite une liste vide pendant le chargement.
+  renderCommunes(fallback,"Chargement du référentiel des Ardennes…");
+
+  const loadTerritoryDirect=async()=>{
+    const u="https://geo.api.gouv.fr/communes?codeDepartement=08&fields=nom,code,codesPostaux,codeDepartement,centre,population&format=json&geometry=centre";
+    const response=await fetch(u,{headers:{Accept:"application/json"}});
+    if(!response.ok)throw new Error("geo.api.gouv.fr HTTP "+response.status);
+    const rows=await response.json();
+    const communes=(Array.isArray(rows)?rows:[]).map(x=>{
+      const c=x?.centre?.coordinates||[];
+      return {
+        city:x?.nom||"",cityCode:x?.code||"",
+        postalCode:Array.isArray(x?.codesPostaux)?x.codesPostaux[0]||"":"",
+        department:x?.codeDepartement||"08",
+        population:Number(x?.population)||0,
+        point:(Number.isFinite(Number(c[0]))&&Number.isFinite(Number(c[1])))?{kind:"lonlat",x:Number(c[0]),y:Number(c[1])}:null
+      };
+    }).filter(x=>x.cityCode&&x.city);
+    if(communes.length<100)throw new Error("Référentiel incomplet");
+    return communes;
+  };
+
+  const territoryPromise=publicJson("/api/territory?department=08");
+  const directPromise=loadTerritoryDirect();
+
+  territoryPromise.then(data=>{
+    const communes=Array.isArray(data?.communes)?data.communes:[];
+    if(communes.length>=100)renderCommunes(communes,Number(data.communeCount||communes.length)+" communes disponibles");
+  }).catch(()=>{});
+
+  directPromise.then(communes=>{
+    renderCommunes(communes,communes.length+" communes disponibles · source officielle");
+  }).catch(()=>{});
+
+  try{
+    const data=await Promise.race([
+      territoryPromise,
+      directPromise,
+      new Promise((_,reject)=>setTimeout(()=>reject(new Error("timeout")),8000))
+    ]);
+    const communes=Array.isArray(data?.communes)?data.communes:data;
+    if(Array.isArray(communes)&&communes.length>=100){
+      renderCommunes(communes,Number(data?.communeCount||communes.length)+" communes disponibles");
+    }else{
+      throw new Error("Référentiel incomplet");
+    }
+  }catch(e){
+    // Le secours reste volontairement limité : on ne prétend pas avoir chargé
+    // le référentiel complet si aucune source n'est disponible.
+    if(!window.radarTerritoryCommunes?.length) renderCommunes(fallback,"Référentiel complet indisponible · 6 communes de secours");
+  }
+  if(add&&list){
+    add.onclick=()=>{
+      const city=select.value;
+      if(!city)return;
+      if([...document.querySelectorAll("[data-radar-sector]")].some(x=>(x.dataset.label||"").toLowerCase()===city.toLowerCase())){select.value="";return}
+      const id="custom-"+Date.now();
+      const row=document.createElement("label");
+      row.className="radar-sector-row";
+      row.setAttribute("data-radar-sector-row","");
+      row.innerHTML='<span class="radar-sector-check"><input type="checkbox" data-radar-sector value="'+apiEsc(id)+'" data-label="'+apiEsc(city)+'" checked><strong>'+apiEsc(city)+'</strong></span><select data-radar-radius aria-label="Rayon '+apiEsc(city)+'"><option value="5">5 km</option><option value="10">10 km</option><option value="15" selected>15 km</option><option value="20">20 km</option><option value="25">25 km</option><option value="30">30 km</option><option value="40">40 km</option></select><button type="button" class="radar-remove-sector" title="Retirer">×</button>';
+      list.appendChild(row); select.value="";
+      row.querySelector(".radar-remove-sector").onclick=()=>row.remove();
+    };
+    list.querySelectorAll(".radar-remove-sector").forEach(btn=>btn.onclick=()=>btn.closest("[data-radar-sector-row]")?.remove());
+  }
+}
+
+
+function initRadarSimpleMode(){
+  const toggle=$("radarAdvancedToggle"),body=$("radarAdvancedBody");
+  if(toggle&&body&&!toggle.dataset.ready){
+    toggle.dataset.ready="1";
+    toggle.onclick=()=>{
+      const open=body.hidden;
+      body.hidden=!open;
+      toggle.setAttribute("aria-expanded",String(open));
+      toggle.textContent=open?"✕ Fermer la recherche multi-secteurs":"⚙️ Recherche multi-secteurs";
+    };
+  }
+}
+function initRadarCommuneInput(){
+ const input=$("futureRadarQuery"),status=$("futureRadarReady");
+ if(!input||input.dataset.ready)return;
+ input.dataset.ready="1";
+ let timer=null;
+ input.addEventListener("input",()=>{
+   clearTimeout(timer);
+   const value=input.value.trim();
+   if(status) status.textContent=value?"🔎 Commune prête à être vérifiée":"En attente d'une commune";
+   timer=setTimeout(async()=>{
+     if(!value)return;
+     try{
+       const rows=await publicJson("/api/commune?q="+encodeURIComponent(value));
+       const hit=rows?.[0];
+       if(hit?.city){
+         if(status) status.textContent="✅ Commune reconnue : "+hit.city;
+       }else if(status) status.textContent="⚠️ Commune à vérifier";
+     }catch(e){ if(status) status.textContent="Commune à vérifier avant analyse"; }
+   },450);
+ });
+ input.addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();$("futureRadarBtn")?.click();}});
+}
+function initFutureRadarResultsToggle(){
+ const toggle=$("futureRadarToggle"),box=$("futureRadarResults");
+ if(!toggle||!box||toggle.dataset.ready)return;
+ toggle.dataset.ready="1";
+ toggle.onclick=()=>{
+   const open=box.hidden;
+   box.hidden=!open;
+   toggle.setAttribute("aria-expanded",String(open));
+   toggle.textContent=open?"✕ Masquer les biens détectés":"▸ Afficher les "+futureRadarCandidates.length+" biens détectés";
+ };
+}
+function initCollapsiblePanels(){
+ const advancedToggle=$("advancedSearchToggle"),advancedBody=$("advancedSearchBody");
+ if(advancedToggle&&advancedBody){
+   advancedToggle.onclick=()=>{const open=advancedBody.hidden;advancedBody.hidden=!open;advancedToggle.setAttribute("aria-expanded",String(open));advancedToggle.textContent=open?"✕ Fermer les filtres":"🔎 Ouvrir les filtres"};
+ }
+ const dashboard=$("dashboardTerrain");
+ if(dashboard&&!dashboard.dataset.collapsibleReady){
+   dashboard.dataset.collapsibleReady="1";
+   dashboard.addEventListener("click",e=>{const b=e.target.closest("[data-dashboard-toggle]");if(!b)return;const body=dashboard.querySelector(".dashboard-collapsible");if(!body)return;const open=body.hidden;body.hidden=!open;b.setAttribute("aria-expanded",String(open));b.textContent=open?"✕ Fermer":"▸ Afficher"});
+ }
+ initFutureRadarResultsToggle();
+}
+function render(){
+ const prospectView=$("prospectView")?.value||"commercial";
+ const viewBase=prospectView==="watch"?prospects.filter(isRadarSurveillance):prospectView==="all"?prospects:prospects.filter(isCommercialProspect);
+ const q=$("q").value.toLowerCase().trim(),city=$("city").value.toLowerCase().trim(),district=$("districtFilter").value.toLowerCase().trim(),type=$("type").value,status=$("status").value,dpe=$("dpeFilter").value,signal=$("signalFilter").value,movement=$("movementFilter").value;
+ const priceMin=$("priceMin").value,priceMax=$("priceMax").value,areaMin=$("areaMin").value,areaMax=$("areaMax").value,landMin=$("landMin").value,landMax=$("landMax").value,roomsMin=$("roomsMin").value,roomsMax=$("roomsMax").value,from=$("detectedFrom").value,to=$("detectedTo").value;
+ let rows=viewBase.filter(p=>{
+  const hay=[p.address,p.postalCode,p.city,p.district,p.description,p.notes,p.source,p.externalId].join(" ").toLowerCase();
+  const detected=p.detectionDate||String(p.createdAt||"").slice(0,10);
+  return (!q||hay.includes(q))&&(!city||String(p.city||"").toLowerCase().includes(city))&&(!district||String(p.district||"").toLowerCase().includes(district))&&(!type||p.type===type)&&(!status||p.status===status)&&(!dpe||(dpe==="Non renseigné"?!p.dpe:p.dpe===dpe))&&(!signal||(signal==="any"?hasSignal(p):signal==="none"?!hasSignal(p):signalInfo(p).tags.some(t=>t.key===signal)))&&(!movement||(movement==="high"?movement6mInfo(p).score>=65:movement==="medium"?movement6mInfo(p).score>=40&&movement6mInfo(p).score<65:movement==="watch"?movement6mInfo(p).score>=20&&movement6mInfo(p).score<40:movement6mInfo(p).score<20))&&inRange(p.price,priceMin,priceMax)&&inRange(p.area,areaMin,areaMax)&&inRange(p.land,landMin,landMax)&&inRange(p.rooms,roomsMin,roomsMax)&&(!from||detected>=from)&&(!to||detected<=to);
+ });
+ const sort=$("sort").value;
+ if(sort==="signal")rows.sort((a,b)=>movement6mInfo(b).score-movement6mInfo(a).score||signalInfo(b).score-signalInfo(a).score||String(b.updatedAt||"").localeCompare(String(a.updatedAt||"")));else if(sort==="city")rows.sort((a,b)=>String(a.city).localeCompare(String(b.city)));else if(sort==="price")rows.sort((a,b)=>b.price-a.price);else if(sort==="priceM2")rows.sort((a,b)=>priceM2(b)-priceM2(a));else if(sort==="area")rows.sort((a,b)=>b.area-a.area);else if(sort==="follow")rows.sort((a,b)=>(a.nextFollow||"9999").localeCompare(b.nextFollow||"9999"));else if(sort==="detection")rows.sort((a,b)=>(b.detectionDate||b.createdAt||"").localeCompare(a.detectionDate||a.createdAt||""));else rows.sort((a,b)=>(b.updatedAt||"").localeCompare(a.updatedAt||""));
+ const pageSize=Math.max(1,Number($("prospectPageSize")?.value)||DEFAULT_PROSPECT_PAGE_SIZE);const totalPages=Math.max(1,Math.ceil(rows.length/pageSize));prospectTotalPages=totalPages;if(prospectPage>totalPages)prospectPage=totalPages;const pageStart=(prospectPage-1)*pageSize;const pageRows=rows.slice(pageStart,pageStart+pageSize);$("resultCount").textContent=rows.length+" résultat"+(rows.length>1?"s":"");$("prospectRange").textContent=rows.length?("Affichage "+(pageStart+1)+"–"+Math.min(pageStart+pageRows.length,rows.length)+" sur "+rows.length):"0 résultat affiché";$("empty").style.display=rows.length?"none":"block";
+ $("list").innerHTML=pageRows.map(p=>'<article class="card"><div class="card-head"><div><div class="address">'+esc(p.address)+'</div><div class="meta">'+esc(p.postalCode?p.postalCode+" ":"")+esc(p.city)+(p.district?" · "+esc(p.district):"")+" · "+esc(p.type)+'</div></div><span class="badge '+badgeClass(p.status)+'">'+esc(p.status)+'</span></div>'+(p.price?'<div class="price">'+p.price.toLocaleString("fr-FR")+' €</div>':"")+'<div class="details">'+(p.area?'<span class="detail">'+p.area+' m²</span>':"")+(p.land?'<span class="detail">Terrain '+p.land+' m²</span>':"")+(p.rooms?'<span class="detail">'+p.rooms+' pièces</span>':"")+(p.bedrooms?'<span class="detail">'+p.bedrooms+' ch.</span>':"")+(p.dpe?'<span class="detail">DPE '+esc(p.dpe)+'</span>':'<span class="detail">DPE —</span>')+(priceM2(p)?'<span class="detail">'+Math.round(priceM2(p)).toLocaleString("fr-FR")+' €/m²</span>':"")+(p.source?'<span class="detail">'+esc(p.source)+'</span>':"")+'</div>'+(p.description?'<div class="signal">'+esc(p.description)+'</div>':"")+'<div class="meta">Détection : '+(p.detectionDate?new Date(p.detectionDate+"T00:00:00").toLocaleDateString("fr-FR"):"non définie")+' · Relance : '+(p.nextFollow?new Date(p.nextFollow+"T00:00:00").toLocaleDateString("fr-FR"):"non définie")+'</div>'+signalInfo(p).tags.filter(t=>t.points>0).map(t=>'<span class="signal-tag">'+esc(t.label)+(t.key==="priceDown"&&signalInfo(p).priceChange?' · '+Math.abs(signalInfo(p).priceChange.pct).toFixed(1)+' %':"")+'</span>').join("")+movement6mHtml(p)+priceHistoryHtml(p)+'<div class="card-actions"><button class="ghost" data-edit="'+p.id+'">Ouvrir / modifier</button>'+(p.sourceUrl?'<a class="ghost" href="'+esc(p.sourceUrl)+'" target="_blank" rel="noopener">Source</a>':"")+'<button class="ghost" data-delete="'+p.id+'">Supprimer</button></div></article>').join("");
+ dashboardTerrain();const commercial=prospects.filter(isCommercialProspect),surveillance=prospects.filter(isRadarSurveillance);$("statTotal").textContent=commercial.length;$("statNew").textContent=commercial.filter(p=>p.status==="Nouveau").length;$("statFollow").textContent=commercial.filter(p=>p.status==="À relancer").length;$("statSignals").textContent=surveillance.length;const totalSignals=commercial.reduce((n,p)=>n+signalInfo(p).score,0),movementHigh=commercial.filter(p=>movement6mInfo(p).score>=65).length,movementMedium=commercial.filter(p=>movement6mInfo(p).score>=40&&movement6mInfo(p).score<65).length; $("radarSummary").textContent=totalSignals+" points de signal · "+movementHigh+" priorité"+(movementHigh>1?"s":"")+" / "+movementMedium+" potentiels";$("signalChips").innerHTML=["new","old","follow","dpe","land","multi","priceDown","incomplete","sufficient"].map(k=>{const n=commercial.filter(p=>signalInfo(p).tags.some(t=>t.key===k)).length;const label={new:"Nouveaux",old:"Anciens",follow:"Relances en retard",dpe:"DPE F/G",land:"Terrains importants",multi:"Sources multiples",priceDown:"Baisses de prix",incomplete:"Données à compléter",sufficient:"Données suffisantes"}[k];return n?"<button class=\"signal-chip\" data-signal=\""+k+"\">"+label+" · "+n+"</button>":""}).join("");if($("prospectsTitle"))$("prospectsTitle").textContent=prospectView==="watch"?"Biens à surveiller":prospectView==="all"?"Tous les biens":"Prospects commerciaux";if($("prospectsViewNote"))$("prospectsViewNote").textContent=prospectView==="watch"?"Ces biens proviennent principalement du Radar DPE/DVF. Ils sont à surveiller et ne constituent pas, à eux seuls, un signal de vente.":prospectView==="all"?"Vue complète du CRM : prospects commerciaux et biens de surveillance.":"Les biens issus du Radar sans signal commercial restent séparés dans « Biens à surveiller »."
+}
+function badgeClass(s){return s==="Mandat obtenu"?"green":s==="À relancer"?"hot":""}
+function mergeProspect(incoming){const key=dedupeKey(incoming),idx=prospects.findIndex(p=>dedupeKey(p)===key),date=now();if(idx<0){const created={id:crypto.randomUUID(),...incoming,detectionDate:incoming.detectionDate||today(),history:[{date,type:"Import CSV",text:"Bien importé dans la base."}],priceHistory:incoming.price?[{date,price:incoming.price,source:incoming.source||"",reason:"Création"}]:[],appearanceHistory:[{date,source:incoming.source||"",sourceUrl:incoming.sourceUrl||"",externalId:incoming.externalId||""}],firstDetectedAt:incoming.detectionDate||today(),lastSeenAt:date,createdAt:date,updatedAt:date};prospects.push(created);return"created"}const old=ensureHistory({...prospects[idx]}),history=[...(old.history||[])];history.push({date,type:"Mise à jour source",text:incoming.source?"Données reçues depuis "+incoming.source+".":"Données importées et fusionnées."});const merged={...old};const oldPrice=num(old.price),newPrice=num(incoming.price);for(const[k,v]of Object.entries(incoming)){if(v!==""&&v!==null&&v!==undefined&&(typeof v!=="number"||v!==0))merged[k]=v}if(newPrice&&newPrice!==oldPrice){merged.priceHistory=[...(old.priceHistory||[]),{date,price:newPrice,previousPrice:oldPrice,source:incoming.source||"",reason:"Changement de prix"}];history.push({date,type:"Changement de prix",text:(oldPrice?oldPrice.toLocaleString("fr-FR")+" € → ":"")+" "+newPrice.toLocaleString("fr-FR")+" €"});}const appearance={date,source:incoming.source||"",sourceUrl:incoming.sourceUrl||"",externalId:incoming.externalId||""};const last=(old.appearanceHistory||[])[(old.appearanceHistory||[]).length-1];if(!last||[appearance.source,appearance.sourceUrl,appearance.externalId].some((v,i)=>v!==[last.source,last.sourceUrl,last.externalId][i]))merged.appearanceHistory=[...(old.appearanceHistory||[]),appearance];merged.history=history;merged.lastSeenAt=date;merged.updatedAt=date;prospects[idx]=merged;return"merged"}
+$("addBtn").onclick=()=>openForm();$("closeBtn").onclick=closeForm;$("cancelBtn").onclick=closeForm;
+$("prospectForm").onsubmit=e=>{e.preventDefault();const d=formData(),id=$("editId").value,action=$("actionNote").value.trim(),date=now();if(!d.address||!d.city)return;if(id){const i=prospects.findIndex(p=>p.id===id);if(i<0)return;const old=prospects[i],history=[...(old.history||[])];if(old.status!==d.status)history.push({date,type:"Changement de statut",text:old.status+" → "+d.status});if(action)history.push({date,type:"Action / note",text:action});const updated=ensureHistory({...old,...d});if(num(old.price)!==num(d.price)&&num(d.price)){updated.priceHistory=[...(old.priceHistory||[]),{date,price:num(d.price),previousPrice:num(old.price),source:d.source||"",reason:"Changement de prix"}];history.push({date,type:"Changement de prix",text:(old.price?num(old.price).toLocaleString("fr-FR")+" € → ":"")+" "+num(d.price).toLocaleString("fr-FR")+" €"});}updated.appearanceHistory=old.appearanceHistory?.length?old.appearanceHistory:[{date,source:d.source||"",sourceUrl:d.sourceUrl||"",externalId:d.externalId||""}];updated.history=history;updated.updatedAt=date;updated.lastSeenAt=date;prospects[i]=updated}else{const duplicate=prospects.find(p=>dedupeKey(p)===dedupeKey(d));if(duplicate){alert("Ce bien existe déjà dans la base. Ouvre sa fiche pour le modifier.");openForm(duplicate);return}prospects.push({id:crypto.randomUUID(),...d,history:[{date,type:"Création",text:action||"Prospect créé"}],priceHistory:d.price?[{date,price:d.price,source:d.source||"",reason:"Création"}]:[],appearanceHistory:[{date,source:d.source||"",sourceUrl:d.sourceUrl||"",externalId:d.externalId||""}],firstDetectedAt:d.detectionDate||today(),lastSeenAt:date,createdAt:date,updatedAt:date})}save();closeForm()};
+$("resetBtn").onclick=()=>{["q","city","districtFilter","type","status","dpeFilter","signalFilter","movementFilter","priceMin","priceMax","areaMin","areaMax","landMin","landMax","roomsMin","roomsMax","detectedFrom","detectedTo"].forEach(id=>$(id).value="");prospectPage=1;render()};
+["q","city","districtFilter","type","status","dpeFilter","signalFilter","movementFilter","priceMin","priceMax","areaMin","areaMax","landMin","landMax","roomsMin","roomsMax","detectedFrom","detectedTo","sort"].forEach(id=>$(id).addEventListener("input",()=>{prospectPage=1;render()}));
+if($("prospectView"))$("prospectView").addEventListener("change",()=>{prospectPage=1;render()});
+if($("prospectPageSize"))$("prospectPageSize").addEventListener("change",()=>{prospectPage=1;render()});
+if($("prospectPagination"))$("prospectPagination").onclick=e=>{const b=e.target.closest("[data-page]");if(!b)return;const total=prospectTotalPages;const target=b.dataset.page==="prev"?prospectPage-1:b.dataset.page==="next"?prospectPage+1:Number(b.dataset.page);if(target>=1&&target<=total){prospectPage=target;render();$("prospectsPanel").scrollIntoView({behavior:"smooth",block:"start"})}};
+$("signalChips").onclick=e=>{const b=e.target.closest("[data-signal]");if(b){$("signalFilter").value=b.dataset.signal;prospectPage=1;render()}};
+$("dashboardTerrain").onclick=e=>{
+ const b=e.target.closest("[data-dashboard-action]"),city=e.target.closest("[data-dashboard-city]");
+ if(city){$("city").value=city.dataset.dashboardCity;prospectPage=1;render();$("list").scrollIntoView({behavior:"smooth",block:"start"});return}
+ if(!b)return;
+ const action=b.dataset.dashboardAction;
+ if(action==="priority"){$("movementFilter").value="high";prospectPage=1;render();$("list").scrollIntoView({behavior:"smooth",block:"start"});}
+ else if(action==="recent"){$("signalFilter").value="new";prospectPage=1;render();$("list").scrollIntoView({behavior:"smooth",block:"start"});}
+ else if(action==="follow"){$("signalFilter").value="follow";prospectPage=1;render();$("list").scrollIntoView({behavior:"smooth",block:"start"});}
+ else if(action==="changes"){$("signalFilter").value="priceDown";prospectPage=1;render();$("list").scrollIntoView({behavior:"smooth",block:"start"});}
+ else if(action==="address"){$("q").value="";$("city").value="";$("signalFilter").value="incomplete";prospectPage=1;render();$("list").scrollIntoView({behavior:"smooth",block:"start"});}
+ else if(action==="tour"){$("ct-annonces-panel")?.scrollIntoView({behavior:"smooth",block:"start"});}
+};
+
+$("list").onclick=e=>{const edit=e.target.closest("[data-edit]"),del=e.target.closest("[data-delete]");if(edit){const p=prospects.find(x=>x.id===edit.dataset.edit);if(p)openForm(p)}if(del&&confirm("Supprimer ce prospect ?")){prospects=prospects.filter(x=>x.id!==del.dataset.delete);save()}};
+
+function parseCSV(text){const rows=[];let row=[],cell="",quote=false;for(let i=0;i<text.length;i++){const c=text[i],n=text[i+1];if(c==='"'&&quote&&n==='"'){cell+='"';i++;continue}if(c==='"'){quote=!quote;continue}if(c===","&&!quote){row.push(cell);cell="";continue}if((c==="\n"||c==="\r")&&!quote){if(c==="\r"&&n==="\n")i++;row.push(cell);if(row.some(x=>x.trim()!==""))rows.push(row);row=[];cell="";continue}cell+=c}row.push(cell);if(row.some(x=>x.trim()!==""))rows.push(row);if(!rows.length)return[];const headers=rows.shift().map(h=>norm(h).replace(/ /g,""));const aliases={adresse:"address",rue:"address",codepostal:"postalCode",cp:"postalCode",commune:"city",ville:"city",quartier:"district",type:"type",surface:"area",surfacehabitable:"area",terrain:"land",terrainm2:"land",pieces:"rooms",chambres:"bedrooms",prix:"price",dpe:"dpe",statut:"status",detection:"detectionDate",datedetection:"detectionDate",prochainerelance:"nextFollow",source:"source",identifiantsource:"externalId",sourceurl:"sourceUrl",lien:"sourceUrl",description:"description",signal:"description",notes:"notes"};return rows.map(r=>{const o={};headers.forEach((h,i)=>{const k=aliases[h]||h;if(k)o[k]=(r[i]||"").trim()});o.area=numCSV(o.area);o.land=numCSV(o.land);o.rooms=numCSV(o.rooms);o.bedrooms=numCSV(o.bedrooms);o.price=numCSV(o.price);return o}).filter(o=>o.address&&o.city)}
+function numCSV(v){if(v===undefined||v==="")return 0;return Number(String(v).replace(/\s/g,"").replace(",","." ).replace(/€/g,""))||0}
+function csvCell(v){const s=String(v??"");return /[,"\n\r]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s}
+function exportCSV(){const fields=["address","postalCode","city","district","type","area","land","rooms","bedrooms","price","dpe","status","detectionDate","nextFollow","source","externalId","sourceUrl","description","notes"],head=["adresse","codePostal","commune","quartier","type","surface","terrain","pieces","chambres","prix","dpe","statut","detection","prochaineRelance","source","identifiantSource","sourceUrl","description","notes"],lines=[head.join(",")];prospects.forEach(p=>lines.push(fields.map(k=>csvCell(p[k])).join(",")));const blob=new Blob(["\ufeff"+lines.join("\r\n")],{type:"text/csv;charset=utf-8"}),url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download="jml-prospection-export.csv";a.click();URL.revokeObjectURL(url)}
+function previewImport(){const file=$("csvFile").files[0];if(!file)return;$("importPreview").textContent="Lecture du fichier…";const reader=new FileReader();reader.onload=()=>{try{pendingImport=parseCSV(reader.result);const existing=pendingImport.filter(x=>prospects.some(p=>dedupeKey(p)===dedupeKey(x))).length;$("importPreview").innerHTML="<strong>"+pendingImport.length+"</strong> ligne(s) valide(s) · <strong>"+existing+"</strong> déjà connue(s) · les doublons seront fusionnés.<br><span class='meta'>Colonnes reconnues : adresse, CP, commune, surface, terrain, pièces, prix, DPE, détection, statut, source…</span>";$("importConfirm").disabled=!pendingImport.length}catch(err){pendingImport=[];$("importPreview").textContent="CSV illisible ou vide.";$("importConfirm").disabled=true}};reader.readAsText(file,"UTF-8")}
+$("importBtn").onclick=()=>{$("csvFile").value="";$("importPreview").textContent="Choisis un fichier CSV." ;pendingImport=[];$("importConfirm").disabled=true;$("importDialog").showModal()};$("importClose").onclick=()=>$("importDialog").close();$("importCancel").onclick=()=>$("importDialog").close();$("csvFile").addEventListener("change",previewImport);$("importConfirm").onclick=()=>{let created=0,merged=0;pendingImport.forEach(x=>{const r=mergeProspect(x);r==="created"?created++:merged++});save();$("importDialog").close();alert("Import terminé : "+created+" nouveau(x), "+merged+" fusionné(s).");pendingImport=[]};$("exportBtn").onclick=exportCSV;
+
+let futureRadarCandidates=[];let futureRadarDetectedCount=0;let futureRadarPriorityCount=0;
+/* Bridge public pour les modules externes : le Workflow consomme le même Radar, sans dupliquer le scoring. */
+window.JMLFutureRadarBridge={getCandidates:()=>futureRadarCandidates,getSelectedIndices:()=>futureRadarSelectedIndices};
+let futureRadarPage=0;
+let futureRadarSelectedIndices=new Set();
+const FUTURE_RADAR_PAGE_SIZE=10;
+const FUTURE_RADAR_MAX_SELECTED=10;
+function futureRadarType(v=""){
+  const s=String(v).toLowerCase();
+  if(s.includes("appartement"))return "Appartement";
+  if(s.includes("maison"))return "Maison";
+  return "Autre";
+}
+function futureRadarDistanceKm(a,b){
+  const lat1=Number(a?.latitude),lon1=Number(a?.longitude),lat2=Number(b?.latitude),lon2=Number(b?.longitude);
+  if(![lat1,lon1,lat2,lon2].every(Number.isFinite))return Infinity;
+  const R=6371,rad=Math.PI/180,dLat=(lat2-lat1)*rad,dLon=(lon2-lon1)*rad;
+  const h=Math.sin(dLat/2)**2+Math.cos(lat1*rad)*Math.cos(lat2*rad)*Math.sin(dLon/2)**2;
+  return 2*R*Math.asin(Math.sqrt(h));
+}
+function futureRadarAutoPrepare(selected){
+  const neighborhood=norm($("radarNeighborhood")?.value||"");
+  const excludeExisting=$("radarExcludeExisting")?.checked!==false;
+  const city=norm($("radarSimpleCity")?.value||selected?.[0]?.label||"");
+  const existing=new Set();
+  if(excludeExisting){
+    prospects.forEach(p=>existing.add(dedupeKey(p)));
+  }
+  const source=Array.isArray(futureRadarCandidates)?futureRadarCandidates:[];
+  const filtered=source.filter(p=>{
+    if(neighborhood){
+      const hay=norm([p.district,p.neighborhood,p.quartier,p.address,p.city].filter(Boolean).join(" "));
+      if(!hay.includes(neighborhood)) return false;
+    }
+    if(excludeExisting && existing.has(dedupeKey({
+      address:p.address||"",postalCode:p.postalCode||"",city:p.city||"",type:futureRadarType(p.buildingType),externalId:"",source:""
+    }))) return false;
+    return true;
+  });
+  futureRadarCandidates=filtered;
+  futureRadarPage=0;
+  futureRadarSelectedIndices=new Set();
+  for(let i=0;i<Math.min(FUTURE_RADAR_PAGE_SIZE,filtered.length);i++) futureRadarSelectedIndices.add(i);
+  futureRadarDetectedCount=filtered.length;
+  return {total:source.length,filtered:filtered.length,city,neighborhood,excludeExisting};
+}
+
+function futureRadarSelectCompactTen(){
+  const pageStart=futureRadarPage*FUTURE_RADAR_PAGE_SIZE;
+  const pageItems=futureRadarCandidates.slice(pageStart,pageStart+FUTURE_RADAR_PAGE_SIZE);
+  if(!pageItems.length)return;
+  // Pour le terrain, on privilégie un groupe géographique compact plutôt que les 10 scores
+  // les plus élevés, qui peuvent être dispersés dans plusieurs communes.
+  const anchorLocal=0;
+  const anchor=pageItems[anchorLocal];
+  const ranked=pageItems.map((p,i)=>({p,i,d:futureRadarDistanceKm(anchor,p)}))
+    .sort((a,b)=>(a.d-b.d)||((Number(b.p.priorityProspectionScore)||0)-(Number(a.p.priorityProspectionScore)||0)));
+  futureRadarSelectedIndices=new Set(ranked.slice(0,FUTURE_RADAR_MAX_SELECTED).map(x=>pageStart+x.i));
+  futureRadarRender();
+}
+function futureRadarRender(){
+  const box=$("futureRadarResults"),add=$("futureRadarAddAll"),addPage=$("futureRadarAddPage"),printBtn=$("futureRadarPrint");
+  const selectBtn=$("futureRadarSelectAll"),deselectBtn=$("futureRadarDeselectAll");
+  if(!box)return;
+  const toggle=$("futureRadarToggle");
+  if(!futureRadarCandidates.length){
+    box.innerHTML='<div class="meta">Aucun candidat exploitable trouvé pour cette analyse.</div>';
+    if(add)add.disabled=true;if(addPage)addPage.disabled=true;if(printBtn)printBtn.disabled=true;
+    if(selectBtn)selectBtn.disabled=true;if(deselectBtn)deselectBtn.disabled=true;
+    if(toggle){toggle.disabled=true;toggle.setAttribute("aria-expanded","false");toggle.textContent="▸ Afficher les biens détectés";box.hidden=true;}
+    return;
+  }
+  futureRadarPage=Math.max(0,Math.min(futureRadarPage,Math.max(0,Math.ceil(futureRadarCandidates.length/FUTURE_RADAR_PAGE_SIZE)-1)));
+  // Sélection automatique : les 10 biens affichés sont prêts à être ajoutés.
+  // L'utilisateur peut ensuite retirer un bien avec sa case, sans devoir sélectionner
+  // manuellement chaque ligne. Le CRM déduplique lors de l'ajout.
+  const pageStart=futureRadarPage*FUTURE_RADAR_PAGE_SIZE;
+  const pageEnd=Math.min(pageStart+FUTURE_RADAR_PAGE_SIZE,futureRadarCandidates.length);
+  futureRadarSelectedIndices=new Set(
+    [...futureRadarSelectedIndices].filter(i=>i>=pageStart&&i<pageEnd)
+  );
+  if(futureRadarSelectedIndices.size===0){
+    for(let i=pageStart;i<pageEnd;i++) futureRadarSelectedIndices.add(i);
+  }
+  futureRadarPriorityCount=Math.min(10,futureRadarCandidates.length);
+
+  const totalPages=Math.max(1,Math.ceil(futureRadarCandidates.length/FUTURE_RADAR_PAGE_SIZE));
+  const startIndex=futureRadarPage*FUTURE_RADAR_PAGE_SIZE;
+  const visible=futureRadarCandidates.slice(startIndex,startIndex+FUTURE_RADAR_PAGE_SIZE);
+  const actionCounts=visible.reduce((acc,p)=>{
+    const s=Number(p.priorityProspectionScore??0);
+    if(s>=85)acc.field++;
+    else if(s>=70)acc.contact++;
+    else if(s>=55)acc.active++;
+    else if(s>=40)acc.coverage++;
+    else acc.watch++;
+    return acc;
+  },{field:0,contact:0,active:0,coverage:0,watch:0});
+  const selectedCount=futureRadarSelectedIndices.size;
+  const priorityCount=Math.min(10,futureRadarCandidates.length);
+  const selectedText=selectedCount?selectedCount+" prêt(s) à ajouter":"Aucune sélection";
+  const summary='<div class="radar-worklist-summary"><strong>🎯 TOP '+priorityCount+' · À PROSPECTER</strong><span>'+apiEsc(selectedText)+' · '+(futureRadarDetectedCount||futureRadarCandidates.length)+' biens détectés</span></div>';
+  const controls='<div class="radar-selection-toolbar"><strong>📋 '+apiEsc(selectedText)+'</strong><button type="button" class="ghost" data-radar-page="prev" '+(futureRadarPage===0?"disabled":"")+'>&larr; 10 précédents</button><button type="button" class="ghost" data-radar-page="next" '+(futureRadarPage>=totalPages-1?"disabled":"")+'>'+ (futureRadarPage>=totalPages-1?"Fin":"10 suivants &rarr;")+'</button><span class="meta">Le score sert à classer les dossiers ; il ne prédit pas une vente.</span></div>';
+  const tourButton=selectedCount?'<button type="button" class="primary" id="futureRadarRoute">🚗 Préparer ma tournée</button>':'';
+  const actionBar='<div class="radar-top-actions">'+tourButton+'<button type="button" class="ghost" data-radar-scroll-top>↑ Retour au début</button></div>';
+
+  box.innerHTML=summary+actionBar+controls+visible.map((p,localIndex)=>{
+    const i=startIndex+localIndex;
+    const ms=p.methodScores||{},ev=p.evidence||{},quality=ev.dataQuality||p.dataQuality||{};
+    const sale=p.sameAddressSale||{};
+    const dpeConfirmed=p.dpeConfirmed===true;
+    const opportunity=Number(p.sellerOpportunityScore??p.marketContextScore??0);
+    const workPriority=Number(p.priorityProspectionScore??0);
+    const workPriorityDisplay=Number.isFinite(workPriority)?workPriority.toFixed(1):"0.0";
+    const workPriorityLevel=p.priorityProspectionLevel||"Priorité non calculée";
+    const workPriorityAction=p.priorityProspectionAction||"🗺️ Compléter le dossier";
+    const workPriorityReasons=Array.isArray(p.priorityProspectionReasons)?p.priorityProspectionReasons:[];
+    const opportunityLevel=p.sellerOpportunityLevel||"Surveillance";
+    const opportunityReasons=Array.isArray(p.sellerOpportunityReasons)?p.sellerOpportunityReasons:[];
+    const commercialScore=Number(p.commercialSignalScore||0);
+    const commercialSignals=Array.isArray(p.commercialSignals)?p.commercialSignals:[];
+    const reasons=(p.reasons||[]).filter(x=>!/^DPE |^Dernière vente|^Aucune vente|^Adresse DVF|^Comparables locaux|^Médiane locale|^Dispersion des prix/.test(String(x))).slice(0,3);
+    const dpeText=dpeConfirmed?"DPE "+(p.dpe||"—")+" confirmé à la même adresse":p.dpeAddressStatus==="uncertain"?"DPE trouvé · unité à confirmer":"DPE non confirmé";
+    const saleText=sale.status==="confirmed"?"Vente DVF à la même adresse · "+sale.count+" mutation(s)":sale.status==="ambiguous"?"Adresse proche d'une vente DVF · unité à confirmer":"Aucune vente DVF confirmée à la même adresse";
+    const whyNow=workPriorityReasons.slice(0,2).join(" · ")||opportunityReasons.slice(0,2).join(" · ")||reasons.slice(0,2).join(" · ")||workPriorityAction;
+    const levelClass=workPriority>=85?"urgent":workPriority>=70?"priority":workPriority>=55?"active":"watch";
+    const levelLabel=workPriority>=85?"À prospecter aujourd'hui":workPriority>=70?"Priorité de prospection":workPriority>=55?"À traiter":"À surveiller";
+    const signalText=commercialSignals.length?commercialSignals.slice(0,2).map(x=>x.label).join(" · "):"Aucun signal public détecté";
+    return '<article class="future-candidate future-candidate-card">'+
+      '<div class="future-candidate-main">'+
+        '<label class="future-check"><input type="checkbox" data-future-check="'+i+'" '+(futureRadarSelectedIndices.has(i)?"checked":"")+'><span></span></label>'+
+        '<div class="future-candidate-content">'+
+          '<div class="future-card-head"><div><span class="future-rank">#'+(i+1)+'</span><strong>'+apiEsc(p.address||"Adresse non renseignée")+'</strong><div class="meta">'+apiEsc((p.postalCode?p.postalCode+" ":"")+(p.city||""))+' · '+apiEsc(futureRadarType(p.buildingType))+(p.area?" · "+p.area+" m²":"")+'</div></div>'+
+          '<div class="future-priority '+levelClass+'"><strong>'+workPriorityDisplay+'/100</strong><span>'+apiEsc(levelLabel)+'</span><small>Priorité terrain</small><div class="future-potential"><b>'+opportunity+'/100</b><span>Potentiel vendeur</span></div></div></div>'+
+          '<div class="future-why"><strong>💡 Pourquoi maintenant ?</strong><span>'+apiEsc(whyNow)+'</span></div>'+
+          '<div class="future-key-signals"><span class="dpe-match '+(dpeConfirmed?"confirmed":p.dpeAddressStatus==="uncertain"?"uncertain":"none")+'">⚡ '+apiEsc(dpeText)+'</span><span>📊 '+apiEsc(saleText)+'</span><span>📢 '+apiEsc(signalText)+'</span></div>'+
+          '<details class="future-details"><summary>ⓘ Détails de l’analyse</summary><div class="future-detail-grid"><span><b>Potentiel</b> '+opportunity+'/100 · '+apiEsc(opportunityLevel)+'</span><span><b>Qualité données</b> '+(quality.score||0)+'/5</span><span><b>DVF comparables</b> '+(p.comparableCount||0)+'</span><span><b>Terrain</b> '+(p.terrainArea?Math.round(p.terrainArea)+" m²":"non documenté")+'</span><span><b>DPE</b> '+apiEsc(p.dpe||"—")+'</span><span><b>Signal public</b> '+commercialScore+'/100</span></div><p>'+apiEsc(workPriorityReasons.join(" · ")||reasons.join(" · ")||"Données à compléter avant prospection.")+'</p></details>'+
+          '<div class="future-candidate-actions"><button type="button" class="ghost" data-radar-prospect="'+i+'">＋ Ajouter à la surveillance</button></div>'+
+        '</div>'+
+      '</div>'+
+    '</article>';
+  }).join("");
+  add.disabled=false;if(addPage)addPage.disabled=false;if(printBtn)printBtn.disabled=selectedCount===0;
+  if(selectBtn)selectBtn.disabled=false;if(deselectBtn)deselectBtn.disabled=selectedCount===0;
+  if(toggle){toggle.disabled=false;toggle.setAttribute("aria-expanded","true");toggle.textContent="✕ Masquer les "+futureRadarCandidates.length+" biens détectés";box.hidden=false;}
+}
+async function runFutureRadar(){
+  const advancedOpen=$("radarAdvancedBody")&&!$("radarAdvancedBody").hidden;
+  let selected=advancedOpen?[...document.querySelectorAll("[data-radar-sector]:checked")].map(input=>{
+    const row=input.closest("[data-radar-sector-row]");
+    return {id:input.value,label:input.dataset.label||input.value,q:input.dataset.label||input.value,radiusKm:Number(row?.querySelector("[data-radar-radius]")?.value)||15};
+  }):[];
+  if(!advancedOpen){
+    const simpleCity=($("radarSimpleCity")?.value||"").trim();
+    const simpleRadius=Number($("radarSimpleRadius")?.value)||20;
+    if(simpleCity) selected=[{id:"simple-"+norm(simpleCity),label:simpleCity,q:simpleCity,radiusKm:simpleRadius}];
+  }
+  let q=($("futureRadarQuery")?.value||$("publicQuery")?.value||"").trim();
+  if(!selected.length&&!q){
+    const simpleCity=($("radarSimpleCity")?.value||"").trim();
+    if(simpleCity) q=simpleCity;
+  }
+  if(!selected.length&&!q){
+    $("futureRadarStatus").textContent="⚠️ Choisis une commune pour lancer le Radar.";
+    if($("futureRadarReady")) $("futureRadarReady").textContent="Zone manquante";
+    return;
+  }
+  $("futureRadarBtn").disabled=true;
+  if(selected.length){
+    $("futureRadarStatus").textContent="Préparation de l'analyse par lots…";
+    if($("futureRadarReady")) $("futureRadarReady").textContent="⏳ Analyse progressive…";
+    try{
+      const merged=new Map();
+      const sectorStats=new Map(selected.map(s=>[s.id,{...s,candidateCount:0,communeCount:0}]));
+      const sectorRoadAxes=new Map();
+      let offset=0,totalCommunes=0,processed=0,totalDvf=0,totalDpe=0,totalRawDpe=0,totalDuplicates=0,anyFallback=false,failed=[];
+      let complete=false;
+      const candidateKey=p=>[
+        norm(p.address||""),norm(p.postalCode||""),norm(p.city||""),
+        norm(p.buildingRef||""),norm(p.apartmentRef||""),Number(p.area)||0,Number(p.rooms)||0
+      ].join("|");
+      while(!complete){
+        $("futureRadarStatus").textContent="Analyse progressive · "+processed+(totalCommunes?"/"+totalCommunes:"")+" commune(s)…";
+        const data=await publicJson("/api/radar-zone?sectors="+encodeURIComponent(JSON.stringify(selected))+"&limit=100&years=5&perCommuneLimit=60&communeBatch=12&zoneMode=1&dvfMaxRows=2000&offset="+offset);
+        totalCommunes=Number(data.totalCommuneCount)||totalCommunes;
+        processed+=Number(data.communesAnalyzed)||0;
+        totalDvf+=Number(data.dvfCount)||0;
+        totalDpe+=Number(data.dpeCount)||0;
+        totalRawDpe+=Number(data.dpeRawCount)||0;
+        totalDuplicates+=Number(data.dpeDuplicateCount)||0;
+        anyFallback=anyFallback||Boolean(data.dvfFallback);
+        failed=failed.concat(data.failedCommunes||[]);
+        (data.results||[]).forEach(p=>merged.set(candidateKey(p),p));
+        (data.majorRoadAxes||[]).forEach(s=>{ if(Array.isArray(s.axes)&&s.axes.length) sectorRoadAxes.set(s.id,s.axes); });
+        (data.sectors||[]).forEach(s=>{
+          const old=sectorStats.get(s.id);
+          if(old){old.communeCount=Math.max(old.communeCount,Number(s.communeCount)||0);old.candidateCount+=Number(s.candidateCount)||0}
+        });
+        futureRadarCandidates=Array.from(merged.values()).sort((a,b)=>
+          (Number(b.priorityProspectionScore??0)-Number(a.priorityProspectionScore??0))||
+          (Number(b.sellerOpportunityScore??b.marketContextScore??0)-Number(a.sellerOpportunityScore??a.marketContextScore??0))||
+          (Number(b.commercialSignalScore??0)-Number(a.commercialSignalScore??0))||
+          (Number(b.priorityScore??b.score??0)-Number(a.priorityScore??a.score??0))
+        );
+        futureRadarDetectedCount=futureRadarCandidates.length;
+        futureRadarRender();
+        complete=data.complete===true;
+        offset=Number(data.nextOffset);
+        if(!Number.isFinite(offset)||complete)break;
+      }
+      futureRadarDetectedCount=futureRadarCandidates.length;
+      futureRadarCandidates=futureRadarCandidates.sort((a,b)=>
+        (Number(b.priorityProspectionScore??0)-Number(a.priorityProspectionScore??0))||
+        (Number(b.sellerOpportunityScore??0)-Number(a.sellerOpportunityScore??0))||
+        (Number(b.commercialSignalScore??0)-Number(a.commercialSignalScore??0))
+      );
+      const auto=futureRadarAutoPrepare(selected);
+      const sectors=Array.from(sectorStats.values()).map(x=>apiEsc(x.label)+" <strong>"+x.radiusKm+" km</strong>").join(" · ");
+      const roadAxes=Array.from(sectorRoadAxes.entries()).map(([id,axes])=>{
+        const sector=sectorStats.get(id);
+        const names=(axes||[]).map(a=>a.ref&&a.ref!==a.name?a.ref+" · "+a.name:a.name).slice(0,6);
+        return names.length?"<span>🚗 <strong>"+apiEsc(sector?.label||"Secteur")+"</strong> : "+apiEsc(names.join(", "))+"</span>":"";
+      }).filter(Boolean).join(" · ");
+      const roadInfo=roadAxes?" · "+roadAxes:"";
+      const dedupInfo=totalDuplicates>0?" · "+totalDuplicates+" doublon(s) DPE écarté(s)":"";
+      const errorInfo=failed.length>0?" · "+failed.length+" commune(s) indisponible(s)":"";
+      $("futureRadarStatus").innerHTML="<strong>Zone analysée</strong> · "+sectors+" · <strong>"+auto.filtered+"</strong> dossier(s) retenu(s) sur "+auto.total+" détecté(s) · <strong>"+Math.min(10,auto.filtered)+"</strong> automatiquement sélectionné(s) · "+processed+"/"+totalCommunes+" commune(s) analysée(s)"+(auto.excludeExisting?" · doublons de ma base exclus":"")+(auto.neighborhood?" · quartier : "+apiEsc($("radarNeighborhood").value):"")+dedupInfo+errorInfo+" · "+totalDvf+" transactions comparées."+roadInfo+" "+apiEsc(anyFallback?"DVF open-data utilisé en secours.":"DVF+ utilisé.");
+      if($("futureRadarReady")) $("futureRadarReady").textContent="✅ Analyse terminée · "+processed+" commune(s) · "+futureRadarCandidates.length+" bien(s)";
+      if($("publicQuery")) $("publicQuery").value=selected[0]?.label||"";
+    }catch(e){
+      $("futureRadarStatus").textContent="Erreur analyse de la zone : "+e.message;
+      if($("futureRadarReady")) $("futureRadarReady").textContent="❌ Analyse interrompue · résultats partiels conservés";
+      futureRadarRender();
+    }finally{$("futureRadarBtn").disabled=false}
+    return;
+  }
+  if($("publicQuery")) $("publicQuery").value=q;
+  if($("futureRadarQuery")) $("futureRadarQuery").value=q;
+  $("futureRadarStatus").textContent="Vérification de la commune puis lancement ADEME + DVF + radar…";
+  if($("futureRadarReady")) $("futureRadarReady").textContent="⏳ Analyse en cours…";
+  try{
+    const commune=await publicJson("/api/commune?q="+encodeURIComponent(q));
+    const resolved=commune?.[0]?.city||q;
+    if($("futureRadarQuery")) $("futureRadarQuery").value=resolved;
+    if($("publicQuery")) $("publicQuery").value=resolved;
+    const [sourceResult,radarResult]=await Promise.allSettled([searchPublicSources(),publicJson("/api/radar?q="+encodeURIComponent(resolved)+"&limit=100&years=5")]);
+    if(radarResult.status!=="fulfilled") throw radarResult.reason;
+    const data=radarResult.value;
+    futureRadarCandidates=data.results||[];
+    futureRadarRender();
+    const dedupInfo=Number(data.dpeDuplicateCount||0)>0?" · "+data.dpeDuplicateCount+" doublon(s) DPE écarté(s)":"";
+    const sourceNote=sourceResult.status==="fulfilled"?" · Sources publiques synchronisées":" · Sources publiques non disponibles (radar conservé)";
+    $("futureRadarStatus").innerHTML="<strong>"+apiEsc(resolved)+"</strong> · "+data.dpeCount+" DPE uniques analysés"+dedupInfo+" · "+data.dvfCount+" transactions comparées · "+futureRadarCandidates.length+" candidats classés. "+apiEsc(data.dvfFallback?"DVF open-data utilisé en secours.":"DVF+ utilisé.")+sourceNote;
+    if($("futureRadarReady")) $("futureRadarReady").textContent="✅ Commune analysée : "+resolved;
+  }catch(e){
+    futureRadarCandidates=[];futureRadarSelectedIndices=new Set();futureRadarPage=0;;
+    futureRadarRender();
+    $("futureRadarStatus").textContent="Erreur analyse commune : "+e.message;
+    if($("futureRadarReady")) $("futureRadarReady").textContent="❌ Analyse interrompue";
+  }finally{$("futureRadarBtn").disabled=false}
+}
+function radarFollowUpDate(days=7){
+  const d=new Date();
+  d.setDate(d.getDate()+days);
+  return d.toISOString().slice(0,10);
+}
+function radarProspectionApproach(p){
+  const grade=String(p?.dpe||"").toUpperCase();
+  const score=Number(p?.sellerOpportunityScore||0);
+  if(grade==="F"||grade==="G")return "Approche conseil : proposer un point sur la valeur du bien et les conséquences du DPE, sans supposer une intention de vente.";
+  if(Number(p?.marketContextScore||0)>=70)return "Approche marché local : proposer une lecture personnalisée de la valeur du bien et des ventes comparables.";
+  if(Number(p?.sameAddressSale?.ageYears||0)>=8)return "Approche patrimoniale : proposer une actualisation de la valeur du bien après plusieurs années depuis la dernière vente.";
+  if(score>=50)return "Approche découverte : proposer une estimation confidentielle et comprendre le projet à moyen terme.";
+  return "Approche douce : prise de contact informative, sans présenter le propriétaire comme vendeur.";
+}
+
+function addFutureRadarVisiblePage(){
+  const start=futureRadarPage*FUTURE_RADAR_PAGE_SIZE;
+  const visible=futureRadarCandidates.slice(start,start+FUTURE_RADAR_PAGE_SIZE).filter(Boolean);
+  if(!visible.length){alert("Aucun bien à ajouter sur cette page.");return;}
+  let created=0,merged=0;
+  for(const p of visible){
+    const incoming={
+      address:p.address||"",postalCode:p.postalCode||"",city:p.city||"",district:"",
+      type:futureRadarType(p.buildingType),area:num(p.area),land:num(p.terrainArea||p.latestSale?.landArea),
+      rooms:num(p.sameAddressSale?.latest?.rooms||p.latestSale?.rooms),bedrooms:0,price:0,dpe:p.dpe||"",
+      futureRadarScore:num(p.priorityProspectionScore??p.priorityScore??p.score),
+      sellerOpportunityScore:num(p.sellerOpportunityScore),sellerOpportunityLevel:p.sellerOpportunityLevel||"",
+      sellerOpportunityAction:p.sellerOpportunityAction||"",sellerOpportunityComponents:p.sellerOpportunityComponents||null,
+      sellerOpportunityBonus:num(p.sellerOpportunityBonus),marketContextScore:num(p.marketContextScore),
+      commercialSignalScore:num(p.commercialSignalScore),dataQuality:p.dataQuality||null,
+      status:"Pas encore en vente",detectionDate:today(),nextFollow:radarFollowUpDate(7),
+      source:"Radar surveillance · ADEME + DVF",externalId:p.id||"",
+      sourceUrl:"https://data.ademe.fr/datasets/dpe03existant",
+      description:"Potentiel de prospection : "+num(p.sellerOpportunityScore)+"/100 · "+(p.sellerOpportunityLevel||"Surveillance")+" · "+(p.sellerOpportunityAction||"Surveillance faible")+".",
+      notes:"Ajout direct depuis la page Radar. Cible de surveillance, pas prospect vendeur confirmé. DPE même adresse = "+(p.dpeConfirmed?"confirmé":"non confirmé")+" ; vente DVF même adresse = "+(p.sameAddressSaleConfirmed?"confirmée":"non confirmée")+" ; comparables distincts = "+(p.comparableCount||0)+"."
+    };
+    const result=mergeProspect(incoming);result==="created"?created++:merged++;
+  }
+  save();
+  const status=$("futureRadarStatus");
+  if(status)status.textContent="👁️ Surveillance : "+created+" nouveau(x) · "+merged+" déjà présent(s) fusionné(s) · page "+(futureRadarPage+1)+".";
+}
+
+function addFutureRadarCandidate(index){
+  const p=futureRadarCandidates[Number(index)];
+  if(!p)return;
+  const incoming={
+    address:p.address||"",postalCode:p.postalCode||"",city:p.city||"",district:"",
+    type:futureRadarType(p.buildingType),area:num(p.area),land:num(p.terrainArea||p.latestSale?.landArea),
+    rooms:num(p.sameAddressSale?.latest?.rooms||p.latestSale?.rooms),bedrooms:0,price:0,dpe:p.dpe||"",
+    futureRadarScore:num(p.priorityScore??p.score),sellerOpportunityScore:num(p.sellerOpportunityScore),
+    sellerOpportunityLevel:p.sellerOpportunityLevel||"",sellerOpportunityAction:p.sellerOpportunityAction||"",
+    sellerOpportunityComponents:p.sellerOpportunityComponents||null,sellerOpportunityBonus:num(p.sellerOpportunityBonus),
+    marketContextScore:num(p.marketContextScore),
+    commercialSignalScore:num(p.commercialSignalScore),dataQuality:p.dataQuality||null,status:"Pas encore en vente",
+    detectionDate:today(),nextFollow:radarFollowUpDate(7),source:"Radar vendeur · ADEME + DVF",
+    externalId:p.id||"",sourceUrl:"https://data.ademe.fr/datasets/dpe03existant",
+    description:"Potentiel de prospection : "+num(p.sellerOpportunityScore)+"/100 · "+(p.sellerOpportunityLevel||"Surveillance")+" · "+(p.sellerOpportunityAction||"Surveillance faible")+"." ,
+    notes:"Pourquoi le Radar le remonte : "+(p.sellerOpportunityReasons||[]).join(" · ")+". Approche suggérée : "+radarProspectionApproach(p)
+  };
+  const result=mergeProspect(incoming);
+  save();
+  alert(result==="created"?"Bien ajouté à la surveillance. Relance proposée dans 7 jours.":"Ce bien est déjà dans le CRM : ses informations ont été fusionnées.");
+}
+function prepareFutureRadarRoute(){
+  let selected=[...futureRadarSelectedIndices].slice(0,FUTURE_RADAR_MAX_SELECTED).map(i=>futureRadarCandidates[i]).filter(Boolean);
+  if(!selected.length){alert("Sélectionne les biens à inclure dans la tournée.");return;}
+  // Recompacte la tournée autour du bien prioritaire sélectionné pour éviter les grands écarts géographiques.
+  const anchor=selected.slice().sort((a,b)=>(Number(b.priorityProspectionScore||0)-Number(a.priorityProspectionScore||0)))[0];
+  const compact=selected.map(p=>({p,d:futureRadarDistanceKm(anchor,p)})).sort((a,b)=>(a.d-b.d)||((Number(b.p.priorityProspectionScore)||0)-(Number(a.p.priorityProspectionScore)||0)));
+  const finite=compact.filter(x=>Number.isFinite(x.d));
+  if(finite.length>=2)selected=finite.slice(0,FUTURE_RADAR_MAX_SELECTED).map(x=>x.p);
+  const addresses=selected.map(p=>[p.address,p.postalCode,p.city].filter(Boolean).join(", ")).filter(Boolean);
+  if(!addresses.length){alert("Les adresses sélectionnées sont insuffisantes pour préparer une tournée.");return;}
+  const destination=encodeURIComponent(addresses[addresses.length-1]);
+  const waypoints=addresses.slice(0,-1).map(encodeURIComponent).join("|");
+  const url="https://www.google.com/maps/dir/?api=1&destination="+destination+(waypoints?"&waypoints="+waypoints:"");
+  window.open(url,"_blank","noopener");
+}
+function printFutureRadarSelection(){
+  const selected=[...futureRadarSelectedIndices].slice(0,FUTURE_RADAR_MAX_SELECTED)
+    .map(i=>futureRadarCandidates[i]).filter(Boolean);
+  if(!selected.length){alert("Sélectionne au moins un bien à imprimer.");return;}
+  const escp=v=>apiEsc(v??"—");
+  const money=v=>Number.isFinite(Number(v))&&Number(v)>0?Number(v).toLocaleString("fr-FR")+" €":"—";
+  const date=v=>v?new Date(v).toLocaleDateString("fr-FR"):"—";
+  const cards=selected.map((p,i)=>{
+    const sale=p.sameAddressSale||{};
+    const latest=p.latestSale||sale.latest||{};
+    const comps=Number(p.comparableCount)||0;
+    const priority=Number(p.priorityProspectionScore??0);
+    const potential=Number(p.sellerOpportunityScore??p.marketContextScore??0);
+    const reasons=Array.isArray(p.priorityProspectionReasons)?p.priorityProspectionReasons:[];
+    return '<article class="print-radar-card">'+
+      '<div class="print-radar-head"><div><strong>'+(i+1)+'. '+escp(p.address||"Adresse non renseignée")+'</strong><span>'+escp((p.postalCode?p.postalCode+" ":"")+(p.city||""))+' · '+escp(futureRadarType(p.buildingType))+'</span></div><div class="print-radar-scores"><b>'+priority.toFixed(1)+'/100</b><small>Priorité terrain</small><b>'+potential+'/100</b><small>Potentiel</small></div></div>'+
+      '<div class="print-radar-grid">'+
+        '<div><b>🏠 Bien</b><span>'+escp(p.area||"—")+' m² · '+escp(latest.rooms||p.rooms||"—")+' pièces</span></div>'+
+        '<div><b>🌳 Terrain</b><span>'+escp(p.terrainArea||latest.landArea||"—")+' m²</span></div>'+
+        '<div><b>⚡ DPE</b><span>'+escp(p.dpe||"—")+(p.dpeDate?" · "+date(p.dpeDate):"")+'</span></div>'+
+        '<div><b>💶 Dernière DVF</b><span>'+date(latest.date)+' · '+money(latest.value||latest.price||latest.amount)+'</span></div>'+
+        '<div><b>📊 Comparables</b><span>'+comps+' · médiane '+escp(p.comparableMedianDistance!=null?Math.round(p.comparableMedianDistance)+" m":"distance non disponible")+'</span></div>'+
+        '<div><b>📢 Signal public</b><span>'+Number(p.commercialSignalScore||0)+'/100</span></div>'+
+      '</div>'+
+      '<div class="print-radar-reasons"><b>Pourquoi ce bien ?</b> '+escp(reasons.join(" · ")||"Dossier à vérifier sur le terrain.")+'</div>'+
+      '<div class="print-radar-action"><b>Action :</b> '+escp(p.priorityProspectionAction||p.sellerOpportunityAction||"Vérification terrain")+'</div>'+
+      '<div class="print-radar-notes"><b>Retour terrain</b><br>☐ Propriétaire rencontré &nbsp; ☐ Estimation demandée &nbsp; ☐ Projet évoqué &nbsp; ☐ À relancer<br>Observation : ________________________________________________________________<br>____________________________________________________________________________</div>'+
+    '</article>';
+  }).join("");
+  const existing=$("radarPrintSheet"); if(existing)existing.remove();
+  const sheet=document.createElement("section");
+  sheet.id="radarPrintSheet";
+  sheet.innerHTML='<div class="print-radar-title"><strong>JML IMMOBILIER</strong><span>FICHE DE PROSPECTION · RADAR</span><small>'+selected.length+' bien(s) sélectionné(s) · '+new Date().toLocaleDateString("fr-FR")+'</small></div>'+cards;
+  document.body.appendChild(sheet);
+  window.print();
+}
+function addFutureRadarCandidates(){
+  const selected=[...document.querySelectorAll("[data-future-check]:checked")].map(x=>futureRadarCandidates[Number(x.dataset.futureCheck)]).filter(Boolean);
+  let created=0,merged=0;
+  for(const p of selected){
+    const incoming={
+      address:p.address||"",postalCode:p.postalCode||"",city:p.city||"",district:"",
+      type:futureRadarType(p.buildingType),area:num(p.area),land:num(p.terrainArea||p.latestSale?.landArea),
+      rooms:num(p.sameAddressSale?.latest?.rooms||p.latestSale?.rooms),bedrooms:0,price:0,dpe:p.dpe||"",
+      futureRadarScore:num(p.priorityScore??p.score),marketContextScore:num(p.marketContextScore),commercialSignalScore:num(p.commercialSignalScore),dataQuality:p.dataQuality||null,status:"Pas encore en vente",
+      detectionDate:today(),nextFollow:"",source:"Radar surveillance · ADEME + comparables DVF",
+      externalId:p.id||"",sourceUrl:"https://data.ademe.fr/datasets/dpe03existant",
+      description:"Priorité prospection : "+num(p.priorityScore??p.score)+"/100. Contexte marché : "+num(p.marketContextScore)+"/100. Signal commercial public : "+num(p.commercialSignalScore)+"/100 — "+(p.commercialSignalLevel||"Aucun signal commercial public")+". "+(p.commercialSignals||[]).map(x=>x.label).join(" · "),
+      notes:"Ce bien est une cible de surveillance et non un prospect vendeur confirmé. DPE même adresse = "+(p.dpeConfirmed?"confirmé":"non confirmé")+" ; vente DVF même adresse = "+(p.sameAddressSaleConfirmed?"confirmée":"non confirmée")+" ; comparables distincts = "+(p.comparableCount||0)+". "+(p.disclaimer||"")
+    };
+    const result=mergeProspect(incoming);
+    result==="created"?created++:merged++;
+  }
+  if(selected.length){save();const status=$("futureRadarStatus");if(status)status.textContent="👁️ Surveillance : "+created+" nouveau(x) · "+merged+" déjà présent(s) fusionné(s).";}
+}
+
+/* delegated above: futureRadarSelectAll */
+/* old handler retained below for compatibility */
+/* V1.37.3 : boutons Radar gérés par la délégation globale pour éviter les doubles appels. */
+if($("futureRadarResults"))$("futureRadarResults").onclick=e=>{
+  const check=e.target.closest("[data-future-check]");
+  if(check){
+    const idx=Number(check.dataset.futureCheck);
+    if(check.checked){
+      if(futureRadarSelectedIndices.size>=FUTURE_RADAR_MAX_SELECTED){
+        check.checked=false;
+        alert("Maximum de 10 biens sélectionnés sur cette page. Passe aux 10 suivants pour sélectionner une nouvelle série.");
+        return;
+      }
+      futureRadarSelectedIndices.add(idx);
+    }else futureRadarSelectedIndices.delete(idx);
+    const pb=$("futureRadarPrint");if(pb)pb.disabled=futureRadarSelectedIndices.size===0;
+    const db=$("futureRadarDeselectAll");if(db)db.disabled=futureRadarSelectedIndices.size===0;
+    return;
+  }
+  const pg=e.target.closest("[data-radar-page]");
+  if(pg){
+    const totalPages=Math.max(1,Math.ceil(futureRadarCandidates.length/FUTURE_RADAR_PAGE_SIZE));
+    const nextPage=pg.dataset.radarPage==="next"?Math.min(totalPages-1,futureRadarPage+1):Math.max(0,futureRadarPage-1);
+    if(nextPage!==futureRadarPage){
+      futureRadarPage=nextPage;
+      // À chaque page, les 10 biens affichés sont présélectionnés.
+      // On ne demande donc pas de cliquer sur "Sélectionner les 10" à chaque fois.
+      futureRadarSelectedIndices=new Set();
+      const start=nextPage*FUTURE_RADAR_PAGE_SIZE;
+      const end=Math.min(start+FUTURE_RADAR_PAGE_SIZE,futureRadarCandidates.length);
+      for(let i=start;i<end;i++) futureRadarSelectedIndices.add(i);
+    }
+    futureRadarRender();
+    return;
+  }
+  const b=e.target.closest("[data-radar-prospect]");
+  if(b){addFutureRadarCandidate(b.dataset.radarProspect);}
+};
+let publicDpeResults=[],publicDvfResults=[];
+function apiEsc(v=""){return esc(v)}
+async function publicJson(url){const targets=[String(url)];if(API_BASE&&String(url).startsWith("/"))targets.push(API_BASE+String(url));let lastError=null;for(let i=0;i<targets.length;i++){const target=targets[i];let r;try{r=await fetch(target,{cache:"no-store"});}catch(e){lastError=e;if(i<targets.length-1)continue;throw new Error("Connexion au serveur JML impossible : "+(e.message||"fetch failed"))}if(!r.ok&&i<targets.length-1&&(r.status===404||r.status===502||r.status===503)){lastError=new Error("HTTP "+r.status);continue}let d;try{d=await r.json()}catch(e){if(i<targets.length-1){lastError=e;continue}throw new Error("Réponse serveur invalide (HTTP "+r.status+")")}if(!r.ok)throw new Error(d.error||("Erreur serveur HTTP "+r.status));return d}throw new Error("Serveur JML indisponible : "+(lastError?.message||"erreur inconnue"))}
+function publicDpeKey(p){
+  return [norm(p.address),norm(p.postalCode),norm(p.city)].join("|");
+}
+function groupPublicDpe(rows){
+  const groups=new Map();
+  for(const p of (rows||[])){
+    const key=publicDpeKey(p)||("unknown|"+(p.dpeNumber||Math.random()));
+    if(!groups.has(key))groups.set(key,{primary:p,items:[],grades:new Set(),areas:new Set(),types:new Set(),dates:[]});
+    const g=groups.get(key);
+    g.items.push(p);
+    if(p.dpe)g.grades.add(String(p.dpe));
+    if(Number(p.area)>0)g.areas.add(Number(p.area));
+    if(p.buildingType)g.types.add(String(p.buildingType));
+    if(p.date)g.dates.push(String(p.date));
+  }
+  return Array.from(groups.values()).map(g=>({
+    ...g.primary,
+    groupedCount:g.items.length,
+    groupedGrades:[...g.grades].sort(),
+    groupedAreas:[...g.areas].sort((a,b)=>a-b),
+    groupedTypes:[...g.types],
+    latestDpeDate:g.dates.sort().at(-1)||g.primary.date||"",
+    groupedDpeNumbers:g.items.map(x=>x.dpeNumber).filter(Boolean)
+  })).sort((a,b)=>String(b.latestDpeDate||"").localeCompare(String(a.latestDpeDate||"")));
+}
+function groupPublicDvf(rows){
+  const groups=new Map();
+  for(const p of (rows||[])){
+    const mutation=String(p.mutationId||"").trim();
+    const address=norm(p.address||"");
+    const value=Number(p.value)||0;
+    const key=mutation
+      ? "mutation|"+mutation+"|"+address
+      : "fallback|"+String(p.date||"")+"|"+address+"|"+value;
+    if(!groups.has(key))groups.set(key,{...p,groupedCount:0,groupedTypes:new Set(),groupedBuiltAreas:new Set(),groupedLandAreas:new Set(),groupedRooms:new Set()});
+    const g=groups.get(key);
+    g.groupedCount++;
+    if(p.type)g.groupedTypes.add(String(p.type));
+    if(Number(p.builtArea)>0)g.groupedBuiltAreas.add(Number(p.builtArea));
+    if(Number(p.landArea)>0)g.groupedLandAreas.add(Number(p.landArea));
+    if(Number(p.rooms)>0)g.groupedRooms.add(Number(p.rooms));
+  }
+  return Array.from(groups.values()).map(g=>({
+    ...g,
+    groupedTypes:[...g.groupedTypes],
+    groupedBuiltAreas:[...g.groupedBuiltAreas].sort((a,b)=>a-b),
+    groupedLandAreas:[...g.groupedLandAreas].sort((a,b)=>a-b),
+    groupedRooms:[...g.groupedRooms].sort((a,b)=>a-b)
+  }));
+}
+function renderPublicDpe(rows){
+  publicDpeResults=groupPublicDpe(rows);
+  $("publicDpeResults").innerHTML=publicDpeResults.length?publicDpeResults.slice(0,30).map((p,i)=>{
+    const areas=p.groupedAreas?.length?p.groupedAreas.map(x=>x+" m²").join(" / "):(p.area?p.area+" m²":"");
+    const grades=p.groupedGrades?.length?"DPE "+p.groupedGrades.join(" / "):"DPE —";
+    const types=p.groupedTypes?.length?p.groupedTypes.join(" / "):"";
+    const units=p.groupedCount>1?" · "+p.groupedCount+" DPE/logements regroupés":"";
+    return '<article class="source-result"><div><strong>'+apiEsc(p.address||"Adresse non renseignée")+'</strong><span>'+apiEsc((p.postalCode?p.postalCode+" ":"")+(p.city||""))+'</span></div><div class="source-result-details">'+areas+(areas?" · ":"")+grades+(p.ges?" · GES "+apiEsc(p.ges):"")+(types?" · "+apiEsc(types):"")+apiEsc(units)+'</div><div class="meta">'+(p.latestDpeDate?"DPE le plus récent : "+apiEsc(p.latestDpeDate):"Date DPE inconnue")+'</div><button class="ghost" data-dpe-index="'+i+'">Préparer une fiche</button></article>';
+  }).join(""):'<div class="meta">Aucun DPE trouvé pour cette recherche.</div>';
+}
+function renderPublicDvf(rows){
+  publicDvfResults=groupPublicDvf(rows);
+  $("publicDvfResults").innerHTML=publicDvfResults.length?publicDvfResults.slice(0,30).map(p=>{
+    const types=p.groupedTypes?.length?p.groupedTypes.join(" / "):(p.type||"Bien immobilier");
+    const areas=p.groupedBuiltAreas?.length?p.groupedBuiltAreas.map(x=>x+" m² bâti").join(" / "):(p.builtArea?p.builtArea+" m² bâti":"");
+    const lands=p.groupedLandAreas?.length?p.groupedLandAreas.map(x=>x+" m² terrain").join(" / "):(p.landArea?p.landArea+" m² terrain":"");
+    const rooms=p.groupedRooms?.length?" · "+p.groupedRooms.join(" / ")+" pièce(s)":"";
+    const grouped=p.groupedCount>1?" · "+p.groupedCount+" éléments regroupés":"";
+    return '<article class="source-result"><div><strong>'+apiEsc(p.date||"Date inconnue")+'</strong><span>'+apiEsc(types)+'</span></div><div class="source-result-details">'+(p.value?p.value.toLocaleString("fr-FR")+" € · ":"")+areas+(areas&&lands?" · ":"")+lands+rooms+apiEsc(grouped)+'</div><div class="meta">'+(p.address?apiEsc(p.address)+" · ":"")+"Source : "+apiEsc(p.source||"DVF open-data")+" · "+apiEsc(p.cityCode||"")+'</div></article>';
+  }).join(""):'<div class="meta">Aucune transaction trouvée.</div>';
+}
+function publicSourceQueryMode(q){
+  return /\\d/.test(String(q||"")) ? "adresse" : "commune";
+}
+async function searchPublicSources(){
+  const q=$("publicQuery").value.trim();
+  if(!q){$("publicStatus").textContent="Indique une commune ou une adresse.";return}
+  $("publicStatus").textContent="Recherche ADEME + DVF+ en cours…";
+  $("publicSearchBtn").disabled=true;
+  try{
+    const known={
+      "charleville mezieres":{city:"Charleville-Mézières",cityCode:"08105"},
+      "sedan":{city:"Sedan",cityCode:"08409"},
+      "rethel":{city:"Rethel",cityCode:"08362"},
+      "revin":{city:"Revin",cityCode:"08363"},
+      "givet":{city:"Givet",cityCode:"08190"},
+      "vouziers":{city:"Vouziers",cityCode:"08490"}
+    };
+    const key=String(q).normalize("NFD").replace(/[\\u0300-\\u036f]/g,"").toLowerCase().replace(/[^a-z0-9]+/g," ").trim();
+    let c=known[key];
+    if(!c){
+      const communes=await publicJson("/api/commune?q="+encodeURIComponent(q));
+      c=communes[0];
+    }
+    if(!c)throw new Error("Commune introuvable");
+    const mode=publicSourceQueryMode(q);
+    const params="codeInsee="+encodeURIComponent(c.cityCode);
+    const dpeUrl=mode==="adresse"
+      ? "/api/dpe?q="+encodeURIComponent(q)+"&limit=100"
+      : "/api/dpe?"+params+"&limit=100";
+    const dvfUrl="/api/dvf?"+params+"&limit=100&yearMin="+(new Date().getFullYear()-5)+(mode==="adresse"?"&address="+encodeURIComponent(q):"");
+    const [dpeResult,dvfResult]=await Promise.allSettled([
+      publicJson(dpeUrl),
+      publicJson(dvfUrl)
+    ]);
+    const dpe=dpeResult.status==="fulfilled"?dpeResult.value:null;
+    const dvf=dvfResult.status==="fulfilled"?dvfResult.value:null;
+    const dvfError=dvfResult.status==="rejected"?String(dvfResult.reason?.message||"erreur source DVF+"):"";
+    renderPublicDpe(dpe?.results||[]);
+    renderPublicDvf(dvf?.results||[]);
+    const modeText=mode==="adresse"?"🎯 Recherche ciblée sur l’adresse":"🗺️ Recherche communale";
+    const dpeText=dpe?((dpe.rawCount??dpe.results?.length??0)+" DPE bruts · "+groupPublicDpe(dpe.results||[]).length+" adresses DPE"): "ADEME indisponible";
+    const dvfText=dvf
+      ? ((dvf.groupedCount!=null?dvf.groupedCount:groupPublicDvf(dvf.results||[]).length)+" opérations uniques"+(mode==="adresse"?" à cette adresse":"")+" · "+(dvf.filteredCount!=null?dvf.filteredCount:(dvf.rawCount??dvf.results?.length??0))+" lignes brutes · "+String(dvf.source||"DVF open-data")+(dvf.fallback?" · secours":""))
+      : "DVF indisponible ("+apiEsc(dvfError)+")";
+    $("publicStatus").innerHTML="<strong>"+apiEsc(c.city)+"</strong> · code INSEE "+apiEsc(c.cityCode)+" · "+modeText+" · "+dpeText+" · "+dvfText;
+  }catch(e){
+    $("publicStatus").textContent="Erreur : "+e.message;
+    renderPublicDpe([]);renderPublicDvf([]);
+  }finally{$("publicSearchBtn").disabled=false}
+}
+/* V1.37.14 — bouton piloté par délégation globale */
+$("publicQuery").addEventListener("keydown",e=>{if(e.key==="Enter")searchPublicSources()});
+async function runDataAgent(){
+  const q=$("publicQuery").value.trim();
+  if(!q){$("dataAgentStatus").textContent="Indique d'abord une commune.";return}
+  $("dataAgentStatus").textContent="Contrôle qualité ADEME + DVF en cours…";
+  $("dataAgentBtn").disabled=true;
+  try{
+    const d=await publicJson("/api/data-agent?q="+encodeURIComponent(q)+"&limit=100");
+    $("dataAgentQuality").textContent=d.qualityScore+"/100 · "+d.qualityLevel;
+    $("dataAgentStatus").textContent=d.dpeCount+" DPE · "+d.dvfCount+" mutations · "+d.dvfSource+(d.dvfFallback?" · secours activé":"");
+    $("dataAgentRejected").innerHTML=d.rejected.length?d.rejected.slice(0,10).map(x=>"<div><strong>"+apiEsc(x.source)+"</strong> · "+apiEsc(x.level)+" · "+apiEsc((x.issues||[]).concat(x.warnings||[]).join(" · "))+"</div>").join(""):"Aucune donnée rejetée dans l'échantillon.";
+    $("dataAgentConflicts").innerHTML=d.conflicts.length?d.conflicts.slice(0,10).map(x=>"<div><strong>Conflit</strong> · "+apiEsc(x.reason)+"</div>").join(""):"Aucun conflit majeur détecté.";
+  }catch(e){
+    $("dataAgentQuality").textContent="—";
+    $("dataAgentStatus").textContent="Erreur : "+e.message;
+    $("dataAgentRejected").textContent="";
+    $("dataAgentConflicts").textContent="";
+  }finally{$("dataAgentBtn").disabled=false}
+}
+$("dataAgentBtn").onclick=runDataAgent;
+
+publicJson("/api/health").then(()=>{$("sourceApiStatus").textContent="Connectées"}).catch(()=>{$("sourceApiStatus").textContent="Serveur indisponible"});;refreshSourceConnectors();;ctRenderMemoryPanel();
+$("publicDpeResults").onclick=e=>{
+  const b=e.target.closest("[data-dpe-index]");if(!b)return;
+  const p=publicDpeResults[Number(b.dataset.dpeIndex)];if(!p)return;
+  openForm({address:p.address||"",postalCode:p.postalCode||"",city:p.city||"",type:"Maison",area:p.area||0,land:0,rooms:0,bedrooms:0,price:0,dpe:p.dpe||"",status:"Nouveau",detectionDate:today(),nextFollow:"",source:"DPE ADEME",externalId:p.dpeNumber||"",sourceUrl:"https://data.ademe.fr/datasets/dpe03existant",description:"Donnée technique publique DPE ADEME. À vérifier sur le terrain avant toute qualification commerciale.",notes:"DPE : "+(p.dpe||"—")+" · GES : "+(p.ges||"—")+" · Date : "+(p.date||"—")});
+};
+prospects.forEach(ensureHistory);render();initCollapsiblePanels();initRadarSimpleMode();initRadarCommuneInput();initRadarTerritory();
+/* V1.13.0 — prospection annonce publique + carte + rapprochement DVF/DPE */
+let privateProspectMap=null;
+let privateProspectLayers=null;
+let privateProspectMatch=null;
+
+function initPrivateProspectMap(){
+  if(!window.L||privateProspectMap)return;
+  privateProspectMap=L.map("privateProspectMap",{scrollWheelZoom:true});
+  L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,attribution:"&copy; OpenStreetMap contributors"}).addTo(privateProspectMap);
+  privateProspectLayers=L.layerGroup().addTo(privateProspectMap);
+  privateProspectMap.setView([49.77,4.72],11);
+}
+
+function privateMapPopup(title,body){
+  return "<strong>"+apiEsc(title||"Point")+"</strong><br>"+apiEsc(body||"");
+}
+
+function renderPrivateProspectMap(data){
+  initPrivateProspectMap();
+  if(!privateProspectMap||!privateProspectLayers)return;
+  privateProspectLayers.clearLayers();
+  const bounds=[];
+  const g=data?.geocode;
+  if(g?.latitude&&g?.longitude){
+    const marker=L.marker([g.latitude,g.longitude]).bindPopup(privateMapPopup("Annonce publique",g.label||data.property?.address||"Adresse"));
+    marker.addTo(privateProspectLayers);bounds.push([g.latitude,g.longitude]);
+  }
+  for(const tx of (data?.dvf?.transactions||[])){
+    if(!tx.latitude||!tx.longitude)continue;
+    const m=L.circleMarker([tx.latitude,tx.longitude],{radius:6,weight:2,fillOpacity:.65})
+      .bindPopup(privateMapPopup("DVF · "+(tx.date||"date inconnue"),[(tx.value||0).toLocaleString("fr-FR")+" €",tx.builtArea?tx.builtArea+" m² bâti":"",tx.distanceMeters!=null?Math.round(tx.distanceMeters)+" m":"",tx.address||""].filter(Boolean).join(" · ")));
+    m.addTo(privateProspectLayers);bounds.push([tx.latitude,tx.longitude]);
+  }
+  for(const dpe of (data?.dpe?.candidates||[])){
+    if(!dpe.latitude||!dpe.longitude)continue;
+    const m=L.circleMarker([dpe.latitude,dpe.longitude],{radius:5,weight:2,fillOpacity:.55})
+      .bindPopup(privateMapPopup("DPE "+(dpe.dpe||"—"),(dpe.address||"Adresse DPE")+(dpe.dpeAddressStatus==="confirmed"?" · même adresse":" · correspondance incertaine")));
+    m.addTo(privateProspectLayers);bounds.push([dpe.latitude,dpe.longitude]);
+  }
+  if(bounds.length)privateProspectMap.fitBounds(bounds,{padding:[25,25],maxZoom:17});
+  setTimeout(()=>privateProspectMap.invalidateSize(),80);
+}
+
+function privateMatchStatusLabel(data){
+  const d=data?.dpe?.status;
+  const v=data?.dvf?.status;
+  const dpeLabel=d==="confirmed"?"🟢 DPE confirmé à la même adresse":d==="uncertain"?"🟠 DPE trouvé · correspondance incertaine":"⚪ Aucun DPE correspondant";
+  const dvfLabel=v==="exact"?"🟢 DVF adresse exacte":v==="street"?"🟠 DVF même rue":v==="proximity"?"🟠 DVF proximité":"⚪ Pas de correspondance DVF fiable";
+  return dpeLabel+" · "+dvfLabel;
+}
+
+function renderPrivateProspectResult(data){
+  privateProspectMatch=data;
+  renderPrivateProspectMap(data);
+  const d=data.dpe||{},v=data.dvf||{},c=data.comparables||{};
+  const dpeHtml=(d.candidates||[]).slice(0,6).map(x=>'<div class="match-line"><strong>DPE '+apiEsc(x.dpe||"—")+'</strong><span>'+apiEsc(x.address||"Adresse inconnue")+'</span><em>'+apiEsc(x.dpeAddressStatus==="confirmed"?"Même adresse":"Correspondance incertaine")+'</em></div>').join("")||'<div class="meta">Aucun DPE rapproché.</div>';
+  const dvfHtml=(v.transactions||[]).slice(0,8).map(x=>'<div class="match-line"><strong>'+((x.value||0).toLocaleString("fr-FR"))+' €</strong><span>'+apiEsc(x.date||"Date inconnue")+' · '+apiEsc(x.type||"")+(x.builtArea?" · "+x.builtArea+" m²":"")+'</span><em>'+(x.distanceMeters!=null?Math.round(x.distanceMeters)+" m":"adresse")+'</em></div>').join("")||'<div class="meta">Aucune mutation rapprochée.</div>';
+  $("privateMatchResults").innerHTML='<div class="private-result-head"><strong>'+apiEsc(data.property?.address||"Adresse")+'</strong><span>'+apiEsc((data.property?.postalCode||"")+" "+(data.property?.city||""))+'</span></div><div class="private-status-badges"><span>'+apiEsc(privateMatchStatusLabel(data))+'</span></div><div class="private-kpis"><article><strong>'+((d.confirmedCount||0))+'</strong><span>DPE même adresse</span></article><article><strong>'+((v.matchedCount||0))+'</strong><span>DVF à l’adresse</span></article><article><strong>'+((c.count||0))+'</strong><span>Comparables</span></article><article><strong>'+((c.medianPriceM2||0)?Math.round(c.medianPriceM2).toLocaleString("fr-FR")+" €":"—")+'</strong><span>Médiane €/m²</span></article></div><div class="match-columns"><div><h3>DPE</h3>'+dpeHtml+'</div><div><h3>DVF</h3>'+dvfHtml+'</div></div><div class="private-score-note">Rapprochement DVF : '+apiEsc(v.reason||"—")+' · Source : '+apiEsc(v.source||"—")+'</div>';
+  $("privateAddBtn").disabled=false;
+}
+
+async function runPrivateProspectMatch(){
+  const address=$("privateAddress").value.trim();
+  if(!address){$("privateMatchStatus").textContent="Indique l'adresse de l'annonce.";return}
+  $("privateMatchBtn").disabled=true;
+  $("privateAddBtn").disabled=true;
+  $("privateMatchStatus").textContent="Géocodage BAN + recherche DVF jusqu'à 10 000 transactions + rapprochement DPE…";
+  try{
+    const params=new URLSearchParams({
+      address,
+      postalCode:$("privatePostalCode").value.trim(),
+      city:$("privateCity").value.trim(),
+      type:$("privateType").value,
+      area:$("privateArea").value||0,
+      rooms:$("privateRooms").value||0,
+      price:$("privatePrice").value||0
+    });
+    const data=await publicJson("/api/prospect-match?"+params.toString());
+    renderPrivateProspectResult(data);
+    $("privateMatchStatus").innerHTML="<strong>"+apiEsc(data.geocode?.label||address)+"</strong> · "+apiEsc(privateMatchStatusLabel(data))+" · "+apiEsc(data.disclaimer||"");
+  }catch(e){
+    privateProspectMatch=null;
+    $("privateMatchResults").innerHTML="";
+    $("privateMatchStatus").textContent="Erreur : "+e.message;
+  }finally{$("privateMatchBtn").disabled=false}
+}
+
+function addPrivateProspectToCrm(){
+  const d=privateProspectMatch;
+  if(!d)return;
+  const source=$("privateSource").value.trim()||"Annonce particulier publique";
+  const listingUrl=$("privateListingUrl").value.trim();
+  const p=d.property||{};
+  const dpe=d.dpe?.candidates?.find(x=>x.dpeAddressStatus==="confirmed")||d.dpe?.candidates?.[0];
+  openForm({
+    address:p.address||$("privateAddress").value.trim(),
+    postalCode:p.postalCode||$("privatePostalCode").value.trim(),
+    city:p.city||$("privateCity").value.trim(),
+    type:p.buildingType||"Maison",
+    area:p.area||0,
+    land:0,
+    rooms:p.rooms||0,
+    bedrooms:0,
+    price:p.price||0,
+    dpe:dpe?.dpe||"",
+    status:"Nouveau",
+    detectionDate:today(),
+    nextFollow:"",
+    source,
+    externalId:"",
+    sourceUrl:listingUrl,
+    description:"Annonce publique fournie par l'utilisateur · "+(d.geocode?.label||p.address||"")+".",
+    notes:"Croisement JML : "+privateMatchStatusLabel(d)+". DVF : "+(d.dvf?.matchedCount||0)+" mutation(s) rapprochée(s). DPE confirmé : "+(d.dpe?.confirmedCount||0)+". Médiane comparables : "+(d.comparables?.medianPriceM2?Math.round(d.comparables.medianPriceM2)+" €/m²":"—")+"."
+  });
+}
+
+if($("privateMatchBtn")){
+  initPrivateProspectMap();
+  $("privateMatchBtn").onclick=runPrivateProspectMatch;
+  $("privateAddBtn").onclick=addPrivateProspectToCrm;
+  window.addEventListener("resize",()=>{if(privateProspectMap)privateProspectMap.invalidateSize()});
+}
+
+/* V1.16.0 — connecteur gratuit ChercherTrouver uniquement */
+function renderIntegrationHealth(data){
+  const ct=data?.chercherTrouver||{};
+  const ctOk=ct.ok===true;
+  $("chercherTrouverStatus").textContent=ctOk?"🟢 CONNECTÉ":"🔴 ERREUR";
+  $("chercherTrouverDetails").textContent=ctOk
+    ? "Offre "+(ct.tier||"—")+" · "+(ct.itemsPerDay||"—")+" annonces/jour · ping sans quota."
+    : (ct.error||"Clé absente ou invalide.");
+  $("integrationsStatus").textContent=ctOk
+    ?"ChercherTrouver répond correctement côté serveur, sans appel payant."
+    :"La connexion ChercherTrouver nécessite une vérification dans Render.";
+}
+
+async function refreshSourceConnectors(){
+  const box=$("sourcesConnectorGrid");if(!box)return;
+  box.innerHTML='<div class="meta">Vérification des connecteurs…</div>';
+  try{
+    const data=await publicJson("/api/sources-health");
+    const links={
+      cherchertrouver:"https://cherchertrouver.immo/api/docs",
+      streamestate:"https://next.docs.stream.estate/fr/docs/getting-started/quickstart",
+      moteurimmo:"https://moteurimmo.fr/offre-api",
+      yanport:"https://www.yanport.com/solutions/fournisseur-donnees-immobilieres/api",
+      casafari:"https://fr.casafari.com/produits/apis-casafari-donnees-immobilieres/"
+    };
+    box.innerHTML=(data.sources||[]).map(s=>{
+      const status=s.ok===true?"🟢 CONNECTÉ":s.configured?"🟡 CLÉ CONFIGURÉE":"⚪ À CONNECTER";
+      const desc=s.kind==="annonces"?"Catalogue d'annonces":s.kind==="annonces + marché"?"Annonces + données de marché":s.kind==="transactions"?"Transactions immobilières":s.kind==="enrichissement"?"DPE et caractéristiques":"Géocodage / enrichissement";
+      const link=links[s.id]?'<a href="'+links[s.id]+'" target="_blank" rel="noopener">Documentation ↗</a>':"";
+      return '<article class="source-connector-card"><div><strong>'+apiEsc(s.label)+'</strong><span>'+apiEsc(desc)+'</span></div><b>'+status+'</b><small>'+apiEsc(s.error||s.mode||"")+'</small>'+link+'</article>';
+    }).join("");
+  }catch(e){box.innerHTML='<div class="meta">Impossible de vérifier les sources : '+apiEsc(e.message)+'</div>'}
+}
+
+async function testIntegrations(){
+  $("integrationsTestBtn").disabled=true;
+  $("integrationsStatus").textContent="Test ChercherTrouver en cours…";
+  try{ renderIntegrationHealth(await publicJson("/api/integrations-health")); }
+  catch(e){
+    $("integrationsStatus").textContent=e.message.includes("HTTP 404")
+      ?"Serveur JML non synchronisé avec cette version : redéploiement Render nécessaire."
+      :"Erreur de test : "+e.message;
+    $("chercherTrouverStatus").textContent="—";
+  }
+  finally{$("integrationsTestBtn").disabled=false}
+}
+/* V1.37.14 — bouton piloté par délégation globale */
+
+
+/* V1.19.6 — concordance adresse renforcée */
+
+/* V1.38.0 — Mémoire locale de la veille annonces
+   Stocke uniquement les caractéristiques de l'annonce utiles au suivi marché.
+   Aucun téléphone/e-mail de particulier n'est collecté. */
+const CT_MEMORY_KEY="jmlMarketMemoryV1";
+const CT_LAST_RESULTS_KEY="jmlMarketLastResultsV1";
+const CT_LAST_SEARCH_SIG_KEY="jmlMarketLastSearchSignatureV1";
+let ctMarketFilter="all";
+let ctSelectedIndices=new Set();
+let ctMarketMeta={items:[],counts:{},previousCount:0};
+
+function ctMemoryRead(){
+  try{const x=JSON.parse(localStorage.getItem(CT_MEMORY_KEY)||"[]");return Array.isArray(x)?x:[]}catch{return[]}
+}
+function ctMemoryWrite(rows){
+  try{localStorage.setItem(CT_MEMORY_KEY,JSON.stringify(rows.slice(-5000)));return true}catch{return false}
+}
+function ctLastResultsRead(){
+  try{const x=JSON.parse(localStorage.getItem(CT_LAST_RESULTS_KEY)||"[]");return Array.isArray(x)?x:[]}catch{return[]}
+}
+function ctLastResultsWrite(items){
+  try{localStorage.setItem(CT_LAST_RESULTS_KEY,JSON.stringify((items||[]).map(p=>ctMemoryKey(p)).filter(Boolean).slice(0,5000)));return true}catch{return false}
+}
+function ctSearchSignature(){
+  const ids=["ctDept","ctVille","ctCp","ctRadius","ctType","ctPrixMax","ctSurfaceMin","ctFresh","ctDpe","ctPrivateOnly"];
+  return ids.map(id=>{const el=$(id);return id+"="+(el?.type==="checkbox"?(el.checked?"1":"0"):String(el?.value||"").trim())}).join("&");
+}
+function ctLastSearchSignatureRead(){
+  try{return localStorage.getItem(CT_LAST_SEARCH_SIG_KEY)||""}catch{return""}
+}
+function ctLastSearchSignatureWrite(sig){
+  try{localStorage.setItem(CT_LAST_SEARCH_SIG_KEY,String(sig||""));return true}catch{return false}
+}
+function ctMemoryKey(p){
+  const ext=String(p?.reference||p?.external_id||p?.externalId||"").trim();
+  const url=String(p?.external_url||p?.sourceUrl||"").trim();
+  if(ext)return "ref|"+norm(ext);
+  if(url)return "url|"+norm(url);
+  return ["address","postal_code","city","type","surface"].map(k=>norm(p?.[k]||"")).join("|")+"|"+Number(p?.price||0);
+}
+function ctMarketClassify(items){
+  const rows=ctMemoryRead();
+  const memory=new Map(rows.map(x=>[x.key,x]));
+  const sameScope=ctLastSearchSignatureRead()===ctSearchSignature();
+  const previous=new Set(sameScope?ctLastResultsRead():[]);
+  const result=[];
+  const counts={new:0,known:0,missing:0,drop:0,multi:0,private:0,work:0};
+  const currentKeys=new Set();
+  for(const p of (Array.isArray(items)?items:[])){
+    const key=ctMemoryKey(p);
+    if(!key)continue;
+    currentKeys.add(key);
+    const old=memory.get(key);
+    const price=Number(p?.price)||0;
+    const previousPrice=Number(old?.currentPrice)||0;
+    const sources=Array.isArray(p?.sources)?p.sources.filter(x=>x&&((x.source||x.url||x.reference))):[];
+    const seller=norm(p?.seller_type||p?.sellerType||p?.advertiser_type||"");
+    const isAgency=["pro","professionnel","agence","agency","mandataire","promoteur","notaire"].some(x=>seller===x||seller.includes(x));
+    const exclusive=p?.exclusive===true||p?.exclusive==="true"||p?.exclusivity===true||p?.exclusivity==="true";
+    const isPrivate=!isAgency&&!exclusive;
+    const isNew=!old;
+    const priceDrop=Boolean(old&&price>0&&previousPrice>0&&price<previousPrice);
+    const tags=[];
+    if(isNew){tags.push("new");counts.new++;}else{tags.push("known");counts.known++;}
+    if(priceDrop||p?.publicPriceDrop){tags.push("drop");counts.drop++;}
+    if(sources.length>1){tags.push("multi");counts.multi++;}
+    if(isPrivate){tags.push("private");counts.private++;}
+    if(isPrivate||priceDrop||p?.publicPriceDrop||p?.publicListingReappeared){tags.push("work");counts.work++;}
+    result.push({...p,_marketKey:key,_marketTags:tags,_marketIsNew:isNew,_marketPriceDrop:priceDrop||Boolean(p?.publicPriceDrop),_marketIsPrivate:isPrivate,_marketWork:tags.includes("work")});
+  }
+  for(const key of previous){if(!currentKeys.has(key))counts.missing++;}
+  ctMarketMeta={items:result,counts,previousCount:previous.size};
+  return ctMarketMeta;
+}
+function ctRememberResults(items){
+  const currentTime=now();
+  const rows=ctMemoryRead(),index=new Map(rows.map((x,i)=>[x.key,i]));
+  let newCount=0,changedCount=0,priceDropCount=0;
+  const newKeys=[],priceDropKeys=[];
+  for(const p of (Array.isArray(items)?items:[])){
+    const key=ctMemoryKey(p); if(!key||key==="||||0")continue;
+    const price=Number(p?.price)||0, source=String(p?.source||"ChercherTrouver").trim();
+    const oldIndex=index.get(key);
+    if(oldIndex===undefined){
+      rows.push({key,firstSeenAt:currentTime,lastSeenAt:currentTime,seenCount:1,initialPrice:price,currentPrice:price,priceChanges:[],source,sourceUrl:String(p?.external_url||""),address:String(p?.address||""),postalCode:String(p?.postal_code||""),city:String(p?.city||""),type:String(p?.type||""),area:Number(p?.surface)||0,rooms:Number(p?.rooms)||0,dpe:String(p?.dpe||""),status:"active"});
+      newCount++;newKeys.push(key);
+    }else{
+      const old=rows[oldIndex];
+      if(price>0&&Number(old.currentPrice)>0&&price!==Number(old.currentPrice)){
+        const from=Number(old.currentPrice),to=price;
+        old.priceChanges=Array.isArray(old.priceChanges)?old.priceChanges:[];
+        old.priceChanges.push({date:currentTime,from,to});
+        old.priceChanges=old.priceChanges.slice(-12);
+        changedCount++;
+        if(to<from){priceDropCount++;priceDropKeys.push(key);}
+      }
+      old.lastSeenAt=currentTime;old.seenCount=(Number(old.seenCount)||0)+1;
+      if(price>0)old.currentPrice=price;
+      if(source)old.source=source;
+      if(p.external_url)old.sourceUrl=String(p.external_url);
+      if(p.address)old.address=String(p.address);
+      if(p.postal_code)old.postalCode=String(p.postal_code);
+      if(p.city)old.city=String(p.city);
+      if(p.type)old.type=String(p.type);
+      if(Number(p.surface)>0)old.area=Number(p.surface);
+      if(Number(p.rooms)>0)old.rooms=Number(p.rooms);
+      if(p.dpe)old.dpe=String(p.dpe);
+      old.status="active";
+    }
+  }
+  ctMemoryWrite(rows);
+  return {total:rows.length,newCount,changedCount,priceDropCount,newKeys,priceDropKeys};
+}
+function ctMemoryStats(){
+  const rows=ctMemoryRead(),nowMs=Date.now();
+  const new7=rows.filter(x=>Date.parse(x.firstSeenAt)>=nowMs-7*86400000).length;
+  const old7=rows.filter(x=>Date.parse(x.lastSeenAt)>=nowMs-30*86400000&&Date.parse(x.firstSeenAt)<nowMs-7*86400000).length;
+  const drops=rows.filter(x=>Array.isArray(x.priceChanges)&&x.priceChanges.some(c=>Number(c.to)<Number(c.from))).length;
+  return {total:rows.length,new7,old7,drops};
+}
+function ctRenderMarketPanel(){
+  const box=$("ctMarketPanel");if(!box)return;
+  const c=ctMarketMeta.counts||{};
+  const cards=[["all","📊","Toutes",ctMarketMeta.items?.length||0],["new","🆕","Nouvelles",c.new||0],["known","🧠","Déjà connues",c.known||0],["drop","💶","Baisses de prix",c.drop||0],["multi","🔗","Multi-sources",c.multi||0],["private","👤","Particuliers",c.private||0],["work","🎯","À travailler",c.work||0]];
+  const missing=c.missing||0;
+  box.innerHTML='<div class="ct-market-head"><div><strong>📊 Lecture commerciale de la veille</strong><span>Compare uniquement avec la précédente recherche ayant les mêmes critères. « Non retrouvées » signifie seulement absentes de cette recherche, pas vendues.</span></div><span class="ct-market-missing">↘ '+missing+' non retrouvée(s)</span></div><div class="ct-market-cards">'+cards.map(x=>'<button type="button" class="ct-market-card '+(ctMarketFilter===x[0]?"active":"")+'" data-ct-market-filter="'+x[0]+'"><b>'+x[1]+'</b><strong>'+x[3]+'</strong><span>'+x[2]+'</span></button>').join("")+'</div><div class="ct-market-filter-row"><span>Vue : <strong>'+apiEsc(cards.find(x=>x[0]===ctMarketFilter)?.[2]||"Toutes")+'</strong></span><span>'+ctMarketMeta.items.length+' résultat(s) analysé(s)</span></div>';
+}
+function ctMarketMatches(p){
+  if(ctMarketFilter==="all")return true;
+  if(ctMarketFilter==="new")return Boolean(p._marketIsNew);
+  if(ctMarketFilter==="known")return !p._marketIsNew;
+  if(ctMarketFilter==="drop")return Boolean(p._marketPriceDrop);
+  if(ctMarketFilter==="multi")return Array.isArray(p._marketTags)&&p._marketTags.includes("multi");
+  if(ctMarketFilter==="private")return Boolean(p._marketIsPrivate);
+  if(ctMarketFilter==="work")return Boolean(p._marketWork);
+  return true;
+}
+function ctSelect10(){
+  ctSelectedIndices=new Set();
+  const visible=ctMarketMeta.items?.filter(ctMarketMatches)||[];
+  if(!visible.length){ctRender(ctMarketMeta.items||[]);return;}
+  visible.slice(0,10).forEach(p=>{
+    const idx=ctAnnonces.findIndex(x=>x===p||ctMemoryKey(x)===p._marketKey);
+    if(idx>=0)ctSelectedIndices.add(idx);
+  });
+  ctRender(ctMarketMeta.items);
+}
+function ctDeselectAll(){ctSelectedIndices=new Set();ctRender(ctMarketMeta.items);}
+function ctPrepareSelectedTour(){
+  const selected=[...ctSelectedIndices].slice(0,10).map(i=>ctAnnonces[i]).filter(Boolean);
+  if(selected.length<2){alert("Sélectionne au moins 2 annonces pour préparer la tournée.");return;}
+  const points=selected.map(p=>{
+    const lat=Number(p.latitude??p.lat),lon=Number(p.longitude??p.lon);
+    if(Number.isFinite(lat)&&Number.isFinite(lon)&&lat!==0&&lon!==0)return lat+","+lon;
+    return [p.address,p.postal_code,p.city].filter(Boolean).join(", ");
+  }).filter(Boolean);
+  if(points.length<2){alert("Les annonces sélectionnées ne contiennent pas assez d'informations géographiques.");return;}
+  const destination=encodeURIComponent(points[points.length-1]);
+  const waypoints=points.slice(0,-1).map(encodeURIComponent).join("|");
+  window.open("https://www.google.com/maps/dir/?api=1&destination="+destination+"&waypoints="+waypoints+"&travelmode=driving","_blank","noopener");
+}
+function ctRenderMemoryPanel(){
+  const box=$("ctMemorySummary");if(!box)return;
+  const s=ctMemoryStats();
+  box.innerHTML='<strong>🧠 Mémoire du marché</strong><span>'+s.total+' annonce(s) mémorisée(s)</span><span>🆕 '+s.new7+' nouvelles sur 7 j</span><span>💶 '+s.drops+' avec baisse suivie</span><button id="ctMemoryExport" class="ghost" type="button">Exporter la mémoire</button><button id="ctMemoryClear" class="ghost" type="button">Effacer la mémoire locale</button>';
+  const ex=$("ctMemoryExport");
+  if(ex)ex.onclick=()=>{
+    const blob=new Blob([JSON.stringify(ctMemoryRead(),null,2)],{type:"application/json"});
+    const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="jml-memoire-marche.json";a.click();setTimeout(()=>URL.revokeObjectURL(a.href),500);
+  };
+  const clear=$("ctMemoryClear");
+  if(clear)clear.onclick=()=>{
+    if(confirm("Effacer la mémoire locale de la veille ?")){localStorage.removeItem(CT_MEMORY_KEY);ctRenderMemoryPanel();$("ctStatus").textContent="Mémoire locale effacée."}
+  };
+}
+
+let ctAnnonces=[];
+function ctEuro(v){const n=Number(v);return n>0?n.toLocaleString("fr-FR")+" €":"—"}
+function ctAnnonceType(v){return String(v||"Autre").trim()||"Autre"}
+function ctRender(items){
+  const all=Array.isArray(items)?items:[];
+  ctAnnonces=all;
+  const box=$("ctResults"),add=$("ctAddBtn");
+  if(!box)return;
+  const visible=all.filter(ctMarketMatches);
+  if(add)add.disabled=ctSelectedIndices.size===0;
+  if($("ctLocateBtn"))$("ctLocateBtn").disabled=ctSelectedIndices.size===0;
+  if($("ctSelect10Btn"))$("ctSelect10Btn").disabled=!visible.length;
+  if($("ctDeselectBtn"))$("ctDeselectBtn").disabled=ctSelectedIndices.size===0;
+  if($("ctSelect10Btn")){
+    const n=ctSelectedIndices.size;
+    $("ctSelect10Btn").textContent=visible.length ? ("☑️ "+(n||0)+" sélectionnée(s)") : "☑️ 0 sélectionnée(s)";
+    $("ctSelect10Btn").title=visible.length ? "Sélectionner les 10 meilleures annonces visibles" : "Aucune annonce exploitable à sélectionner";
+  }
+  if(!visible.length){box.innerHTML='<div class="meta">Aucune annonce ne correspond à cette vue. Utilise « Toutes » pour revoir la recherche.</div>';return}
+  box.innerHTML=visible.map(p=>{
+    const i=all.findIndex(x=>x===p||ctMemoryKey(x)===p._marketKey);
+    const price=ctEuro(p.price),surface=p.surface?Number(p.surface).toLocaleString("fr-FR")+" m²":"Surface —";
+    const m2=p.price_per_m2?Math.round(Number(p.price_per_m2)).toLocaleString("fr-FR")+" €/m²":"€/m² —";
+    const loc=[p.postal_code,p.city].filter(Boolean).join(" ");
+    const dpe=p.dpe?"DPE "+p.dpe:"DPE —";
+    const seller=p.seller_type?" · "+p.seller_type:"";
+    const portals=Array.isArray(p.sources)?p.sources.filter(x=>x&&x.source).map(x=>x.source).filter((v,j,a)=>a.indexOf(v)===j):[];
+    const badges=[];
+    if(p._marketIsNew)badges.push('<span>🆕 Nouvelle</span>');else badges.push('<span>🧠 Déjà connue</span>');
+    if(p._marketPriceDrop)badges.push('<span>💶 Baisse de prix</span>');
+    if(portals.length>1)badges.push('<span>🔗 '+portals.length+' sources</span>');
+    if(p._marketIsPrivate)badges.push('<span>👤 Particulier</span>');
+    if(p.exclusive)badges.push('<span>Exclusivité</span>');
+    const portalHtml=portals.length?'<div class="meta">Sources du même bien : <strong>'+apiEsc(portals.join(" · "))+'</strong></div>':"";
+    return '<article class="ct-card"><div class="ct-card-head"><input type="checkbox" data-ct-check="'+i+'" '+(ctSelectedIndices.has(i)?"checked":"")+'><div><h3>'+apiEsc(p.title||ctAnnonceType(p.type)+" à "+(p.city||""))+'</h3><div class="meta">'+apiEsc(loc)+seller+'</div><div class="ct-price">'+price+'</div><div class="meta">'+surface+" · "+m2+" · "+(p.rooms?p.rooms+" pièce(s) · ":"")+apiEsc(dpe)+'</div><div class="ct-badges">'+badges.join("")+'</div><div class="meta">📡 Source : <strong>'+apiEsc(p.source||"ChercherTrouver.immo")+'</strong></div>'+portalHtml+(p.external_url?'<a href="'+apiEsc(p.external_url)+'" target="_blank" rel="noopener">Voir l’annonce publique ↗</a>':"")+'<div class="ct-card-actions"><button class="ghost ct-address-btn" data-ct-address="'+i+'">📍 Chercher l’adresse gratuitement</button></div><div id="ct-address-result-'+i+'" class="ct-address-result"></div></div></div></article>';
+  }).join("");
+}
+function ctDistanceKm(lat1,lon1,lat2,lon2){
+  const R=6371,rad=Math.PI/180;
+  const dLat=(lat2-lat1)*rad,dLon=(lon2-lon1)*rad;
+  const a=Math.sin(dLat/2)**2+Math.cos(lat1*rad)*Math.cos(lat2*rad)*Math.sin(dLon/2)**2;
+  return 2*R*Math.asin(Math.sqrt(a));
+}
+let ctTourAnnonces=[];
+async function ctSectorTour(){
+  const btn=$("ctTourBtn"),box=$("ctTourResult");
+  if(!btn||!box)return;
+  btn.disabled=true; box.innerHTML='<div class="meta">Recherche du secteur le plus compact…</div>';
+  try{
+    const dept=$("ctDept").value.trim()||"08",type=$("ctType").value||"";
+    const data=await publicJson("/api/sector-tour?"+new URLSearchParams({dept,type,min:"10",maxRadius:"20"}));
+    ctTourAnnonces=data.items||[];
+    const inCrm=p=>prospects.some(x=>{
+      const a=norm(x.externalId||""),b=norm(p.reference||"");
+      if(a&&b&&a===b)return true;
+      return x.sourceUrl&&p.external_url&&String(x.sourceUrl)===String(p.external_url);
+    });
+    const fresh=ctTourAnnonces.filter(p=>!inCrm(p)).length;
+    const cards=ctTourAnnonces.map((p,i)=>'<div class="ct-tour-item"><strong>'+apiEsc(p.title||"Bien à vendre")+'</strong><span>'+apiEsc([p.postal_code,p.city].filter(Boolean).join(" · "))+' · '+(p.distanceKm!=null?p.distanceKm+" km du centre du secteur":"")+'</span><span>'+apiEsc([p.price?Number(p.price).toLocaleString("fr-FR")+" €":"",p.surface?p.surface+" m²":"",p.rooms?p.rooms+" pièces":"",p.dpe?"DPE "+p.dpe:""].filter(Boolean).join(" · "))+'</span><small>'+apiEsc(p.source||"Source publique")+(inCrm(p)?" · ⚪ déjà dans CRM":" · 🔥 hors CRM")+'</small>'+(p.external_url?'<a href="'+apiEsc(p.external_url)+'" target="_blank" rel="noopener">Voir l’annonce</a>':"")+'</div>').join("");
+    const sector=data.sector?.center?.city||"secteur détecté";
+    box.innerHTML='<div class="ct-tour-head"><div><strong>🎯 Tournée '+(data.enough?"prête":"incomplète")+' · '+data.found+'/10</strong><span>'+apiEsc(sector)+' · distance moyenne '+(data.sector?.averageDistanceKm??"—")+' km · max '+(data.sector?.maxDistanceKm??"—")+' km</span></div><button id="ctTourAddBtn" class="primary" '+(data.found?"":"disabled")+'>+ Ajouter la tournée au CRM</button></div>'+(data.warning?'<div class="ct-tour-warning">⚠️ '+apiEsc(data.warning)+'</div>':"")+'<div class="ct-tour-summary">🔥 '+fresh+' annonce(s) absente(s) du CRM · '+data.search.private+' particulier(s) reçue(s) · '+data.search.received+' annonce(s) API reçue(s)</div><div class="ct-tour-grid">'+cards+'</div>';
+    const add=$("ctTourAddBtn"); if(add)add.onclick=()=>{
+      let created=0,merged=0;
+      for(const p of ctTourAnnonces){
+        const incoming={address:"",postalCode:p.postal_code||"",city:p.city||"",district:"",type:ctAnnonceType(p.type),area:num(p.surface),land:num(p.land_surface),rooms:num(p.rooms),bedrooms:num(p.bedrooms),price:num(p.price),dpe:p.dpe||"",detectionDate:today(),nextFollow:"",source:"ChercherTrouver · "+(p.source||"catalogue"),externalId:p.reference||"",sourceUrl:p.external_url||"",description:p.description||p.title||"",notes:"Tournée sectorielle · annonce publique. Ne pas utiliser cette fiche pour identifier un propriétaire.",status:"Nouveau",publicListingActive:true,publicPriceDrop:Boolean(p.price_history?.previous&&Number(p.price_history.previous)>Number(p.price||0)),publicListingReappeared:false};
+        const result=mergeProspect(incoming);result==="created"?created++:merged++;
+      }
+      save();alert("Tournée : "+created+" ajoutée(s), "+merged+" déjà présente(s) fusionnée(s).");
+    };
+  }catch(e){box.innerHTML='<div class="meta">Erreur préparation tournée : '+apiEsc(e.message)+'</div>'}
+  finally{btn.disabled=false}
+}
+
+function ctMemoryPollGet(){
+  try{return JSON.parse(localStorage.getItem("jmlMarketLastPollV1")||"null")}catch{return null}
+}
+function ctMemoryPollSet(value){
+  try{localStorage.setItem("jmlMarketLastPollV1",String(value||""))}catch{}
+}
+function ctBuildSearchParams(incremental=false){
+  const qs=new URLSearchParams();
+  const dept=$( "ctDept").value.trim(),ville=$( "ctVille").value.trim(),type=$( "ctType").value,prix=$( "ctPrixMax").value,surface=$( "ctSurfaceMin").value,dpe=$( "ctDpe").value;
+  const radius=Number($( "ctRadius")?.value)||0;
+  qs.set("transaction","vente");qs.set("sort","recent");qs.set("page_size","100");qs.set("dedup","0");
+  if(dept)qs.set("dept",dept);
+  if(ville)qs.set("ville",ville);
+  if(type)qs.set("type",type);if(prix)qs.set("prix_max",prix);if(surface)qs.set("surface_min",surface);if(dpe)qs.set("dpe",dpe);
+  const freshDays=Number($( "ctFresh")?.value)||0;
+  if(!incremental&&freshDays>0)qs.set("created_since",new Date(Date.now()-freshDays*86400000).toISOString());
+  const last=ctMemoryPollGet();
+  if(incremental&&last)qs.set("updated_since",last);
+  return {qs,ville,radius};
+}
+async function ctIncrementalWatch(){
+  const btn=$("ctWatchBtn");if(!btn)return;
+  btn.disabled=true;$("ctStatus").textContent="⚡ Veille incrémentale : recherche des annonces modifiées depuis la dernière veille…";
+  try{
+    const last=ctMemoryPollGet();
+    if(!last){
+      $("ctStatus").textContent="⚡ Première veille : aucune date de référence. Lance d'abord une recherche normale.";
+      return;
+    }
+    const {qs,ville,radius}=ctBuildSearchParams(true);
+    let data=await publicJson("/api/annonces-multi?"+qs.toString());
+    let raw=Array.isArray(data.items)?data.items:[];
+    // Si la fenêtre récente est vide, élargir automatiquement pour éviter un écran à 0.
+    if(!raw.length && !incremental){
+      const wider=new URLSearchParams(qs);
+      wider.delete("created_since");
+      wider.set("sort","recent");
+      data=await publicJson("/api/annonces-multi?"+wider.toString());
+      raw=Array.isArray(data.items)?data.items:[];
+    }
+    if(ville&&radius>0){
+      const geo=await publicJson("/api/geocode?q="+encodeURIComponent(ville));
+      const center=geo?.results?.[0];
+      if(center?.latitude&&center?.longitude){
+        raw=raw.map(p=>{
+          const lat=Number(p.latitude??p.lat),lon=Number(p.longitude??p.lon);
+          return {...p,_radiusKm:(Number.isFinite(lat)&&Number.isFinite(lon)&&lat&&lon)?ctDistanceKm(center.latitude,center.longitude,lat,lon):null};
+        }).filter(p=>p._radiusKm!==null&&p._radiusKm<=radius);
+      }
+    }
+    const privateOnly=$( "ctPrivateOnly")?.checked===true;
+    const filtered=privateOnly?raw.filter(p=>{
+      const seller=norm(p.seller_type||p.sellerType||p.advertiser_type||"");
+      const agency=["pro","professionnel","agence","agency","mandataire","promoteur","notaire"].some(x=>seller===x||seller.includes(x));
+      return !agency&&p.exclusive!==true&&p.exclusive!=="true"&&p.exclusivity!==true&&p.exclusivity!=="true";
+    }):raw;
+    const market=ctMarketClassify(filtered);
+    // Sélection automatique uniquement lorsqu’il existe de vraies annonces.
+    // Si la source retourne 0 résultat, aucune sélection fantôme ne doit rester.
+    ctSelectedIndices=new Set();
+    if(market.items.length){
+      market.items.filter(ctMarketMatches).slice(0,10).forEach(p=>{
+        const idx=market.items.findIndex(x=>x===p||ctMemoryKey(x)===p._marketKey);
+        if(idx>=0)ctSelectedIndices.add(idx);
+      });
+    }
+    ctRenderMarketPanel();
+    ctRender(market.items);
+    const memory=ctRememberResults(filtered);
+    ctLastResultsWrite(filtered);
+    ctLastSearchSignatureWrite(ctSearchSignature());
+    ctRenderMemoryPanel();
+    ctMemoryPollSet(new Date().toISOString());
+    const multi=raw.filter(p=>Array.isArray(p.sources)&&p.sources.length>1).length;
+    $("ctStatus").textContent="⚡ "+filtered.length+" annonce(s) modifiée(s) depuis "+new Date(last).toLocaleString("fr-FR")+" · "+multi+" multi-portails · 🧠 +"+memory.newCount+" nouvelle(s), "+memory.changedCount+" changement(s) de prix";
+  }catch(e){$("ctStatus").textContent="Erreur veille incrémentale : "+e.message}
+  finally{btn.disabled=false}
+}
+
+async function ctSearch(){
+  const btn=$("ctSearchBtn");btn.disabled=true;ctSelectedIndices=new Set();ctMarketFilter="all";$("ctStatus").textContent="Recherche multi-sources en cours…";
+  try{
+    const {qs,ville,radius}=ctBuildSearchParams(false);
+    const data=await publicJson("/api/annonces-multi?"+qs.toString());
+    let raw=Array.isArray(data.items)?data.items:[];
+    let center=null;
+    if(ville&&radius>0){
+      const geo=await publicJson("/api/geocode?q="+encodeURIComponent(ville));
+      center=geo?.results?.[0]||null;
+      if(!center?.latitude||!center?.longitude)throw new Error("Impossible de géocoder la commune pour appliquer le rayon.");
+      raw=raw.map(p=>{
+        const lat=Number(p.latitude??p.lat),lon=Number(p.longitude??p.lon);
+        if(!Number.isFinite(lat)||!Number.isFinite(lon)||!lat||!lon){
+          // Une annonce sans coordonnées ne doit pas disparaître : on la conserve
+          // et on pourra retrouver son adresse/position avec le bouton dédié.
+          return {...p,_radiusKm:null,_radiusStatus:"non géolocalisée"};
+        }
+        const d=ctDistanceKm(center.latitude,center.longitude,lat,lon);
+        return {...p,_radiusKm:d,_radiusStatus:d<=radius?"dans le rayon":"hors rayon"};
+      }).filter(p=>p._radiusKm===null||p._radiusKm<=radius);
+      raw=raw.map(p=>({...p,source:p.source||p.sources?.[0]?.source||"ChercherTrouver.immo"}));
+    }
+    const privateOnly=$( "ctPrivateOnly")?.checked===true;
+    const filtered=privateOnly?raw.filter(p=>{
+      const seller=norm(p.seller_type||p.sellerType||p.advertiser_type||"");
+      const isAgency=["pro","professionnel","agence","agency","mandataire","promoteur","notaire"].some(x=>seller===x||seller.includes(x));
+      const exclusive=p.exclusive===true||p.exclusive==="true"||p.exclusivity===true||p.exclusivity==="true";
+      return !isAgency&&!exclusive;
+    }):raw;
+    const market=ctMarketClassify(filtered);
+    ctRenderMarketPanel();
+    ctRender(market.items);
+    const memory=ctRememberResults(filtered);
+    ctLastResultsWrite(filtered);
+    ctLastSearchSignatureWrite(ctSearchSignature());
+    ctRenderMemoryPanel();
+    ctMemoryPollSet(new Date().toISOString());
+    const zone=ville?(radius>0?" dans un rayon de "+radius+" km autour de "+ville:" à "+ville):" dans les Ardennes";
+    const sourceCounts={};raw.forEach(p=>{const s=String(p.source||p.sources?.[0]?.source||"ChercherTrouver.immo");sourceCounts[s]=(sourceCounts[s]||0)+1});
+    const sourceSummary=Object.entries(sourceCounts).sort((a,b)=>b[1]-a[1]).map(([s,n])=>s+" : "+n).join(" · ");
+    const sourceDiag=(Array.isArray(data.sources)?data.sources:[]).map(s=>{
+      const label=String(s.source||"Source");
+      if(s.ok===false)return label+" ❌ "+String(s.error||"erreur");
+      if(s.skipped)return label+" ⚪ clé absente";
+      return label+" ✓ "+Number(s.count||0);
+    }).join(" · ");
+    const freshnessDiag=data.freshness&&Number.isFinite(Number(data.freshness.raw_total||data.raw_total))?" · brut : "+Number(data.raw_total||0)+" · fraîcheur : -"+Number(data.freshness.discarded||0)+" / "+Number(data.freshness.unknown||0)+" inconnue(s)":""; 
+    const selectedNow=ctSelectedIndices.size;
+    const sourceDetails=sourceDiag||"aucun retour source";
+    $("ctStatus").textContent=filtered.length+" annonce(s) exploitables"+zone+" · "+(data.items?.length||0)+" reçue(s)"+freshnessDiag+" · Sources : "+(sourceSummary||"aucune")+" · État : "+sourceDetails+(privateOnly&&raw.length&&!filtered.length?" · ⚠️ toutes écartées par le filtre « Particulier uniquement »":"")+(filtered.length?" · ☑️ "+selectedNow+" automatiquement sélectionnée(s)":" · ☑️ 0 sélectionnée(s)")+ " · "+raw.filter(p=>Array.isArray(p.sources)&&p.sources.length>1).length+" multi-portails · 🧠 mémoire : "+memory.total+" fiches / +"+memory.newCount+" nouvelles / "+memory.changedCount+" prix modifiés";
+  }catch(e){$("ctStatus").textContent="Erreur veille annonces : "+e.message;ctRender([])}
+  finally{btn.disabled=false}
+}
+async function ctLocateAll(){
+  const btn=$("ctLocateBtn");
+  if(!btn||!ctAnnonces.length)return;
+  btn.disabled=true;
+  const selected=[...ctSelectedIndices].slice(0,10);
+  const indices=selected.length?selected:Array.from({length:Math.min(10,ctAnnonces.length)},(_,i)=>i);
+  const limit=indices.length;
+  $("ctStatus").textContent="Recherche des adresses publiques en cours : 0/"+limit+"…";
+  for(let n=0;n<limit;n++){
+    await ctFindAddress(indices[n]);
+    $("ctStatus").textContent="Recherche des adresses publiques en cours : "+(n+1)+"/"+limit+"…";
+  }
+  $("ctStatus").textContent=limit+" bien(s) analysé(s) pour retrouver une adresse candidate via BAN + DPE. Vérifie chaque concordance avant prospection.";
+  btn.disabled=false;
+}
+function ctAddSelected(){
+  const selected=[...ctSelectedIndices].slice(0,10).map(i=>ctAnnonces[i]).filter(Boolean);
+  if(!selected.length){alert("Sélectionne au moins une annonce.");return}
+  let created=0,merged=0;
+  for(const p of selected){
+    const incoming={address:"",postalCode:p.postal_code||"",city:p.city||"",district:"",type:ctAnnonceType(p.type),area:num(p.surface),land:num(p.land_surface),rooms:num(p.rooms),bedrooms:num(p.rooms),price:num(p.price),dpe:p.dpe||"",detectionDate:today(),nextFollow:"",source:"ChercherTrouver · "+(p.source||"catalogue"),externalId:p.reference||"",sourceUrl:p.external_url||"",description:p.description||p.title||"",notes:"Annonce publique récupérée via ChercherTrouver. Signal commercial public : annonce active. Ne pas utiliser cette fiche pour identifier un propriétaire.",status:"Nouveau",publicListingActive:true,publicPriceDrop:Boolean(p.price_history?.previous&&Number(p.price_history.previous)>Number(p.price||0)),publicListingReappeared:false};
+    const result=mergeProspect(incoming);result==="created"?created++:merged++;
+  }
+  save();alert("ChercherTrouver : "+created+" annonce(s) ajoutée(s), "+merged+" déjà présente(s) fusionnée(s).");
+}
+function ctAddressMapLinks(c){
+  const address=String(c?.address||"").trim();
+  const query=[address,c?.postalCode,c?.city].filter(Boolean).join(", ");
+  if(!query)return "";
+  const encoded=encodeURIComponent(query);
+  const lat=Number(c?.latitude),lon=Number(c?.longitude);
+  const mapUrl="https://www.google.com/maps/search/?api=1&query="+encoded;
+  const streetUrl=Number.isFinite(lat)&&Number.isFinite(lon)&&lat!==0&&lon!==0
+    ?"https://www.google.com/maps/@?api=1&map_action=pano&viewpoint="+encodeURIComponent(lat+","+lon)
+    :mapUrl;
+  return '<div class="ct-address-actions"><a class="ghost" href="'+streetUrl+'" target="_blank" rel="noopener">👁️ Vue rue</a><a class="ghost" href="'+mapUrl+'" target="_blank" rel="noopener">🗺️ Map View</a><button class="ghost" data-copy-address="'+apiEsc(query)+'">📋 Copier</button></div>';
+}
+
+async function ctFindAddress(index){
+  const p=ctAnnonces[index],box=$("ct-address-result-"+index);
+  if(!p||!box)return;
+  box.innerHTML='<div class="meta">Recherche gratuite de l’adresse publique + BAN + DPE en cours…</div>';
+  try{
+    const qs=new URLSearchParams({lat:String(p.latitude??""),lon:String(p.longitude??""),area:String(p.surface||0),rooms:String(p.rooms||0),dpe:String(p.dpe||""),cityCode:String(p.city_code||p.cityCode||""),listingUrl:String(p.external_url||p.sourceUrl||""),title:String(p.title||""),city:String(p.city||""),postalCode:String(p.postal_code||p.postalCode||"")});
+    const data=await publicJson("/api/address-candidates?"+qs.toString());
+    const rows=data.candidates||[];
+    box.innerHTML=rows.length?'<div class="ct-address-title">Adresses candidates · concordance technique</div>'+rows.map((c)=>'<div class="ct-address-candidate"><strong>'+apiEsc(c.address)+'</strong><span>'+apiEsc([c.postalCode,c.city].filter(Boolean).join(" "))+' · '+Math.round(c.distanceMeters||0)+' m · <b>'+Math.round(c.score||0)+'/100</b></span><small>'+apiEsc(c.priority==="priorite_geographique"?"🟠 Priorité géographique · DPE discordant":(c.confidence==="forte"?"🟢 Concordance forte":c.confidence==="interessante"?"🟡 Concordance intéressante":c.confidence==="a_verifier"?"🟠 À vérifier":"⚪ Concordance faible"))+'</small><small>'+apiEsc((c.reasons||[]).join(" · "))+'</small>'+(c.bdnb?.length?'<small>🏢 BDNB : bâtiment retrouvé · '+apiEsc(c.bdnb[0].address||"adresse BDNB")+(c.bdnb[0].units?' · '+c.bdnb[0].units+' unité(s)':"")+'</small>':"")+(c.dpe?'<small>DPE candidat : '+apiEsc(c.dpe.dpe||"—")+' · '+(c.dpe.area||"—")+' m² · '+(c.dpe.rooms||"—")+' pièce(s)</small>':"")+ctAddressMapLinks(c)+'</div>').join("")+'<div class="meta">Adresse non confirmée : le résultat sert à orienter le rapprochement public, pas à identifier un propriétaire.</div>':'<div class="meta">Aucune adresse candidate suffisamment documentée.</div>';
+  }catch(e){box.innerHTML='<div class="meta">Erreur recherche adresse : '+apiEsc(e.message)+'</div>'}
+}
+document.addEventListener("click",e=>{
+  const b=e.target.closest("[data-ct-address]");
+  if(b)ctFindAddress(Number(b.dataset.ctAddress));
+  const check=e.target.closest("[data-ct-check]");
+  if(check){
+    const i=Number(check.dataset.ctCheck);
+    if(check.checked){
+      if(ctSelectedIndices.size>=10&&!ctSelectedIndices.has(i)){check.checked=false;alert("Maximum de 10 annonces sélectionnées.");return}
+      ctSelectedIndices.add(i);
+    }else ctSelectedIndices.delete(i);
+    ctRender(ctMarketMeta.items||ctAnnonces);
+  }
+  const mf=e.target.closest("[data-ct-market-filter]");
+  if(mf){ctMarketFilter=mf.dataset.ctMarketFilter||"all";ctRenderMarketPanel();ctRender(ctMarketMeta.items||ctAnnonces);}
+  const copy=e.target.closest("[data-copy-address]");
+  if(copy){const value=copy.dataset.copyAddress||"";navigator.clipboard?.writeText(value).then(()=>{const old=copy.textContent;copy.textContent="✅ Copié";setTimeout(()=>copy.textContent=old,1200)}).catch(()=>{})}
+});
+
+/* V1.37.14 — bouton piloté par délégation globale */
+/* V1.37.14 — bouton piloté par délégation globale */
+if($("ctAddBtn"))$("ctAddBtn").onclick=ctAddSelected;
+
+
+if($("ctLocateBtn"))$("ctLocateBtn").onclick=ctLocateAll;
+
+/* V1.35.0 — Assistant IA JML */
+function aiRefreshProspects(){
+  const select=$("aiProspectSelect");
+  if(!select)return;
+  const current=select.value;
+  const items=prospects.filter(p=>typeof isCommercialProspect==="function"?isCommercialProspect(p):true)
+    .slice().sort((a,b)=>String(a.city||"").localeCompare(String(b.city||""),"fr")||String(a.address||"").localeCompare(String(b.address||""),"fr"));
+  select.innerHTML='<option value="">Choisir un prospect commercial…</option>'+items.map(p=>{
+    const label=[p.address||"Adresse à compléter",p.postalCode,p.city].filter(Boolean).join(" · ");
+    return '<option value="'+esc(p.id||"")+'">'+esc(label)+(p.type?' · '+esc(p.type):"")+'</option>';
+  }).join("");
+  if(items.some(p=>String(p.id)===String(current)))select.value=current;
+}
+function aiGetProspect(){
+  const id=$("aiProspectSelect")?.value;
+  return prospects.find(p=>String(p.id)===String(id))||null;
+}
+function aiSetBusy(b){
+  ["aiAnalyzeBtn","aiWhyBtn","aiPriorityBtn","aiCallBtn","aiReportBtn","aiFollowupBtn"].forEach(id=>{if($(id))$(id).disabled=b});
+}
+function aiRender(data){
+  const box=$("aiResult");if(!box)return;
+  if(data?.text){
+    box.innerHTML='<div class="ai-remote"><div class="ai-result-head"><strong>✨ Gemini</strong><span>'+esc(data.model||"")+'</span></div><div class="ai-remote-text">'+esc(data.text).replace(/\n/g,"<br>")+'</div></div>'+
+      (data.warning?'<div class="source-note">⚠️ '+esc(data.warning)+'</div>':"");
+    return;
+  }
+  const l=data?.local||{};
+  box.innerHTML='<div class="ai-local"><div class="ai-result-head"><strong>🧠 JML IA locale</strong><span>Sans appel externe</span></div>'+
+    '<h3>'+esc(l.title||"Analyse")+'</h3><p>'+esc(l.summary||"")+'</p>'+
+    '<div class="ai-grid">'+
+      '<div><strong>Pourquoi c’est utile</strong><ul>'+((l.reasons||[]).map(x=>'<li>'+esc(x)+'</li>').join("")||"<li>Pas assez d'informations.</li>")+'</ul></div>'+
+      '<div><strong>Prochaine action</strong><ul>'+((l.actions||[]).map(x=>'<li>'+esc(x)+'</li>').join("")||"<li>Compléter la fiche.</li>")+'</ul></div>'+
+      '<div><strong>Questions à poser</strong><ul>'+((l.questions||[]).map(x=>'<li>'+esc(x)+'</li>').join("")||"<li>—</li>")+'</ul></div>'+
+      '<div><strong>Objections</strong>'+((l.objections||[]).map(x=>'<div class="ai-objection"><b>'+esc(x.objection)+'</b><span>'+esc(x.response)+'</span></div>').join("")||"<div>—</div>")+'</div>'+
+    '</div>'+
+    ((l.warnings||[]).length?'<div class="ai-warnings">⚠️ '+l.warnings.map(esc).join(" · ")+'</div>':"")+
+    '<div class="source-note">'+esc(l.disclaimer||"")+'</div></div>';
+}
+function aiRenderPriority(rows){
+  const box=$("aiResult");if(!box)return;
+  const list=Array.isArray(rows)?rows:[];
+  box.innerHTML='<div class="ai-local"><div class="ai-result-head"><strong>🎯 Top 10 · Radar JML</strong><span>'+list.length+' dossier(s)</span></div>'+
+    '<p>Classement basé sur les signaux et scores déjà calculés par le moteur JML. Les données restent à vérifier avant toute prospection.</p>'+
+    '<ol class="ai-priority-list">'+list.map((p,i)=>{
+      const score=Number(p.priorityProspectionScore??0), signal=Number(p.commercialSignalScore??0), level=p.priorityProspectionLevel||"—";
+      const label=[p.address,p.postalCode,p.city].filter(Boolean).join(" · ")||"Adresse à compléter";
+      const reasons=Array.isArray(p.priorityProspectionReasons)?p.priorityProspectionReasons.slice(0,2):[];
+      return '<li><strong>#'+(i+1)+' · '+esc(label)+'</strong><span>Priorité '+score.toFixed(1)+'/100 · '+esc(level)+' · signal public '+signal+'/100'+(reasons.length?' · '+esc(reasons.join(" · ")):"")+'</span></li>';
+    }).join("")+'</ol><div class="source-note">Ce classement aide à organiser le travail. Il ne constitue pas une probabilité de vente et n’infère pas l’intention d’un propriétaire.</div></div>';
+}
+async function aiRun(task){
+  if(task==="priority"){
+    const pool=(Array.isArray(futureRadarCandidates)&&futureRadarCandidates.length?futureRadarCandidates:prospects.filter(p=>typeof isCommercialProspect==="function"?isCommercialProspect(p):true));
+    if(!pool.length){$("aiStatus").textContent="Lance d'abord une analyse Radar ou ajoute des prospects commerciaux.";return}
+    aiSetBusy(true);$("aiStatus").textContent="Classement des dossiers en cours…";
+    try{
+      const rows=pool.slice().sort((a,b)=>
+        (Number(b.priorityProspectionScore??0)-Number(a.priorityProspectionScore??0))||
+        (Number(b.sellerOpportunityScore??0)-Number(a.sellerOpportunityScore??0))||
+        (Number(b.commercialSignalScore??0)-Number(a.commercialSignalScore??0))
+      ).slice(0,10);
+      aiRenderPriority(rows);
+      $("aiProviderStatus").textContent="🔵 IA JML · Radar";
+      $("aiStatus").textContent="Top 10 calculé · "+new Date().toLocaleTimeString("fr-FR");
+    }finally{aiSetBusy(false)}
+    return;
+  }
+  const p=aiGetProspect();
+  if(!p){$("aiStatus").textContent="Choisis d'abord un prospect commercial.";return}
+  aiSetBusy(true);$("aiStatus").textContent="Assistant IA en cours…";
+  try{
+    const r=await fetch("/api/ai",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({task,prospect:p,context:$("aiContext")?.value||""})});
+    const data=await r.json().catch(()=>({}));
+    if(!r.ok||data.ok===false)throw new Error(data.error||"Service IA indisponible");
+    const provider=data.provider==="Gemini"?"🟢 Gemini":data.provider==="local-fallback"?"🟠 Gemini indisponible · secours local":"🔵 IA locale";
+    $("aiProviderStatus").textContent=provider;
+    $("aiStatus").textContent="Analyse terminée · "+new Date().toLocaleTimeString("fr-FR");
+    aiRender(data);
+  }catch(e){
+    $("aiProviderStatus").textContent="🔴 IA à vérifier";
+    $("aiStatus").textContent="Erreur IA : "+e.message;
+  }finally{aiSetBusy(false)}
+}
+if($("aiAssistantPanel")){
+  /* Les boutons IA sont gérés par la délégation globale V1.37.3. */
+  aiRefreshProspects();
+  const _jmlOriginalRender=render;
+  render=function(){_jmlOriginalRender();aiRefreshProspects()};
+}
