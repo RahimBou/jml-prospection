@@ -1262,6 +1262,31 @@ async function api(pathname,url){
     const ct=await fetchChercherTrouverPing();
     return {ok:ct.ok===true,checkedAt:new Date().toISOString(),chercherTrouver:ct};
   }
+  if(pathname==="/api/diagnostic"){
+    const started=Date.now();
+    const probe=async(name,target,options={})=>{
+      if(!target)return {name,ok:false,status:0,error:"Clé API absente",ms:Date.now()-started};
+      const controller=new AbortController();
+      const timer=setTimeout(()=>controller.abort(),Number(options.timeout)||5000);
+      try{
+        const r=await fetch(target,{method:options.method||"GET",headers:options.headers||{"Accept":"application/json,text/plain,*/*","User-Agent":"JML-Prospection-Diagnostic/1.0"},signal:controller.signal});
+        return {name,ok:r.ok,status:r.status,ms:Date.now()-started};
+      }catch(e){return {name,ok:false,status:0,error:e.name==="AbortError"?"Timeout":e.message||"Connexion impossible",ms:Date.now()-started}}
+      finally{clearTimeout(timer)}
+    };
+    const checks=await Promise.all([
+      probe("Géoplateforme / géocodage","https://data.geopf.fr/geocodage/search/?q=Charleville-M%C3%A9zi%C3%A8res&limit=1"),
+      probe("ADEME / DPE",DPE_URL+"?size=1"),
+      probe("DVF+ / Cerema",DVF_URL+"?code_insee=08105&page_size=1"),
+      probe("ChercherTrouver / API",String(process.env.CHERCHERTROUVER_API_KEY||"").trim()?"https://cherchertrouver.immo/api/v1/ping":"")
+    ]);
+    return {
+      ok:true,server:"jml-prospection",version:"1.50.0",node:process.version,
+      uptimeSec:Math.round(process.uptime()),memoryMb:Math.round(process.memoryUsage().rss/1024/1024),port:PORT,
+      environment:{cherchertTrouver:Boolean(String(process.env.CHERCHERTROUVER_API_KEY||"").trim()),streamEstate:Boolean(String(process.env.STREAM_ESTATE_API_KEY||"").trim()),gemini:Boolean(String(process.env.GEMINI_API_KEY||"").trim())},
+      caches:{dvfGeo:dvfGeoCache.size,communeGeo:communeGeoCache.size},probes:checks,durationMs:Date.now()-started
+    };
+  }
   if(pathname==="/api/data-agent"){
     let codeInsee=url.searchParams.get("codeInsee")?.trim();
     const q=url.searchParams.get("q")?.trim();
