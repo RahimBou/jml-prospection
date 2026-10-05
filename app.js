@@ -370,7 +370,7 @@ async function processAllProspectsAutomatically(){
     if(bar)bar.value=pct;if(count)count.textContent=done+" / "+total;
     if(status)status.textContent=done<total?"Traitement en cours… "+pct+" %":"Traitement terminé : "+total+" prospect(s) analysé(s).";
     if(done<total)requestAnimationFrame(runBatch);
-    else{save();if(btn)btn.disabled=false;prospectPage=1;render();setTimeout(()=>{renderAutoTreatmentSummary();bindAutoSectorTable();},0);}
+    else{finalizeAutoPriorities();save();if(btn)btn.disabled=false;prospectPage=1;render();setTimeout(()=>{renderAutoTreatmentSummary();bindAutoSectorTable();},0);}
   };requestAnimationFrame(runBatch);
 }
 $("addBtn").onclick=()=>openForm();$("closeBtn").onclick=closeForm;$("cancelBtn").onclick=closeForm;
