@@ -1,3 +1,11 @@
+## V1.73.1 — Protection des données + navigation mobile — 06/10/2026
+
+- Ajout d'une sauvegarde locale automatique des prospects.
+- Si la base principale est vide, tentative de restauration depuis la sauvegarde locale.
+- La sauvegarde est rafraîchie à chaque enregistrement et au chargement.
+- Navigation mobile corrigée pour laisser accéder à tous les espaces sans couper « Tournée ».
+- Version interface passée en V1.73.1.
+
 ## V1.73.0 — Tournées terrain extensibles — 06/10/2026
 
 - La tournée n'est plus limitée à 10 prospects.
