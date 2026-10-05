@@ -489,7 +489,7 @@ async function runTerritoryRadar(){
     const seen=new Map();
     let offset=0,totalCommunes=0,analyzed=0,failed=0,dpeCount=0,dvfCount=0,complete=false;
     while(!complete){
-      const data=await publicJson("/api/radar-zone?sectors="+sectors+"&years=5&perCommuneLimit=60&communeBatch=4&offset="+offset+"&limit=200");
+      const data=await publicJson("/api/radar-zone?sectors="+sectors+"&years=5&perCommuneLimit=60&communeBatch=8&includeRoadAxes=0&offset="+offset+"&limit=200");
       totalCommunes=Number(data.totalCommuneCount||data.communeCount||totalCommunes)||totalCommunes;
       analyzed+=Number(data.communesAnalyzed||0);
       failed+=Array.isArray(data.failedCommunes)?data.failedCommunes.length:0;
