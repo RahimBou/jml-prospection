@@ -516,10 +516,10 @@ body{background:linear-gradient(180deg,#f3efe8 0,#f7f5f1 42%,#f5f2ec 100%)}
  .auto-sector-table-scroll table{min-width:0;width:100%;table-layout:fixed}
  .auto-sector-table-scroll th,.auto-sector-table-scroll td{padding:9px 7px;font-size:13px}
  .auto-sector-table-scroll th:nth-child(4),.auto-sector-table-scroll td:nth-child(4),.auto-sector-table-scroll th:nth-child(5),.auto-sector-table-scroll td:nth-child(5),.auto-sector-table-scroll th:nth-child(6),.auto-sector-table-scroll td:nth-child(6){display:none}
- .auto-sector-table-scroll th:nth-child(1),.auto-sector-table-scroll td:nth-child(1){width:38%;font-weight:700}
- .auto-sector-table-scroll th:nth-child(2),.auto-sector-table-scroll td:nth-child(2){width:15%}
- .auto-sector-table-scroll th:nth-child(3),.auto-sector-table-scroll td:nth-child(3){width:12%}
- .auto-sector-table-scroll th:nth-child(7),.auto-sector-table-scroll td:nth-child(7){width:18%}
- .auto-sector-table-scroll th:nth-child(8),.auto-sector-table-scroll td:nth-child(8){width:17%}
- .auto-sector-table-scroll td:nth-child(8) .ghost{font-size:12px;padding:7px 6px;white-space:nowrap}
+ .auto-sector-table-scroll th:nth-child(1),.auto-sector-table-scroll td:nth-child(1){width:34%;font-weight:700}
+ .auto-sector-table-scroll th:nth-child(2),.auto-sector-table-scroll td:nth-child(2){width:13%}
+ .auto-sector-table-scroll th:nth-child(3),.auto-sector-table-scroll td:nth-child(3){width:10%}
+ .auto-sector-table-scroll th:nth-child(7),.auto-sector-table-scroll td:nth-child(7){width:23%;white-space:nowrap}
+ .auto-sector-table-scroll th:nth-child(8),.auto-sector-table-scroll td:nth-child(8){width:20%}
+ .auto-sector-table-scroll td:nth-child(8) .ghost{font-size:11px;padding:8px 5px;white-space:nowrap;max-width:100%;box-sizing:border-box}
 }
