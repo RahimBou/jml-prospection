@@ -69,7 +69,7 @@ document.addEventListener("click",e=>{
   const tour=e.target.closest("#navRouteShortcut");
   if(tour){e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();openTour();return;}
 },true);
-const APP_VERSION = "1.69.0";
+const APP_VERSION = "1.70.0";
 /* V1.50 — le frontend Render web doit toujours viser le service API dédié. */
 const API_BASE = String(window.JML_API_BASE || "https://jml-prospection-web.onrender.com").replace(/\/$/,"");
 
@@ -80,6 +80,8 @@ window.addEventListener("error",e=>{
 });
 document.addEventListener("click",e=>{
  const navTour=e.target.closest("#navRouteShortcut");if(navTour){e.preventDefault();openTour();return;}
+ const to=e.target.closest("[data-tour-open]");if(to){renderProspectDetail(to.dataset.tourOpen);return;}
+ const tv=e.target.closest("[data-tour-visited]");if(tv){markTourVisited(tv.dataset.tourVisited);return;}
  const tr=e.target.closest("[data-tour-remove]");if(tr){toggleProspectSelection(tr.dataset.tourRemove);renderTour();return;}
  if(e.target.closest("#tourOptimizeBtn")){optimizeTourOrder();return;}
  if(e.target.closest("#tourClearBtn")){clearProspectSelection();renderTour();return;}
@@ -618,13 +620,24 @@ async function optimizeTourOrder(){
     if(status)status.textContent="⚠️ "+e.message;
   }finally{if(btn)btn.disabled=false;}
 }
+function markTourVisited(id){
+ const p=prospects.find(x=>String(x.id)===String(id));
+ if(!p)return;
+ const previous=p.status||"Nouveau";
+ p.status="Visité";
+ p.updatedAt=now();
+ ensureHistory(p);
+ p.history.push({date:now(),type:"Visite",text:previous==="Visité"?"Visite confirmée":"Prospect marqué comme visité"});
+ save();
+ renderTour();
+}
 function renderTour(){
  const panel=$("tourPanel");if(!panel)return;
  const selected=selectedProspects();
  const summary=$("tourSummary");summary.innerHTML='<div><strong>'+selected.length+'/10</strong><span>prospects</span></div><div><strong>'+selected.filter(p=>p.autoPriority==="A").length+'</strong><span>priorité A</span></div><div><strong>'+selected.filter(p=>p.status==="À relancer").length+'</strong><span>à relancer</span></div>';
  const maps=selected.length? "https://www.google.com/maps/dir/?api=1&destination="+encodeURIComponent([selected[selected.length-1].address,selected[selected.length-1].postalCode,selected[selected.length-1].city].filter(Boolean).join(", "))+"&waypoints="+encodeURIComponent(selected.slice(0,-1).map(p=>[p.address,p.postalCode,p.city].filter(Boolean).join(", ")).join("|")) : "";
  $("tourMapsBtn").href=maps||"#";$("tourMapsBtn").style.pointerEvents=maps?"auto":"none";$("tourMapsBtn").style.opacity=maps?"1":".5";
- $("tourList").innerHTML=selected.length?selected.map((p,i)=>'<article class="tour-card"><div class="tour-num">'+(i+1)+'</div><div><strong>'+esc(p.address||"Adresse à compléter")+'</strong><span>'+esc([p.postalCode,p.city,p.type].filter(Boolean).join(" · "))+'</span><div class="tour-data"><b>⭐ '+Number(p.autoScore||0)+'</b><b>📐 '+(p.area||0)+' m²</b><b>🔤 DPE '+esc(p.dpe||"—")+'</b><b>📌 '+esc(p.status||"Nouveau")+'</b></div></div><button class="ghost" data-tour-remove="'+esc(p.id)+'">Retirer</button></article>').join(""):'<div class="empty-state">Aucun prospect sélectionné. Depuis un secteur, ajoute jusqu’à 10 dossiers à ta tournée.</div>';
+ $("tourList").innerHTML=selected.length?selected.map((p,i)=>'<article class="tour-card"><div class="tour-num">'+(i+1)+'</div><div><strong>'+esc(p.address||"Adresse à compléter")+'</strong><span>'+esc([p.postalCode,p.city,p.type].filter(Boolean).join(" · "))+'</span><div class="tour-data"><b>⭐ '+Number(p.autoScore||0)+'</b><b>📐 '+(p.area||0)+' m²</b><b>🔤 DPE '+esc(p.dpe||"—")+'</b><b>📌 '+esc(p.status||"Nouveau")+'</b></div><div class="tour-card-actions"><button class="ghost" data-tour-open="'+esc(p.id)+'">Dossier</button><button class="ghost '+(p.status==="Visité"?"selected":"")+'" data-tour-visited="'+esc(p.id)+'">'+(p.status==="Visité"?"✓ Visité":"Marquer visité")+'</button></div></div><button class="ghost" data-tour-remove="'+esc(p.id)+'">Retirer</button></article>').join(""):'<div class="empty-state">Aucun prospect sélectionné. Depuis un secteur, ajoute jusqu’à 10 dossiers à ta tournée.</div>';
 }
 function openTour(){ $("sectorWorkPanel").hidden=true;$("prospectDetailPanel").hidden=true;$("autoTreatmentPanel").hidden=true;$("tourPanel").hidden=false;renderTour();$("tourPanel").scrollIntoView({behavior:"smooth",block:"start"});}
 function openWatch(){
