@@ -485,3 +485,8 @@ body{background:linear-gradient(180deg,#f3efe8 0,#f7f5f1 42%,#f5f2ec 100%)}
 .radar-sector-card span{font-size:.78rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.radar-sector-card strong{font-size:.9rem}
 .radar-clear-filter{padding:8px 10px;color:#4d6b5d;font-weight:700;text-align:center}
 @media(max-width:600px){.radar-priority-grid{grid-template-columns:repeat(2,1fr)}.radar-sector-grid{grid-template-columns:1fr}}
+
+/* V1.50.7 — accès direct au traitement Radar */
+.radar-treatment-bar{display:flex;align-items:center;gap:12px;margin:10px 0 0;padding:10px 12px;border:1px solid #e2e7e2;border-radius:12px;background:#fbfcfa}
+.radar-treatment-bar span{font-size:.78rem;color:#65726c}
+@media(max-width:600px){.radar-treatment-bar{flex-direction:column;align-items:stretch}.radar-treatment-bar .primary{width:100%}.radar-treatment-bar span{text-align:center}}
