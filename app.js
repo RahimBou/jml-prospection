@@ -400,7 +400,8 @@ function showAutoSector(sector){
   renderSectorWork(autoSectorFilter);
   bindSectorWork();
   $("sectorWorkPanel").scrollIntoView({behavior:"smooth",block:"start"});
-}\nasync function processAllProspectsAutomatically(){
+}
+async function processAllProspectsAutomatically(){
   const btn=$("autoProcessBtn"),status=$("autoProcessStatus"),bar=$("autoProcessBar"),count=$("autoProcessCount");
   if(!prospects.length){status.textContent="Aucun prospect à traiter.";return}
   if(btn)btn.disabled=true;let done=0,total=prospects.length,batchSize=50;
