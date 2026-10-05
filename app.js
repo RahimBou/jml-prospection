@@ -78,6 +78,7 @@ window.addEventListener("error",e=>{
   const box=document.getElementById("aiStatus");
   if(box&&e?.message) box.textContent="⚠️ Erreur JavaScript : "+e.message;
 });
+document.addEventListener("change",e=>{const tl=e.target.closest("#tourLimitSelect");if(tl){setTourLimit(tl.value);return;}});
 document.addEventListener("click",e=>{
  const navTour=e.target.closest("#navRouteShortcut");if(navTour){e.preventDefault();openTour();return;}
  const to=e.target.closest("[data-tour-open]");if(to){renderProspectDetail(to.dataset.tourOpen);return;}
