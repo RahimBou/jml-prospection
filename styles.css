@@ -594,3 +594,16 @@ body{background:linear-gradient(180deg,#f7f8f6 0%,#eef2ef 100%);color:var(--text
 .auto-summary-sectors .sector-row-main small{font-size:12px;opacity:.7}
 .auto-summary-sectors .sector-tour-btn{white-space:nowrap;min-width:120px}
 @media(max-width:700px){.auto-summary-sectors .sector-row{grid-template-columns:1fr}.auto-summary-sectors .sector-tour-btn{width:100%}}
+
+
+/* V1.74.1 — cartes secteurs réellement responsives sur mobile */
+@media(max-width:700px){
+  .auto-summary-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+  .auto-summary-sectors{width:100%;min-width:0}
+  .auto-summary-sectors .sector-row{width:100%;min-width:0;box-sizing:border-box}
+  .auto-summary-sectors .sector-row-main{width:100%;min-width:0;box-sizing:border-box;overflow:hidden}
+  .auto-summary-sectors .sector-row-main span{min-width:0}
+  .auto-summary-sectors .sector-row-main span b{display:block;white-space:normal;overflow-wrap:anywhere}
+  .auto-summary-sectors .sector-row-main strong{font-size:20px;white-space:nowrap}
+  .auto-summary-sectors .sector-tour-btn{width:100%;box-sizing:border-box}
+}
