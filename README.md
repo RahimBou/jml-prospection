@@ -1,5 +1,11 @@
 # JML Prospection
 
+## V1.71.0 — refonte visuelle légère
+- Navigation principale simplifiée avec icône + libellé, état actif plus lisible et meilleure utilisation mobile.
+- Palette recentrée sur vert JML, blanc cassé et or comme accent, sans transformer les actions en éléments dorés.
+- Cartes, panneaux et zones de travail harmonisés avec moins d'effet « blocs empilés ».
+- V1.71.0 + cache PWA v21 synchronisés.
+
 ## V1.70.0 — suivi terrain en un clic
 - Depuis « Ma tournée », chaque prospect dispose maintenant de « Dossier » et « Marquer visité ».
 - « Marquer visité » met à jour immédiatement le statut CRM, conserve la date et ajoute une trace dans l'historique.
