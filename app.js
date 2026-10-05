@@ -493,23 +493,44 @@ function autoSectorStats(){
     x[pr]=(x[pr]||0)+1;
     x.scoreSum+=Number(p.autoScore)||0;
   });
-  return [...map.values()]
-    .map(x=>({...x,avg:x.total?Math.round(x.scoreSum/x.total):0}))
-    .sort((a,b)=>(b.A-a.A)||(b.B-a.B)||(b.avg-a.avg)||a.sector.localeCompare(b.sector,"fr"));
+  return [...map.values()].map(x=>({...x,avg:x.total?Math.round(x.scoreSum/x.total):0}));
 }
-function renderAutoTreatmentSummary(){
-  const el=$("autoProcessSummary"); if(!el)return;
-  const counts={A:0,B:0,C:0,D:0};prospects.forEach(p=>counts[p.autoPriority||"D"]=(counts[p.autoPriority||"D"]||0)+1);
-  const sectors=autoSectorStats();
-  el.innerHTML=[["A",counts.A,"À contacter"],["B",counts.B,"Intéressants"],["C",counts.C,"À surveiller"],["D",counts.D,"Faible priorité"]]
-    .map(x=>'<div><strong>'+x[1]+'</strong><span>Priorité '+x[0]+'</span><small>'+x[2]+'</small></div>').join("")
-    +'<div><strong>'+sectors.length+'</strong><span>Secteurs</span><small>répartis automatiquement</small></div>';
+let sectorListSearch="";
+let sectorListSort="alpha";
+function sortSectorRows(rows){
+  const copy=[...rows];
+  const alpha=(a,b)=>String(a.sector).localeCompare(String(b.sector),"fr",{sensitivity:"base",numeric:true});
+  if(sectorListSort==="score")return copy.sort((a,b)=>(b.avg-a.avg)||(b.A-a.A)||alpha(a,b));
+  if(sectorListSort==="priority")return copy.sort((a,b)=>(b.A-a.A)||(b.B-a.B)||(b.avg-a.avg)||alpha(a,b));
+  if(sectorListSort==="total")return copy.sort((a,b)=>(b.total-a.total)||(b.A-a.A)||(b.avg-a.avg)||alpha(a,b));
+  return copy.sort(alpha);
+}
+function renderAutoSectorTable(){
   const table=$("autoSectorTable"); if(!table)return;
-  table.innerHTML=sectors.map(x=>'<tr><td><strong>'+esc(x.sector)+'</strong></td><td>'+x.total+'</td><td>'+x.A+'</td><td>'+x.B+'</td><td>'+x.C+'</td><td>'+x.D+'</td><td>'+x.avg+'/100</td><td><button type="button" class="ghost autoSectorBtn" data-sector="'+esc(x.sector)+'">Travailler</button></td></tr>').join("");bindAutoSectorTable();
+  const search=norm(sectorListSearch);
+  const all=autoSectorStats();
+  const filtered=search?all.filter(x=>norm(x.sector).includes(search)):all;
+  const sectors=sortSectorRows(filtered);
+  const count=$("autoSectorCount");
+  if(count)count.textContent=sectors.length+" / "+all.length+" secteurs";
+  table.innerHTML=sectors.length?sectors.map(x=>'<tr><td><strong>'+esc(x.sector)+'</strong></td><td>'+x.total+'</td><td>'+x.A+'</td><td>'+x.B+'</td><td>'+x.C+'</td><td>'+x.D+'</td><td>'+x.avg+'/100</td><td><button type="button" class="ghost autoSectorBtn" data-sector="'+esc(x.sector)+'">Travailler</button></td></tr>').join(""):'<tr><td colspan="8" class="auto-sector-empty">Aucun secteur ne correspond à la recherche.</td></tr>';
+  bindAutoSectorTable();
 }
 function bindAutoSectorTable(){
   const table=$("autoSectorTable"); if(!table)return;
   table.onclick=e=>{const b=e.target.closest(".autoSectorBtn");if(!b)return;e.preventDefault();e.stopPropagation();showAutoSector(b.dataset.sector||"");};
+}
+function bindAutoSectorControls(){
+  const input=$("autoSectorSearch");
+  const sort=$("autoSectorSort");
+  if(input){
+    input.value=sectorListSearch;
+    input.oninput=()=>{sectorListSearch=input.value;renderAutoSectorTable();};
+  }
+  if(sort){
+    sort.value=sectorListSort;
+    sort.onchange=()=>{sectorListSort=sort.value;renderAutoSectorTable();};
+  }
 }
 let sectorWorkPriority="ALL";
 function sectorRowsForSelection(sector){
