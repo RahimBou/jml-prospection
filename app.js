@@ -69,7 +69,7 @@ document.addEventListener("click",e=>{
   const tour=e.target.closest("#navRouteShortcut");
   if(tour){e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();openTour();return;}
 },true);
-const APP_VERSION = "1.68.0";
+const APP_VERSION = "1.69.0";
 /* V1.50 — le frontend Render web doit toujours viser le service API dédié. */
 const API_BASE = String(window.JML_API_BASE || "https://jml-prospection-web.onrender.com").replace(/\/$/,"");
 
@@ -573,6 +573,49 @@ function renderSectorWork(sector){
     const p=item.p, selected=selectedProspectIds.includes(p.id), signals=(p.autoSignals||[]).slice(0,3).map(esc).join(" · ");
     return '<article class="sector-prospect-card"><div class="sector-rank">'+(i+1)+'</div><div class="sector-prospect-main"><div class="sector-prospect-title"><strong>'+esc(p.address||"Adresse à compléter")+'</strong><span class="priority-'+esc(p.autoPriority||"D")+'">'+esc(p.autoPriority||"D")+'</span>'+(item.duplicates>1?'<span class="duplicate-chip">↻ '+item.duplicates+' occurrences</span>':"")+'</div><div class="sector-prospect-meta">'+esc(p.postalCode||"")+' '+esc(p.city||"")+' · '+esc(p.type||"Bien")+'</div><div class="sector-prospect-data"><span>📐 '+(Number(p.area)||0)+' m²</span><span>🚪 '+(Number(p.rooms)||0)+' pièces</span><span>🌳 '+(Number(p.land)||0)+' m² terrain</span><span>💶 '+(p.price?Number(p.price).toLocaleString("fr-FR")+" €":"Prix —")+'</span><span class="dpe-chip">DPE '+esc(p.dpe||"—")+'</span></div><div class="sector-prospect-signals">'+(signals||"Données à compléter")+'</div></div><div class="sector-score"><strong>'+Number(p.autoScore||0)+'</strong><small>/100</small></div><button type="button" class="ghost sector-select-btn '+(selected?"selected":"")+'" data-sector-select="'+esc(p.id)+'">'+(selected?"✓ Sélectionné":"＋ Sélectionner")+'</button><button type="button" class="ghost sector-open-btn" data-sector-open="'+esc(p.id)+'">Dossier →</button></article>';
   }).join(""):'<div class="empty-state">Aucun prospect dans ce filtre.</div>';
+}
+function haversineKm(a,b){
+  const lat1=Number(a?.latitude),lon1=Number(a?.longitude),lat2=Number(b?.latitude),lon2=Number(b?.longitude);
+  if(![lat1,lon1,lat2,lon2].every(Number.isFinite))return Infinity;
+  const r=Math.PI/180,dLat=(lat2-lat1)*r,dLon=(lon2-lon1)*r;
+  const x=Math.sin(dLat/2)**2+Math.cos(lat1*r)*Math.cos(lat2*r)*Math.sin(dLon/2)**2;
+  return 6371*2*Math.atan2(Math.sqrt(x),Math.sqrt(1-x));
+}
+async function optimizeTourOrder(){
+  const selected=selectedProspects();
+  if(selected.length<2){alert("Ajoute au moins 2 prospects à la tournée.");return;}
+  const btn=$("tourOptimizeBtn"),status=$("tourOptimizeStatus");
+  if(btn)btn.disabled=true;
+  if(status)status.textContent="📍 Géolocalisation des adresses…";
+  try{
+    for(const p of selected){
+      if(Number.isFinite(Number(p.latitude))&&Number.isFinite(Number(p.longitude)))continue;
+      const q=[p.address,p.postalCode,p.city].filter(Boolean).join(", ");
+      if(!q)continue;
+      try{
+        const r=await fetch(API_BASE+"/api/geocode?q="+encodeURIComponent(q),{cache:"no-store"});
+        const data=await r.json();
+        const g=data?.results?.[0];
+        if(g){p.latitude=Number(g.latitude);p.longitude=Number(g.longitude);p.geoAddress=g.address||"";p.geoUpdatedAt=now();}
+      }catch{}
+    }
+    const usable=selected.filter(p=>Number.isFinite(Number(p.latitude))&&Number.isFinite(Number(p.longitude)));
+    if(usable.length<2)throw new Error("Pas assez d'adresses géolocalisées pour optimiser la tournée.");
+    const remaining=usable.slice(),ordered=[remaining.shift()];
+    while(remaining.length){
+      const last=ordered[ordered.length-1];
+      let best=0,bestDist=Infinity;
+      remaining.forEach((p,i)=>{const d=haversineKm(last,p);if(d<bestDist){bestDist=d;best=i}});
+      ordered.push(remaining.splice(best,1)[0]);
+    }
+    const orderedIds=ordered.map(p=>p.id), missing=selected.filter(p=>!orderedIds.includes(p.id)).map(p=>p.id);
+    selectedProspectIds=[...orderedIds,...missing].slice(0,10);
+    saveSelectedProspects();save();
+    if(status)status.textContent="✓ Ordre optimisé · "+ordered.length+" adresses géolocalisées";
+    renderTour();
+  }catch(e){
+    if(status)status.textContent="⚠️ "+e.message;
+  }finally{if(btn)btn.disabled=false;}
 }
 function renderTour(){
  const panel=$("tourPanel");if(!panel)return;
