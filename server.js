@@ -1860,8 +1860,25 @@ async function api(pathname,url){
     // Les appels par zone restent courts pour Render, mais quatre communes sont traitées en parallèle afin de réduire le temps total sans saturer le serveur.
     for(let i=0;i<selectedCodes.length;i+=6){
       const batch=selectedCodes.slice(i,i+6);
-      const results=await Promise.allSettled(batch.map(code=>api("/api/radar",new URL("http://localhost/api/radar?codeInsee="+encodeURIComponent(code)+"&limit="+perCommuneLimit+"&years="+encodeURIComponent(years)))));
-      results.forEach((rr,j)=>rr.status==="fulfilled"?aggregate.push({codeInsee:batch[j],data:rr.value}):errors.push({codeInsee:batch[j],error:rr.reason?.message||"Analyse indisponible"}));
+      const results=await Promise.all(batch.map(async code=>{
+        const cacheKey="radar|"+code+"|"+years+"|"+perCommuneLimit;
+        const cached=radarCommuneCache.get(cacheKey);
+        if(cached && Date.now()-cached.ts<RADAR_CACHE_TTL_MS)return {status:"fulfilled",value:cached.data,code};
+        try{
+          const data=await api("/api/radar",new URL("http://localhost/api/radar?codeInsee="+encodeURIComponent(code)+"&limit="+perCommuneLimit+"&years="+encodeURIComponent(years)));
+          radarCommuneCache.set(cacheKey,{ts:Date.now(),data});
+          if(radarCommuneCache.size>120)radarCommuneCache.delete(radarCommuneCache.keys().next().value);
+          return {status:"fulfilled",value:data,code};
+        }catch(error){return {status:"rejected",reason:error,code};}
+      }));
+      results.forEach((rr,j)=>{
+        if(rr.status==="fulfilled"){
+          const code=batch[j],data=rr.value,cacheKey="radar|"+code+"|"+years+"|"+perCommuneLimit;
+          radarCommuneCache.set(cacheKey,{ts:Date.now(),data});
+          if(radarCommuneCache.size>120)radarCommuneCache.delete(radarCommuneCache.keys().next().value);
+          aggregate.push({codeInsee:code,data});
+        }else errors.push({codeInsee:batch[j],error:rr.reason?.message||"Analyse indisponible"});
+      });
     }
     const candidatesByKey=new Map();
     let dpeCount=0,dpeRawCount=0,dvfCount=0,dvfFallback=false;
@@ -1905,7 +1922,7 @@ async function api(pathname,url){
     });
     // Information territoriale uniquement : les grands axes routiers ne modifient jamais le score radar.
     let majorRoadAxes=[];
-    if(offset===0){
+    if(offset===0 && url.searchParams.get("includeRoadAxes")!=="0"){
       majorRoadAxes=await Promise.all(sectorPlans.map(async sector=>({
         id:sector.id,city:sector.city,radiusKm:sector.radiusKm,
         axes:await getMajorRoadAxes(sector.centerPoint,sector.radiusKm)
