@@ -1,5 +1,11 @@
 # JML Prospection
 
+## V1.69.0 — tournée optimisée
+- « Optimiser l’ordre » géolocalise les adresses sélectionnées via la BAN/Géoplateforme.
+- Un ordre de passage est calculé automatiquement par proximité entre les adresses géolocalisées, puis réinjecté dans la tournée et l’itinéraire Google Maps.
+- Les coordonnées géographiques utiles à la tournée sont conservées dans le dossier pour éviter de refaire le géocodage.
+- V1.69.0 + cache PWA v19 synchronisés.
+
 ## V1.68.0 — CRM piloté par les urgences
 - Les indicateurs « Relances en retard », « À faire aujourd’hui » et « Dans ma sélection » sont maintenant cliquables.
 - Un clic filtre immédiatement la liste CRM sur les dossiers concernés.
