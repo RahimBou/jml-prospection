@@ -474,15 +474,17 @@ function futureRadarRender(){
 }
 async function runTerritoryRadar(){
   futureRadarTerritoryMode=true;
+  const city=($("radarCity")?.value||"").trim();
   futureRadarCandidates=[];
   futureRadarSelectedIndices=new Set();
   futureRadarPage=0;
   futureRadarDetectedCount=0;
   if($("futureRadarBtn"))$("futureRadarBtn").disabled=true;
-  if($("futureRadarStatus"))$("futureRadarStatus").textContent="🔎 Recherche dans tout le département des Ardennes…";
-  if($("futureRadarReady"))$("futureRadarReady").textContent="⏳ Croisement DVF + DPE + Radar en cours…";
+  if($("futureRadarStatus"))$("futureRadarStatus").textContent=city?"🔎 Recherche à "+city+"…":"🔎 Recherche dans tout le département des Ardennes…";
+  if($("futureRadarReady"))$("futureRadarReady").textContent=city?"⏳ Analyse de "+city+"…":"⏳ Croisement DVF + DPE + Radar en cours…";
   try{
-    const data=await publicJson("/api/radar-territory?department=08&years=5&perCommuneLimit=60&communeBatch=6");
+    const cityParam=city?"&ville="+encodeURIComponent(city):"";
+    const data=await publicJson("/api/radar-territory?department=08&years=5&perCommuneLimit=60&communeBatch=6"+cityParam);
     futureRadarCandidates=(data.results||[]).sort((a,b)=>
       String(a.territorySector||a.city||"").localeCompare(String(b.territorySector||b.city||""),"fr")||
       (Number(b.priorityProspectionScore??0)-Number(a.priorityProspectionScore??0))
@@ -490,7 +492,7 @@ async function runTerritoryRadar(){
     futureRadarDetectedCount=futureRadarCandidates.length;
     futureRadarRender();
     const failed=Number(data.failedCommunes?.length||0);
-    if($("futureRadarStatus"))$("futureRadarStatus").innerHTML="<strong>Ardennes analysées</strong> · "+Number(data.communesAnalyzed||0)+"/"+Number(data.communeCount||0)+" communes · <strong>"+futureRadarCandidates.length+"</strong> dossiers · <strong>"+Number(data.sectorCount||0)+" secteurs</strong> · "+Number(data.dvfCount||0)+" transactions · "+Number(data.dpeCount||0)+" DPE"+(failed?" · "+failed+" commune(s) indisponible(s)":"")+" · classement secteur → priorité.";
+    if($("futureRadarStatus"))$("futureRadarStatus").innerHTML=(city?"<strong>"+apiEsc(city)+"</strong> analysée":"<strong>Ardennes analysées</strong>")+" · "+Number(data.communesAnalyzed||0)+"/"+Number(data.communeCount||0)+" communes · <strong>"+futureRadarCandidates.length+"</strong> dossiers · <strong>"+Number(data.sectorCount||0)+" secteurs</strong> · "+Number(data.dvfCount||0)+" transactions · "+Number(data.dpeCount||0)+" DPE"+(failed?" · "+failed+" commune(s) indisponible(s)":"")+" · classement secteur → priorité.";
     if($("futureRadarReady"))$("futureRadarReady").textContent="✅ "+futureRadarCandidates.length+" dossiers disponibles";
     if($("publicQuery"))$("publicQuery").value="Ardennes";
   }catch(e){
