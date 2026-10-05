@@ -482,7 +482,7 @@ async function runTerritoryRadar(){
     return;
   }
   if($("futureRadarBtn"))$("futureRadarBtn").disabled=true;
-  if($("futureRadarStatus"))$("futureRadarStatus").textContent="🔎 Préparation de "+city+" + 25 km…";
+  if($("futureRadarStatus"))$("futureRadarStatus").textContent="🔎 Préparation de "+city+" + 15 km…";
   if($("futureRadarReady"))$("futureRadarReady").textContent="⏳ Recherche locale en cours…";
   try{
     const sectors=encodeURIComponent(JSON.stringify([{id:"terrain",label:city,q:city,radiusKm:15}]));
@@ -498,7 +498,7 @@ async function runTerritoryRadar(){
         const key=[row.externalId||row.reference||"",row.address||"",row.postalCode||row.city||"",row.type||"",row.area||"",row.rooms||""].join("|").toLowerCase();
         const old=seen.get(key);
         const score=Number(row.priorityProspectionScore??row.priorityScore??0);
-        if(!old||score>Number(old.priorityProspectionScore??old.priorityScore??0))seen.set(key,{...row,territorySector:city+" + 25 km"});
+        if(!old||score>Number(old.priorityProspectionScore??old.priorityScore??0))seen.set(key,{...row,territorySector:city+" + 15 km"});
       }
       complete=Boolean(data.complete);
       const next=Number(data.nextOffset);
