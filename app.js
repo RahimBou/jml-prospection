@@ -633,8 +633,8 @@ function bindAutoSectorControls(){
 }
 let sectorWorkPriority="ALL";
 function sectorRowsForSelection(sector){
-  const name=String(sector||"").trim();
-  const rows=prospects.filter(p=>String(p.autoSector||p.city||p.postalCode||"").trim().toLowerCase()===name.toLowerCase());
+  const name=norm(String(sector||""));
+  const rows=prospects.filter(p=>norm(p.autoSector||p.city||p.postalCode||"")===name);
   const groups=new Map();
   rows.forEach(p=>{const key=dedupeKey(p)||String(p.id);if(!groups.has(key))groups.set(key,[]);groups.get(key).push(p);});
   return [...groups.values()].map(g=>g[0]).sort((a,b)=>{
@@ -644,17 +644,22 @@ function sectorRowsForSelection(sector){
   });
 }
 function prepareSectorSelection(){
+  const limit=getTourLimit();
   const rows=sectorRowsForSelection(autoSectorFilter);
   let added=0;
+  const selectedSet=new Set(selectedProspectIds.map(String));
   for(const p of rows){
-    if(selectedProspectIds.length>=getTourLimit())break;
-    if(selectedProspectIds.includes(p.id))continue;
-    selectedProspectIds.push(p.id);added++;
+    if(selectedProspectIds.length>=limit)break;
+    if(selectedSet.has(String(p.id)))continue;
+    selectedProspectIds.push(p.id);
+    selectedSet.add(String(p.id));
+    added++;
   }
   saveSelectedProspects();
   renderSectorWork(autoSectorFilter);
   renderSelectionPanel();
-  if(added===0 && selectedProspectIds.length>=10){
+  renderTour();
+  if(added===0 && selectedProspectIds.length>=limit){
     const bar=$("sectorSelectionBar");
     if(bar)bar.scrollIntoView({behavior:"smooth",block:"center"});
   }
@@ -663,7 +668,7 @@ function renderSectorSelectionBar(){
   const bar=$("sectorSelectionBar");
   if(!bar)return;
   const selected=selectedProspects();
-  const inSector=selected.filter(p=>String(p.autoSector||p.city||p.postalCode||"").trim().toLowerCase()===String(autoSectorFilter).trim().toLowerCase());
+  const inSector=selected.filter(p=>norm(p.autoSector||p.city||p.postalCode||"")===norm(autoSectorFilter));
   const limit=getTourLimit(),places=Math.max(0,limit-selected.length);
   const ready=selected.length>=limit;
   const addBtn=$("sectorAddTopBtn");
