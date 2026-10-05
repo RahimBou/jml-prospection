@@ -82,7 +82,7 @@ document.addEventListener("click",e=>{
   const tour=e.target.closest("#navRouteShortcut");
   if(tour){e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();openTour();return;}
 },true);
-const APP_VERSION = "1.75.3";
+const APP_VERSION = "1.75.4";
 /* V1.50 — le frontend Render web doit toujours viser le service API dédié. */
 const API_BASE = String(window.JML_API_BASE || "https://jml-prospection-web.onrender.com").replace(/\/$/,"");
 
@@ -592,6 +592,8 @@ function renderAutoTreatmentSummary(){
   const top=all.slice().sort((a,b)=>(b.tourScore-a.tourScore)||(b.A-a.A)||(b.avg-a.avg)||String(a.sector).localeCompare(String(b.sector),"fr")).slice(0,5);
   box.innerHTML='<div class="auto-summary-grid"><article><strong>'+total+'</strong><span>prospects</span></article><article><strong>'+processed+'</strong><span>analysés</span></article><article><strong>'+counts.A+'</strong><span>priorité A</span></article><article><strong>'+all.length+'</strong><span>secteurs</span></article></div>'+
     (top.length?'<div class="auto-summary-sectors"><strong>🔥 Secteurs recommandés pour une tournée</strong>'+top.map(x=>'<div class="sector-row"><button type="button" class="sector-row-main" data-sector-summary="'+esc(x.sector)+'"><span><b>'+esc(x.sector)+'</b><small>'+x.A+' A · '+x.B+' B · '+x.total+' dossiers</small></span><strong>🎯 '+x.tourScore+'/100</strong></button><button type="button" class="primary sector-tour-btn" data-sector-tour="'+esc(x.sector)+'">🚗 Préparer 30</button></div>').join("")+'</div>':'');
+  renderAutoSectorTable();
+  bindAutoSectorControls();
   box.onclick=e=>{
     const tour=e.target.closest("[data-sector-tour]");
     if(tour){
