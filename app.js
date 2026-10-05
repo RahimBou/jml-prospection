@@ -1,4 +1,16 @@
-const APP_VERSION = "1.60.1";
+
+// V1.61 — routeur d'actions robuste : les boutons de travail ne dépendent plus du bind local
+document.addEventListener("click",e=>{
+  const open=e.target.closest("[data-sector-open]");
+  if(open){e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();renderProspectDetail(open.dataset.sectorOpen);return;}
+  const select=e.target.closest("[data-sector-select]");
+  if(select){e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();toggleProspectSelection(select.dataset.sectorSelect);renderSectorWork(autoSectorFilter);return;}
+  const add=e.target.closest("#sectorAddTopBtn");
+  if(add){e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();const rows=prospects.filter(p=>String(p.autoSector||p.city||p.postalCode||"").trim().toLowerCase()===String(autoSectorFilter).trim().toLowerCase()).sort((a,b)=>(Number(b.autoScore)||0)-(Number(a.autoScore)||0));rows.forEach(p=>{if(selectedProspectIds.length<10&&!selectedProspectIds.includes(p.id))selectedProspectIds.push(p.id)});saveSelectedProspects();renderSectorWork(autoSectorFilter);renderSelectionPanel();return;}
+  const tour=e.target.closest("#navRouteShortcut");
+  if(tour){e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();openTour();return;}
+},true);
+const APP_VERSION = "1.61.1";
 /* V1.50 — le frontend Render web doit toujours viser le service API dédié. */
 const API_BASE = String(window.JML_API_BASE || "https://jml-prospection-web.onrender.com").replace(/\/$/,"");
 
@@ -407,10 +419,9 @@ function renderProspectDetail(id){
  const statusEl=body.querySelector("[data-detail-status]");if(statusEl)statusEl.value=p.status||"Nouveau";panel.hidden=false;$("sectorWorkPanel").hidden=true;panel.scrollIntoView({behavior:"smooth",block:"start"});
 }
 function bindSectorWork(){
-  $("sectorBackBtn")?.addEventListener("click",()=>{ $("sectorWorkPanel").hidden=true;$("autoTreatmentPanel").hidden=false;window.scrollTo({top:$("autoTreatmentPanel").offsetTop-20,behavior:"smooth"}); });
-  document.querySelectorAll(".sector-filter").forEach(b=>b.onclick=()=>{sectorWorkPriority=b.dataset.priority;document.querySelectorAll(".sector-filter").forEach(x=>x.classList.toggle("active",x===b));renderSectorWork(autoSectorFilter)});
-  $("sectorAddTopBtn")?.addEventListener("click",()=>{const rows=prospects.filter(p=>String(p.autoSector||p.city||p.postalCode||"").trim().toLowerCase()===String(autoSectorFilter).trim().toLowerCase()).sort((a,b)=>(Number(b.autoScore)||0)-(Number(a.autoScore)||0));rows.slice(0,10).forEach(p=>{if(selectedProspectIds.length<10&&!selectedProspectIds.includes(p.id))selectedProspectIds.push(p.id)});saveSelectedProspects();renderSectorWork(autoSectorFilter);renderSelectionPanel();bindSelectionControls();});
-  $("sectorWorkList")?.addEventListener("click",e=>{const b=e.target.closest("[data-sector-select]");if(b){toggleProspectSelection(b.dataset.sectorSelect);renderSectorWork(autoSectorFilter)}});
+  const back=$("sectorBackBtn"); if(back) back.onclick=()=>{ $("sectorWorkPanel").hidden=true;$("autoTreatmentPanel").hidden=false;window.scrollTo({top:$("autoTreatmentPanel").offsetTop-20,behavior:"smooth"}); };
+  document.querySelectorAll(".sector-filter").forEach(b=>b.onclick=()=>{sectorWorkPriority=b.dataset.priority||"ALL";document.querySelectorAll(".sector-filter").forEach(x=>x.classList.toggle("active",x===b));renderSectorWork(autoSectorFilter);});
+  const add=$("sectorAddTopBtn"); if(add) add.onclick=()=>{const rows=prospects.filter(p=>String(p.autoSector||p.city||p.postalCode||"").trim().toLowerCase()===String(autoSectorFilter).trim().toLowerCase()).sort((a,b)=>(Number(b.autoScore)||0)-(Number(a.autoScore)||0));rows.forEach(p=>{if(selectedProspectIds.length<10&&!selectedProspectIds.includes(p.id))selectedProspectIds.push(p.id)});saveSelectedProspects();renderSectorWork(autoSectorFilter);renderSelectionPanel();bindSelectionControls();};
 }
 function showAutoSector(sector){
   autoSectorFilter=String(sector||"").trim();
