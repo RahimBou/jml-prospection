@@ -69,3 +69,45 @@ body.jml-slim #prospectsPanel .sort{display:none!important}
   body.jml-slim .future-candidate{align-items:flex-start;flex-direction:column}
   body.jml-slim .future-score{min-width:0;text-align:left}
 }
+
+
+/* V3 — écran terrain : l'essentiel d'abord. Les connecteurs et outils techniques restent disponibles
+   dans le code mais ne doivent pas occuper l'écran de travail quotidien. */
+body.jml-slim .integrations-panel,
+body.jml-slim #sourceConnectorsPanel,
+body.jml-slim #ctAnnoncesPanel,
+body.jml-slim #publicSourcesPanel,
+body.jml-slim #privateProspectPanel{display:none!important}
+
+/* Les prospects sont une deuxième étape, pas une longue liste sous le radar. */
+body.jml-slim #prospectsPanel{display:none!important}
+body.jml-slim.jml-show-prospects #prospectsPanel{display:block!important}
+body.jml-slim.jml-show-prospects #futureRadarPanel{display:none!important}
+
+/* Le bloc de commandes n'apparaît qu'après le chargement des résultats. */
+body.jml-slim .radar-results-actions{display:none}
+body.jml-slim .future-radar-panel:has(#futureRadarResults:not([hidden])) .radar-results-actions{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+}
+body.jml-slim .radar-results-actions #futureRadarAddAll{display:none!important}
+body.jml-slim .radar-results-actions #futureRadarPrint{display:none!important}
+body.jml-slim .radar-results-actions #futureRadarDeselectAll{display:none!important}
+
+/* Une seule action forte avant les résultats. */
+body.jml-slim #futureRadarPanel .panel-title{display:block}
+body.jml-slim #futureRadarPanel .panel-title h1{margin-bottom:4px}
+body.jml-slim #futureRadarPanel .panel-title p{margin-bottom:10px}
+body.jml-slim .radar-search-status{border-left:3px solid #b58b43}
+
+/* Le contexte Ardennes devient un vrai bandeau de mission. */
+body.jml-slim .radar-compact-context span{font-size:15px}
+body.jml-slim .radar-compact-context small{font-size:11px;line-height:1.35}
+
+/* Quand Mes prospects est ouvert, le titre devient immédiatement lisible. */
+body.jml-slim.jml-show-prospects #prospectsPanel{
+  margin-top:10px;
+  min-height:70vh;
+}
+body.jml-slim.jml-show-prospects #prospectsPanel .panel-title h1{font-size:23px}
+body.jml-slim.jml-show-prospects #prospectsPanel .panel-title p{font-size:12px}
