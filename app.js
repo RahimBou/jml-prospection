@@ -332,7 +332,12 @@ function renderAutoTreatmentSummary(){
     .map(x=>'<div><strong>'+x[1]+'</strong><span>Priorité '+x[0]+'</span><small>'+x[2]+'</small></div>').join("")
     +'<div><strong>'+sectors.length+'</strong><span>Secteurs</span><small>répartis automatiquement</small></div>';
   const table=$("autoSectorTable"); if(!table)return;
-  table.innerHTML=sectors.map(x=>'<tr><td><strong>'+esc(x.sector)+'</strong></td><td>'+x.total+'</td><td>'+x.A+'</td><td>'+x.B+'</td><td>'+x.C+'</td><td>'+x.D+'</td><td>'+x.avg+'/100</td><td><button class="ghost autoSectorBtn" data-sector="'+esc(x.sector)+'">Travailler</button></td></tr>').join("");
+  table.innerHTML=sectors.map(x=>'<tr><td><strong>'+esc(x.sector)+'</strong></td><td>'+x.total+'</td><td>'+x.A+'</td><td>'+x.B+'</td><td>'+x.C+'</td><td>'+x.D+'</td><td>'+x.avg+'/100</td><td><button type="button" class="ghost autoSectorBtn" data-sector="'+esc(x.sector)+'">Travailler</button></td></tr>').join("");bindAutoSectorTable();
+}
+function bindAutoSectorTable(){
+  const table=$("autoSectorTable"); if(!table||table.dataset.bound==="1")return;
+  table.dataset.bound="1";
+  table.addEventListener("click",e=>{const b=e.target.closest(".autoSectorBtn");if(b)showAutoSector(b.dataset.sector)});
 }
 function showAutoSector(sector){
   $("city").value=sector;$("prospectView").value="all";$("sort").value="auto";$("prospectPageSize").value="20";prospectPage=1;render();
@@ -351,8 +356,7 @@ async function processAllProspectsAutomatically(){
     if(bar)bar.value=pct;if(count)count.textContent=done+" / "+total;
     if(status)status.textContent=done<total?"Traitement en cours… "+pct+" %":"Traitement terminé : "+total+" prospect(s) analysé(s).";
     if(done<total)requestAnimationFrame(runBatch);
-    else{save();if(btn)btn.disabled=false;renderAutoTreatmentSummary();
-$("autoSectorTable")?.addEventListener("click",e=>{const b=e.target.closest(".autoSectorBtn");if(b)showAutoSector(b.dataset.sector)});prospectPage=1;render();}
+    else{save();if(btn)btn.disabled=false;prospectPage=1;render();setTimeout(()=>{renderAutoTreatmentSummary();bindAutoSectorTable();},0);}
   };requestAnimationFrame(runBatch);
 }
 $("addBtn").onclick=()=>openForm();$("closeBtn").onclick=closeForm;$("cancelBtn").onclick=closeForm;
