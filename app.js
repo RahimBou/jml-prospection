@@ -69,7 +69,7 @@ document.addEventListener("click",e=>{
   const tour=e.target.closest("#navRouteShortcut");
   if(tour){e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();openTour();return;}
 },true);
-const APP_VERSION = "1.73.0";
+const APP_VERSION = "1.73.1";
 /* V1.50 — le frontend Render web doit toujours viser le service API dédié. */
 const API_BASE = String(window.JML_API_BASE || "https://jml-prospection-web.onrender.com").replace(/\/$/,"");
 
@@ -142,6 +142,7 @@ function load(){
       }catch(_){}
       console.info("[JML] Doublons fusionnés:",result.removed);
     }
+    try{if(result.prospects.length)localStorage.setItem(BACKUP_KEY,JSON.stringify(result.prospects))}catch(_){ }
     return result.prospects;
   }catch(e){return[]}
 }
