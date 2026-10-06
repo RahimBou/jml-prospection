@@ -194,8 +194,9 @@ async function century21(input) {
     "62":{region:"hauts-de-france",department:"pas-de-calais"}
   };
   const area=deptMap[dept];
+  const centurySlug=String(input.city||"").normalize("NFD").replace(/[\\u0300-\\u036f]/g,"").trim().replace(/\\s+/g,"+");
   const url=area
-    ?"https://www.century21.fr/prix-m2-immobilier/"+area.region+"/"+area.department+"/"+slug+"/"
+    ?"https://www.century21.fr/prix-m2-immobilier/"+area.region+"/"+area.department+"/"+centurySlug+"/"
     :"";
   const r=baseResult("century21","CENTURY 21",url||"https://www.century21.fr/estimation-immobiliere");
   if(!url){r.status="unsupported_department";return r;}
