@@ -181,7 +181,11 @@ async function pap(p){
 }
 
 function selogerUrl(p){
-  const city=slugify(p.city),code=String(p.cityCode||"").padStart(5,"0"),dep=p.department==="08"?"ardennes":slugify(p.departmentName||"");
+  const city=slugify(p.city);
+  // SeLoger utilise son identifiant commune historique : pour 08105 il attend 80105.
+  const rawCode=String(p.cityCode||"").replace(/\D/g,"").padStart(5,"0");
+  const code=/^0\d\d{3}$/.test(rawCode)?rawCode.slice(1,2)+"0"+rawCode.slice(2):rawCode;
+  const dep=p.department==="08"?"ardennes":slugify(p.departmentName||"");
   if(!city||!code||!dep)return "";
   return "https://www.seloger.com/prix-de-l-immo/vente/"+(p.regionSlug||"champagne-ardenne")+"/"+(p.departmentSlug||dep)+"/"+city+"/"+code+".htm";
 }
