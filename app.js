@@ -1592,7 +1592,14 @@ async function loadExternalEstimates(data){
         ? " · "+(x.lowPerM2?Math.round(x.lowPerM2).toLocaleString("fr-FR"):"?")+"–"+(x.highPerM2?Math.round(x.highPerM2).toLocaleString("fr-FR"):"?")+" €/m²":"";
       return '<article class="external-estimate-card '+(ok?"ok":warn?"warn":"")+'"><strong>'+status+" "+apiEsc(x.label||x.id)+'</strong><div class="estimate-value">'+value+'</div><div>'+apiEsc(m2+range)+'</div><small>'+apiEsc(x.method||x.error||x.status||"")+'</small></article>';
     }).join("");
-    box.innerHTML='<h3>🤖 Agent estimateur · repères automatiques</h3><div class="external-estimate-summary"><span><strong>'+(s.averagePerM2?s.averagePerM2.toLocaleString("fr-FR")+" €/m²":"—")+'</strong> moyenne multi-sources</span><span><strong>'+(s.estimatedValue?s.estimatedValue.toLocaleString("fr-FR")+" €":"—")+'</strong> repère pour '+Number(p.area||0).toLocaleString("fr-FR")+" m²</span><span>'+(s.successfulCount||0)+'/'+(s.totalCount||0)+' sources exploitables</span></div><div class="external-estimate-grid">'+cards+'</div><div class="source-note">'+apiEsc(s.disclaimer||"")+'</div>';
+    box.innerHTML=`<h3>🤖 Agent estimateur · repères automatiques</h3>
+      <div class="external-estimate-summary">
+        <span><strong>${s.averagePerM2?s.averagePerM2.toLocaleString("fr-FR")+" €/m²":"—"}</strong> moyenne multi-sources</span>
+        <span><strong>${s.estimatedValue?s.estimatedValue.toLocaleString("fr-FR")+" €":"—"}</strong> repère pour ${Number(p.area||0).toLocaleString("fr-FR")} m²</span>
+        <span>${s.successfulCount||0}/${s.totalCount||0} sources exploitables</span>
+      </div>
+      <div class="external-estimate-grid">${cards}</div>
+      <div class="source-note">${apiEsc(s.disclaimer||"")}</div>`;
   }catch(e){
     box.innerHTML='<div class="meta">⚠️ Agent estimateur indisponible : '+apiEsc(e.message)+'</div>';
   }
