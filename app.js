@@ -1573,7 +1573,7 @@ async function loadExternalEstimates(data){
     const params=new URLSearchParams({
       city:p.city||$("privateCity")?.value||"",
       postalCode:p.postalCode||$("privatePostalCode")?.value||"",
-      cityCode:p.cityCode||"",
+      cityCode:p.cityCode||data?.geocode?.cityCode||"",
       department:String(p.postalCode||$("privatePostalCode")?.value||"").slice(0,2),
       type:p.buildingType||$("privateType")?.value||"Maison",
       area:p.area||$("privateArea")?.value||0,
@@ -1623,6 +1623,7 @@ async function runPrivateProspectMatch(){
     });
     const data=await publicJson("/api/prospect-match?"+params.toString());
     renderPrivateProspectResult(data);
+    loadExternalEstimates(data);
     $("privateMatchStatus").innerHTML="<strong>"+apiEsc(data.geocode?.label||address)+"</strong> · "+apiEsc(privateMatchStatusLabel(data))+" · "+apiEsc(data.disclaimer||"");
   }catch(e){
     privateProspectMatch=null;
