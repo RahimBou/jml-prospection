@@ -1564,6 +1564,40 @@ function renderPrivateProspectResult(data){
   $("privateAddBtn").disabled=false;
 }
 
+async function loadExternalEstimates(data){
+  const box=$("privateExternalEstimates");
+  if(!box)return;
+  const p=data?.property||{};
+  box.innerHTML='<div class="meta">🤖 Agent estimateur : interrogation des adaptateurs PAP, SeLoger, Meilleurs Agents, CENTURY 21, Orpi et Laforêt…</div>';
+  try{
+    const params=new URLSearchParams({
+      city:p.city||$("privateCity")?.value||"",
+      postalCode:p.postalCode||$("privatePostalCode")?.value||"",
+      cityCode:p.cityCode||"",
+      department:String(p.postalCode||$("privatePostalCode")?.value||"").slice(0,2),
+      type:p.buildingType||$("privateType")?.value||"Maison",
+      area:p.area||$("privateArea")?.value||0,
+      rooms:p.rooms||$("privateRooms")?.value||0
+    });
+    const estimates=await publicJson("/api/estimateur-sources?"+params.toString());
+    privateProspectMatch.externalEstimates=estimates;
+    const s=estimates.summary||{};
+    const cards=(estimates.sources||[]).map(x=>{
+      const ok=x.status==="ok";
+      const warn=["captcha","form_only","range_only","timeout"].includes(x.status);
+      const status=ok?"🟢":warn?"⚠️":"🔴";
+      const value=Number.isFinite(x.estimatedValue)?Math.round(x.estimatedValue).toLocaleString("fr-FR")+" €":"—";
+      const m2=Number.isFinite(x.valuePerM2)?Math.round(x.valuePerM2).toLocaleString("fr-FR")+" €/m²":"";
+      const range=(Number.isFinite(x.lowPerM2)||Number.isFinite(x.highPerM2))
+        ? " · "+(x.lowPerM2?Math.round(x.lowPerM2).toLocaleString("fr-FR"):"?")+"–"+(x.highPerM2?Math.round(x.highPerM2).toLocaleString("fr-FR"):"?")+" €/m²":"";
+      return '<article class="external-estimate-card '+(ok?"ok":warn?"warn":"")+'"><strong>'+status+" "+apiEsc(x.label||x.id)+'</strong><div class="estimate-value">'+value+'</div><div>'+apiEsc(m2+range)+'</div><small>'+apiEsc(x.method||x.error||x.status||"")+'</small></article>';
+    }).join("");
+    box.innerHTML='<h3>🤖 Agent estimateur · repères automatiques</h3><div class="external-estimate-summary"><span><strong>'+(s.averagePerM2?s.averagePerM2.toLocaleString("fr-FR")+" €/m²":"—")+'</strong> moyenne multi-sources</span><span><strong>'+(s.estimatedValue?s.estimatedValue.toLocaleString("fr-FR")+" €":"—")+'</strong> repère pour '+Number(p.area||0).toLocaleString("fr-FR")+" m²</span><span>'+(s.successfulCount||0)+'/'+(s.totalCount||0)+' sources exploitables</span></div><div class="external-estimate-grid">'+cards+'</div><div class="source-note">'+apiEsc(s.disclaimer||"")+'</div>';
+  }catch(e){
+    box.innerHTML='<div class="meta">⚠️ Agent estimateur indisponible : '+apiEsc(e.message)+'</div>';
+  }
+}
+
 async function runPrivateProspectMatch(){
   const address=$("privateAddress").value.trim();
   if(!address){$("privateMatchStatus").textContent="Indique l'adresse de l'annonce.";return}
