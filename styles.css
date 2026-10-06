@@ -871,3 +871,17 @@ body{background:linear-gradient(180deg,#f7f8f6 0%,#eef2ef 100%);color:var(--text
   .auto-summary-sectors .sector-tour-btn{min-height:44px!important}
   .auto-sector-wrap{padding:12px!important;overflow:hidden}
 }
+
+
+/* Multi-source property estimate adapters */
+.private-external-estimates{margin-top:16px;border:1px solid rgba(31,73,55,.14);border-radius:14px;padding:14px;background:rgba(31,73,55,.035)}
+.private-external-estimates h3{margin:0 0 10px}
+.external-estimate-summary{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+.external-estimate-summary strong{font-size:1.15rem}
+.external-estimate-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px}
+.external-estimate-card{border:1px solid rgba(0,0,0,.08);border-radius:10px;padding:10px;background:#fff}
+.external-estimate-card.ok{border-color:rgba(31,73,55,.25)}
+.external-estimate-card.warn{background:rgba(180,140,40,.06)}
+.external-estimate-card strong{display:block}
+.external-estimate-card .estimate-value{font-size:1.15rem;font-weight:700;margin-top:5px}
+.external-estimate-card small{display:block;margin-top:5px;opacity:.72}
