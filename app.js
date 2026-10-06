@@ -149,7 +149,7 @@ function load(){
         if(Array.isArray(ids)){
           const valid=new Set(result.prospects.map(p=>p.id));
           const remap=result.idMap||{};
-          const cleaned=[...new Set(ids.map(id=>remap[id]||id).filter(id=>valid.has(id)))].slice(0,10);
+          const cleaned=[...new Set(ids.map(id=>remap[id]||id).filter(id=>valid.has(id)))].slice(0,getTourLimit());
           localStorage.setItem("jml_prospection_selection_v1",JSON.stringify(cleaned));
         }
       }catch(_){}
@@ -164,7 +164,7 @@ function getTourLimit(){const n=Number(localStorage.getItem("jml_tour_limit_v1")
 function setTourLimit(n){const limit=TOUR_LIMIT_OPTIONS.includes(Number(n))?Number(n):30;localStorage.setItem("jml_tour_limit_v1",String(limit));if(selectedProspectIds.length>limit){selectedProspectIds=selectedProspectIds.slice(0,limit);saveSelectedProspects()}renderSelectionPanel();renderSectorSelectionBar();renderTour()}
 function loadSelectedProspects(){try{const x=JSON.parse(localStorage.getItem("jml_prospection_selection_v1")||"[]");return Array.isArray(x)?x.slice(0,getTourLimit()):[]}catch(e){return[]}}
 function saveSelectedProspects(){localStorage.setItem("jml_prospection_selection_v1",JSON.stringify(selectedProspectIds))}
-function selectedProspects(){return selectedProspectIds.map(id=>prospects.find(p=>p.id===id)).filter(Boolean)}
+function selectedProspects(){return selectedProspectIds.map(id=>prospects.find(p=>String(p.id)===String(id))).filter(Boolean)}
 function toggleProspectSelection(id){const i=selectedProspectIds.indexOf(id);if(i>=0){selectedProspectIds.splice(i,1)}else{if(selectedProspectIds.length>=getTourLimit()){alert("Ma sélection est limitée à "+getTourLimit()+" prospects.");return}selectedProspectIds.push(id)}saveSelectedProspects();render()}
 function clearProspectSelection(){selectedProspectIds=[];saveSelectedProspects();render()}
 function renderSelectionPanel(){const box=$("selectionPanel");if(!box)return;const selected=selectedProspects();const limit=getTourLimit();const last=selected[selected.length-1];const route=selected.length>1?"https://www.google.com/maps/dir/?api=1&destination="+encodeURIComponent(last.address+", "+(last.postalCode||"")+" "+(last.city||""))+"&waypoints="+encodeURIComponent(selected.slice(0,-1).map(p=>p.address+", "+(p.postalCode||"")+" "+(p.city||"")).join("|")):"";box.innerHTML="<div class=\"selection-head\"><div><strong>🎯 Ma sélection</strong><span>"+selected.length+"/"+limit+" prospects</span></div><div class=\"selection-actions\"><button type=\"button\" class=\"ghost\" id=\"clearSelectionBtn\" "+(selected.length?"":"disabled")+">Vider</button>"+(route?"<a class=\"primary\" target=\"_blank\" rel=\"noopener\" href=\""+route+"\">🚗 Itinéraire</a>":"")+"</div></div>"+(selected.length?"<div class=\"selection-list\">"+selected.map((p,i)=>"<div class=\"selection-item\"><span>"+(i+1)+".</span><div><strong>"+esc(p.address)+"</strong><small>"+esc(p.postalCode||"")+" "+esc(p.city||"")+" · "+esc(p.autoPriority||"")+"</small></div><button type=\"button\" class=\"icon\" data-remove-selection=\""+esc(p.id)+"\">×</button></div>").join("")+"</div>":"<div class=\"selection-empty\">Ajoute jusqu'à 10 prospects depuis le secteur travaillé.</div>")}
@@ -597,9 +597,11 @@ function renderAutoTreatmentSummary(){
   box.onclick=e=>{
     const tour=e.target.closest("[data-sector-tour]");
     if(tour){
+      e.preventDefault();
+      e.stopPropagation();
       autoSectorFilter=tour.dataset.sector||"";
       sectorWorkPriority="ALL";
-      prepareSectorSelection();
+      prepareSectorSelection(autoSectorFilter);
       openTour();
       return;
     }
@@ -656,26 +658,25 @@ function sectorRowsForSelection(sector){
     return pb-pa || (Number(b.autoScore)||0)-(Number(a.autoScore)||0);
   });
 }
-function prepareSectorSelection(){
+function prepareSectorSelection(sectorOverride){
+  const sector=String(sectorOverride??autoSectorFilter??"").trim();
   const limit=getTourLimit();
-  const rows=sectorRowsForSelection(autoSectorFilter);
-  let added=0;
-  const selectedSet=new Set(selectedProspectIds.map(String));
+  const rows=sectorRowsForSelection(sector);
+  /* "Préparer 30" doit préparer une vraie tournée pour CE secteur,
+     sans dépendre d'une sélection précédente ni d'un type d'ID (string/number). */
+  selectedProspectIds=[];
   for(const p of rows){
     if(selectedProspectIds.length>=limit)break;
-    if(selectedSet.has(String(p.id)))continue;
     selectedProspectIds.push(p.id);
-    selectedSet.add(String(p.id));
-    added++;
   }
+  autoSectorFilter=sector;
   saveSelectedProspects();
-  renderSectorWork(autoSectorFilter);
+  renderSectorWork(sector);
   renderSelectionPanel();
   renderTour();
-  if(added===0 && selectedProspectIds.length>=limit){
-    const bar=$("sectorSelectionBar");
-    if(bar)bar.scrollIntoView({behavior:"smooth",block:"center"});
-  }
+  const bar=$("sectorSelectionBar");
+  if(bar)bar.scrollIntoView({behavior:"smooth",block:"center"});
+  return selectedProspectIds.length;
 }
 function renderSectorSelectionBar(){
   const bar=$("sectorSelectionBar");
