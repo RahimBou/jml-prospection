@@ -94,166 +94,85 @@ function finalize(result,input) {
   return result;
 }
 
-async function pap(input) {
-  const slug=slugify(input.city||"");
-  const postal=String(input.postalCode||"").trim();
-  const url="https://www.pap.fr/vendeur/prix-m2/"+slug+(postal?"-"+postal:"");
-  const r=baseResult("pap","PAP",url);
-  try {
-    const page=await fetchHtml(url);
-    if(!page.ok){r.status="http_"+page.status;return r;}
-    const h=page.body;
-    const clean=text(h);
-    const kind=propertyKind(input.type);
-    const specific=kind==="maison"
-      ? matchNumberNear(h,/prix\s*(?:moyen|moyenne)[^<]{0,180}?(?:des|de)\s*(?:maisons|villas)[^<]{0,100}?([\d\s.,]+)\s*€/i)
-      : kind==="appartement"
-        ? matchNumberNear(h,/prix\s*(?:moyen|moyenne)[^<]{0,180}?(?:des|d')\s*appartements[^<]{0,100}?([\d\s.,]+)\s*€/i)
-        : null;
-    const generic=matchNumberNear(h,/prix\s*(?:moyen|moyenne)[^<]{0,120}?([\d\s.,]+)\s*€\s*\/\s*m2/i)
-      || matchNumberNear(h,/prix\s*(?:moyen|moyenne)[^<]{0,120}?([\d\s.,]+)\s*€/i);
-    r.valuePerM2=specific||generic;
-    const low=matchNumberNear(h,/prix\s*\+?bas[^<]{0,80}([\d\s.,]+)\s*€\s*\/\s*m2/i);
-    const high=matchNumberNear(h,/prix\s*\+?haut[^<]{0,80}([\d\s.,]+)\s*€\s*\/\s*m2/i);
-    r.lowPerM2=low;r.highPerM2=high;
-    if(r.valuePerM2){r.status="ok";r.confidence="ville";r.method="PAP · prix au m² public (DVF + PAP)";}
-    else if(/aucune adresse|estimation gratuite/i.test(clean))r.status="form_only";
-    return finalize(r,input);
-  }catch(e){r.status=e.name==="AbortError"?"timeout":"error";r.error=e.message;return r;}
-}
-
-function selogerUrl(input) {
-  const city=slugify(input.city||"");
-  const dept=String(input.department||"").trim();
-  const code=String(input.cityCode||"").replace(/^0/,"");
-  const region=(String(input.regionSlug||"").trim()||"champagne-ardenne");
-  const departmentSlug=(String(input.departmentSlug||"").trim()||dept==="08"?"ardennes":slugify(input.departmentName||""));
-  if(!city||!code||!departmentSlug)return "";
-  return "https://www.seloger.com/prix-de-l-immo/vente/"+region+"/"+departmentSlug+"/"+city+"/"+code+".htm";
-}
-
-async function seloger(input) {
-  const url=selogerUrl(input);
-  const r=baseResult("seloger","SeLoger",url||"https://www.seloger.com/estimation-immobiliere.html");
-  if(!url){r.status="missing_location";return r;}
-  try {
-    const page=await fetchHtml(url);
-    if(!page.ok){r.status="http_"+page.status;return r;}
-    const h=page.body;
-    const kind=propertyKind(input.type);
-    const clean=text(h);
-    let specific=null;
-    if(kind==="maison")specific=matchNumberNear(h,/prix\s+moyen\s+des\s+maisons[^<]{0,220}?([\d\s.,]+)\s*€/i);
-    if(kind==="appartement")specific=matchNumberNear(h,/prix\s+moyen\s+des\s+appartements[^<]{0,220}?([\d\s.,]+)\s*€/i);
-    const generic=matchNumberNear(h,/prix\s+moyen\s+au\s+m2[^<]{0,180}?([\d\s.,]+)\s*€/i)
-      || matchNumberNear(h,/prix\s+moyen\s+au\s*m²[^<]{0,180}?([\d\s.,]+)\s*€/i);
-    r.valuePerM2=specific||generic;
-    r.lowPerM2=matchNumberNear(h,/prix\s+bas[^<]{0,120}?([\d\s.,]+)\s*€/i);
-    r.highPerM2=matchNumberNear(h,/prix\s+haut[^<]{0,120}?([\d\s.,]+)\s*€/i);
-    if(r.valuePerM2){r.status="ok";r.confidence="ville";r.method="SeLoger · carte publique des prix";}
-    else if(/estimer mon bien|estimation immobilière/i.test(clean))r.status="form_only";
-    return finalize(r,input);
-  }catch(e){r.status=e.name==="AbortError"?"timeout":"error";r.error=e.message;return r;}
-}
-
-async function meilleursAgents(input) {
-  const slug=slugify(input.city||"");
-  const postal=String(input.postalCode||"").trim();
-  const url="https://www.meilleursagents.com/prix-immobilier/"+slug+(postal?"-"+postal:"")+"/";
-  const r=baseResult("meilleurs-agents","Meilleurs Agents",url);
-  try {
-    const page=await fetchHtml(url);
-    if(!page.ok){r.status="http_"+page.status;return r;}
-    const h=page.body;
-    const kind=propertyKind(input.type);
-    const specific=kind==="maison"
-      ? matchNumberNear(h,/prix\s*m2\s*moyen[^<]{0,140}?maisons[^<]{0,120}?([\d\s.,]+)\s*€/i)
-      : kind==="appartement"
-        ? matchNumberNear(h,/prix\s*m2\s*moyen[^<]{0,140}?appartements[^<]{0,120}?([\d\s.,]+)\s*€/i)
-        : null;
-    const generic=matchNumberNear(h,/prix\s*m2\s*moyen[^<]{0,220}?([\d\s.,]+)\s*€/i);
-    r.valuePerM2=specific||generic;
-    const range=String(h).match(/95%[^<]{0,200}?([\d\s.,]+)\s*€[^<]{0,80}?([\d\s.,]+)\s*€/i);
-    if(range){r.lowPerM2=numberFromText(range[1]);r.highPerM2=numberFromText(range[2]);}
-    if(r.valuePerM2){r.status="ok";r.confidence="ville";r.method="Meilleurs Agents · prix m² public (données MA + publiques)";}
-    return finalize(r,input);
-  }catch(e){r.status=e.name==="AbortError"?"timeout":"error";r.error=e.message;return r;}
-}
-
-async function century21(input) {
-  const dept=String(input.department||"").trim();
-  const slug=slugify(input.city||"");
-  const deptMap={
-    "08":{region:"grand-est",department:"ardennes"},
-    "51":{region:"grand-est",department:"marne"},
-    "10":{region:"grand-est",department:"aube"},
-    "54":{region:"grand-est",department:"meurthe-et-moselle"},
-    "55":{region:"grand-est",department:"meuse"},
-    "52":{region:"grand-est",department:"haute-marne"},
-    "59":{region:"hauts-de-france",department:"nord"},
-    "62":{region:"hauts-de-france",department:"pas-de-calais"}
-  };
-  const area=deptMap[dept];
-  const centurySlug=String(input.city||"").normalize("NFD").replace(/[\\u0300-\\u036f]/g,"").trim().replace(/\\s+/g,"+");
-  const url=area
-    ?"https://www.century21.fr/prix-m2-immobilier/"+area.region+"/"+area.department+"/"+centurySlug+"/"
-    :"";
-  const r=baseResult("century21","CENTURY 21",url||"https://www.century21.fr/estimation-immobiliere");
-  if(!url){r.status="unsupported_department";return r;}
-  try {
-    const page=await fetchHtml(url);
-    if(!page.ok){r.status="http_"+page.status;return r;}
-    const h=page.body;
-    const kind=propertyKind(input.type);
-    const range=kind==="maison"
-      ? String(h).match(/maisons[^<]{0,300}?([\d\s.,]+)\s*€[^<]{0,100}?([\d\s.,]+)\s*€\s*par\s*m²/i)
-      : kind==="appartement"
-        ? String(h).match(/appartements[^<]{0,300}?([\d\s.,]+)\s*€[^<]{0,100}?([\d\s.,]+)\s*€\s*par\s*m²/i)
-        : null;
-    if(range){
-      r.lowPerM2=numberFromText(range[1]);r.highPerM2=numberFromText(range[2]);
-      if(r.lowPerM2&&r.highPerM2){r.valuePerM2=Math.round((r.lowPerM2+r.highPerM2)/2);r.status="ok";r.confidence="fourchette";r.method="CENTURY 21 · fourchette publique ETALAB, milieu de fourchette";}
-    } else {
-      const generic=String(h).match(/prix[^<]{0,80}?varient de\s*([\d\s.,]+)\s*€[^<]{0,80}?à\s*([\d\s.,]+)\s*€\s*par\s*m²/i);
-      if(generic){r.lowPerM2=numberFromText(generic[1]);r.highPerM2=numberFromText(generic[2]);r.status="range_only";}
+async function pap(p){
+  let url="https://www.pap.fr/vendeur/prix-m2/"+slugify(p.city)+(p.postalCode?"-"+p.postalCode:"");
+  let r=baseResult("pap","PAP",url);
+  try{
+    let x=await fetchHtml(url);
+    if(!x.ok && p.department==="08"){url="https://www.pap.fr/vendeur/prix-m2/ardennes-08-g371";x=await fetchHtml(url);r.url=url}
+    if(!x.ok){r.status="http_"+x.status;return r}
+    const s=decodeHtml(x.body),k=propertyKind(p.type);
+    if(k==="maison")r.valuePerM2=matchNumberNear(s,/prix\\s*\\/\\s*m²\\s*des\\s*maisons\\s*([\\d\\s.,]+)\\s*€/i);
+    else if(k==="appartement")r.valuePerM2=matchNumberNear(s,/prix\\s*\\/\\s*m²\\s*des\\s*appartements\\s*([\\d\\s.,]+)\\s*€/i);
+    if(!r.valuePerM2)r.valuePerM2=matchNumberNear(s,/prix\\s+(?:moyen|moyenne)[^\\d]{0,100}([\\d\\s.,]+)\\s*€\\s*\\/\\s*m2/i);
+    if(!r.valuePerM2 && p.department==="08"){
+      const rx=new RegExp(slugify(p.city).replace(/-/g,"[\\s-]+")+"\\s*\\(\\s*"+p.postalCode+"\\s*\\)\\s*([\\d\\s.,]+)\\s*€\\s*([\\d\\s.,]+)\\s*€","i");
+      const m=rx.exec(s);if(m)r.valuePerM2=num(p.type.toLowerCase().includes("appart")?m[1]:m[2]);
     }
-    return finalize(r,input);
-  }catch(e){r.status=e.name==="AbortError"?"timeout":"error";r.error=e.message;return r;}
+    if(r.valuePerM2){r.status="ok";r.confidence="ville";r.method="PAP · repère prix/m² public"}else r.status="form_only";
+    return finalize(r,p)
+  }catch(e){r.status=e.name==="AbortError"?"timeout":"error";r.error=e.message;return r}
 }
 
-async function orpi(input) {
-  const slug=slugify(input.city||"");
-  const url="https://www.orpi.com/prix-immobilier/"+slug;
-  const r=baseResult("orpi","Orpi",url);
-  try {
-    const page=await fetchHtml(url);
-    if(!page.ok){r.status="http_"+page.status;return r;}
-    const h=page.body;
-    const kind=propertyKind(input.type);
-    const specific=kind==="maison"
-      ? matchNumberNear(h,/Maison\s+([\d\s.,]+)\s*€\s*\/\s*m²/i)
-      : kind==="appartement"
-        ? matchNumberNear(h,/Appartement\s+([\d\s.,]+)\s*€\s*\/\s*m²/i)
-        : null;
-    const generic=matchNumberNear(h,/prix\s+de\s+vente\s+moyen[^<]{0,120}?([\d\s.,]+)\s*€/i);
-    r.valuePerM2=specific||generic;
-    if(r.valuePerM2){r.status="ok";r.confidence="ville";r.method="Orpi · prix de vente moyen public";}
-    return finalize(r,input);
-  }catch(e){r.status=e.name==="AbortError"?"timeout":"error";r.error=e.message;return r;}
+function selogerUrl(p){
+  const city=slugify(p.city),code=String(p.cityCode||"").replace(/^0/,""),dep=p.department==="08"?"ardennes":slugify(p.departmentName||"");
+  if(!city||!code||!dep)return "";
+  return "https://www.seloger.com/prix-de-l-immo/vente/"+(p.regionSlug||"champagne-ardenne")+"/"+(p.departmentSlug||dep)+"/"+city+"/"+code+".htm";
+}
+async function seloger(p){
+  const url=selogerUrl(p),r=baseResult("seloger","SeLoger",url||"https://www.seloger.com/estimation-immobiliere.html");
+  if(!url){r.status="missing_location";return r}
+  try{
+    const x=await fetchHtml(url);if(!x.ok){r.status="http_"+x.status;return r}
+    const s=decodeHtml(x.body),k=propertyKind(p.type);
+    r.valuePerM2=k==="maison"?matchNumberNear(s,/prix\\s+moyen\\s+des\\s+maisons\\s+au\\s+m2[^\\d]{0,100}([\\d\\s.,]+)\\s*€/i):k==="appartement"?matchNumberNear(s,/prix\\s+moyen\\s+des\\s+appartements\\s+au\\s+m2[^\\d]{0,100}([\\d\\s.,]+)\\s*€/i):matchNumberNear(s,/prix\\s+moyen\\s+au\\s+m2[^\\d]{0,100}([\\d\\s.,]+)\\s*€/i);
+    if(r.valuePerM2){r.status="ok";r.confidence="ville";r.method="SeLoger · prix public de la ville"}else r.status="form_only";
+    return finalize(r,p)
+  }catch(e){r.status=e.name==="AbortError"?"timeout":"error";r.error=e.message;return r}
 }
 
-async function laforet(input) {
+async function meilleursAgents(p){
+  const url="https://www.meilleursagents.com/prix-immobilier/"+slugify(p.city)+(p.postalCode?"-"+p.postalCode:"")+"/",r=baseResult("meilleurs-agents","Meilleurs Agents",url);
+  try{
+    const x=await fetchHtml(url);if(!x.ok){r.status="http_"+x.status;return r}
+    const s=decodeHtml(x.body),k=propertyKind(p.type);
+    const section=k==="maison"?s.match(/Prix\\s+des\\s+maisons[\\s\\S]{0,220}?Prix\\s+m²\\s+moyen[\\s\\S]{0,80}?([\\d\\s.,]+)\\s*€/i):k==="appartement"?s.match(/Prix\\s+des\\s+appartements[\\s\\S]{0,220}?Prix\\s+m²\\s+moyen[\\s\\S]{0,80}?([\\d\\s.,]+)\\s*€/i):null;
+    const top=k==="maison"?s.match(/Maison[\\s\\S]{0,120}?Prix m2 moyen[\\s\\S]{0,50}?([\\d\\s.,]+)\\s*€/i):k==="appartement"?s.match(/Appartement[\\s\\S]{0,120}?Prix m2 moyen[\\s\\S]{0,50}?([\\d\\s.,]+)\\s*€/i):null;
+    r.valuePerM2=section?num(section[1]):top?num(top[1]):null;
+    if(r.valuePerM2){r.status="ok";r.confidence="ville";r.method="Meilleurs Agents · prix m² public"}else r.status="form_only";
+    return finalize(r,p)
+  }catch(e){r.status=e.name==="AbortError"?"timeout":"error";r.error=e.message;return r}
+}
+
+async function century21(p){
+  const map={"08":["grand-est","ardennes"],"51":["grand-est","marne"],"10":["grand-est","aube"],"54":["grand-est","meurthe-et-moselle"],"55":["grand-est","meuse"],"52":["grand-est","haute-marne"],"59":["hauts-de-france","nord"],"62":["hauts-de-france","pas-de-calais"]};
+  const a=map[p.department],city=String(p.city||"").normalize("NFD").replace(/[\\u0300-\\u036f]/g,"").trim().replace(/\\s+/g,"+");
+  const url=a?"https://www.century21.fr/prix-m2-immobilier/"+a[0]+"/"+a[1]+"/"+city+"/":"https://www.century21.fr/estimation-immobiliere";
+  const r=baseResult("century21","CENTURY 21",url);if(!a){r.status="unsupported_department";return r}
+  try{
+    const x=await fetchHtml(url);if(!x.ok){r.status="http_"+x.status;return r}
+    const s=decodeHtml(x.body),k=propertyKind(p.type);
+    const m=k==="maison"?/Pour\\s+les\\s+maisons,[\\s\\S]{0,180}?compris\\s+entre\\s+([\\d\\s.,]+)\\s*€\\s+et\\s+([\\d\\s.,]+)\\s*€/i:k==="appartement"?/Pour\\s+les\\s+appartements,[\\s\\S]{0,180}?compris\\s+entre\\s+([\\d\\s.,]+)\\s*€\\s+et\\s+([\\d\\s.,]+)\\s*€/i:null;
+    const z=m?s.match(m):null;
+    if(z){r.lowPerM2=num(z[1]);r.highPerM2=num(z[2]);r.valuePerM2=Math.round((r.lowPerM2+r.highPerM2)/2);r.status="ok";r.confidence="fourchette";r.method="CENTURY 21 · milieu de fourchette publique ETALAB"}else r.status="range_only";
+    return finalize(r,p)
+  }catch(e){r.status=e.name==="AbortError"?"timeout":"error";r.error=e.message;return r}
+}
+
+async function orpi(p){
+  const url="https://www.orpi.com/prix-immobilier/"+slugify(p.city),r=baseResult("orpi","Orpi",url);
+  try{
+    const x=await fetchHtml(url);if(!x.ok){r.status="http_"+x.status;return r}
+    const s=decodeHtml(x.body),k=propertyKind(p.type);
+    r.valuePerM2=k==="maison"?matchNumberNear(s,/Maison\\s+([\\d\\s.,]+)\\s*€\\s*\\/\\s*m²/i):k==="appartement"?matchNumberNear(s,/Appartement\\s+([\\d\\s.,]+)\\s*€\\s*\\/\\s*m²/i):null;
+    if(r.valuePerM2){r.status="ok";r.confidence="ville";r.method="Orpi · prix de vente moyen public"}else r.status="not_found";
+    return finalize(r,p)
+  }catch(e){r.status=e.name==="AbortError"?"timeout":"error";r.error=e.message;return r}
+}
+
+async function laforet(p){
   const r=baseResult("laforet","Laforêt","https://www.laforet.com/estimer");
-  try {
-    const page=await fetchHtml(r.url);
-    const h=page.body||"";
-    if(/captcha|recaptcha|hcaptcha|challenge/i.test(h)){
-      r.status="captcha";r.error="CAPTCHA détecté — arrêt volontaire, aucun contournement.";
-    } else {
-      r.status="form_only";r.method="Laforêt · formulaire d'estimation en ligne; extraction interactive non activée sans navigateur";
-    }
-    return finalize(r,input);
-  }catch(e){r.status=e.name==="AbortError"?"timeout":"error";r.error=e.message;return r;}
+  try{const x=await fetchHtml(r.url);if(/captcha|recaptcha|hcaptcha|challenge/i.test(x.body)){r.status="captcha";r.error="CAPTCHA détecté — arrêt volontaire, aucun contournement."}else{r.status="form_only";r.method="Laforêt · formulaire public; aucune soumission automatique si protection présente"}return r}catch(e){r.status=e.name==="AbortError"?"timeout":"error";r.error=e.message;return r}
 }
 
 async function runEstimateurSources(input={}) {
