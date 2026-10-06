@@ -107,7 +107,7 @@ async function pap(p){
     if(!r.valuePerM2)r.valuePerM2=matchNumberNear(s,/prix\s+(?:moyen|moyenne)[^0-9]{0,100}([0-9\s.,]+)\s*€\s*\/\s*m2/i);
     if(!r.valuePerM2 && p.department==="08"){
       const rx=new RegExp(slugify(p.city).replace(/-/g,"[\\s-]+")+"\\s*\\(\\s*"+p.postalCode+"\\s*\\)\\s*([0-9\s.,]+)\\s*€\\s*([0-9\s.,]+)\\s*€","i");
-      const m=rx.exec(s);if(m)r.valuePerM2=num(p.type.toLowerCase().includes("appart")?m[1]:m[2]);
+      const m=rx.exec(s);if(m)r.valuePerM2=numberFromText(p.type.toLowerCase().includes("appart")?m[1]:m[2]);
     }
     if(r.valuePerM2){r.status="ok";r.confidence="ville";r.method="PAP · repère prix/m² public"}else r.status="form_only";
     return finalize(r,p)
@@ -138,7 +138,7 @@ async function meilleursAgents(p){
     const s=decodeHtml(x.body),k=propertyKind(p.type);
     const section=k==="maison"?s.match(/Prix des maisons[\s\S]{0,220}?Prix m² moyen[\s\S]{0,80}?([0-9\s.,]+)\s*€/i):k==="appartement"?s.match(/Prix des appartements[\s\S]{0,220}?Prix m² moyen[\s\S]{0,80}?([0-9\s.,]+)\s*€/i):null;
     const top=k==="maison"?s.match(/Maison[\s\S]{0,120}?Prix m2 moyen[\s\S]{0,50}?([0-9\s.,]+)\s*€/i):k==="appartement"?s.match(/Appartement[\s\S]{0,120}?Prix m2 moyen[\s\S]{0,50}?([0-9\s.,]+)\s*€/i):null;
-    r.valuePerM2=section?num(section[1]):top?num(top[1]):null;
+    r.valuePerM2=section?numberFromText(section[1]):top?numberFromText(top[1]):null;
     if(r.valuePerM2){r.status="ok";r.confidence="ville";r.method="Meilleurs Agents · prix m² public"}else r.status="form_only";
     return finalize(r,p)
   }catch(e){r.status=e.name==="AbortError"?"timeout":"error";r.error=e.message;return r}
@@ -154,7 +154,7 @@ async function century21(p){
     const s=decodeHtml(x.body),k=propertyKind(p.type);
     const m=k==="maison"?/Pour les maisons,[\s\S]{0,180}?compris entre ([0-9\s.,]+)\s*€\s+et ([0-9\s.,]+)\s*€/i:k==="appartement"?/Pour les appartements,[\s\S]{0,180}?compris entre ([0-9\s.,]+)\s*€\s+et ([0-9\s.,]+)\s*€/i:null;
     const z=m?s.match(m):null;
-    if(z){r.lowPerM2=num(z[1]);r.highPerM2=num(z[2]);r.valuePerM2=Math.round((r.lowPerM2+r.highPerM2)/2);r.status="ok";r.confidence="fourchette";r.method="CENTURY 21 · milieu de fourchette publique ETALAB"}else r.status="range_only";
+    if(z){r.lowPerM2=numberFromText(z[1]);r.highPerM2=numberFromText(z[2]);r.valuePerM2=Math.round((r.lowPerM2+r.highPerM2)/2);r.status="ok";r.confidence="fourchette";r.method="CENTURY 21 · milieu de fourchette publique ETALAB"}else r.status="range_only";
     return finalize(r,p)
   }catch(e){r.status=e.name==="AbortError"?"timeout":"error";r.error=e.message;return r}
 }
