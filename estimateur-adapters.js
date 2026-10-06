@@ -102,11 +102,11 @@ async function pap(p){
     if(!x.ok && p.department==="08"){url="https://www.pap.fr/vendeur/prix-m2/ardennes-08-g371";x=await fetchHtml(url);r.url=url}
     if(!x.ok){r.status="http_"+x.status;return r}
     const s=decodeHtml(x.body),k=propertyKind(p.type);
-    if(k==="maison")r.valuePerM2=matchNumberNear(s,/prix\\s*\\/\\s*m²\\s*des\\s*maisons\\s*([\\d\\s.,]+)\\s*€/i);
-    else if(k==="appartement")r.valuePerM2=matchNumberNear(s,/prix\\s*\\/\\s*m²\\s*des\\s*appartements\\s*([\\d\\s.,]+)\\s*€/i);
-    if(!r.valuePerM2)r.valuePerM2=matchNumberNear(s,/prix\\s+(?:moyen|moyenne)[^\\d]{0,100}([\\d\\s.,]+)\\s*€\\s*\\/\\s*m2/i);
+    if(k==="maison")r.valuePerM2=matchNumberNear(s,/prix\s*\/\s*m²\s*des\s*maisons\s*([0-9\s.,]+)\s*€/i);
+    else if(k==="appartement")r.valuePerM2=matchNumberNear(s,/prix\s*\/\s*m²\s*des\s*appartements\s*([0-9\s.,]+)\s*€/i);
+    if(!r.valuePerM2)r.valuePerM2=matchNumberNear(s,/prix\s+(?:moyen|moyenne)[^0-9]{0,100}([0-9\s.,]+)\s*€\s*\/\s*m2/i);
     if(!r.valuePerM2 && p.department==="08"){
-      const rx=new RegExp(slugify(p.city).replace(/-/g,"[\\s-]+")+"\\s*\\(\\s*"+p.postalCode+"\\s*\\)\\s*([\\d\\s.,]+)\\s*€\\s*([\\d\\s.,]+)\\s*€","i");
+      const rx=new RegExp(slugify(p.city).replace(/-/g,"[\\s-]+")+"\\s*\\(\\s*"+p.postalCode+"\\s*\\)\\s*([0-9\s.,]+)\\s*€\\s*([0-9\s.,]+)\\s*€","i");
       const m=rx.exec(s);if(m)r.valuePerM2=num(p.type.toLowerCase().includes("appart")?m[1]:m[2]);
     }
     if(r.valuePerM2){r.status="ok";r.confidence="ville";r.method="PAP · repère prix/m² public"}else r.status="form_only";
@@ -125,7 +125,7 @@ async function seloger(p){
   try{
     const x=await fetchHtml(url);if(!x.ok){r.status="http_"+x.status;return r}
     const s=decodeHtml(x.body),k=propertyKind(p.type);
-    r.valuePerM2=k==="maison"?matchNumberNear(s,/prix\\s+moyen\\s+des\\s+maisons\\s+au\\s+m2[^\\d]{0,100}([\\d\\s.,]+)\\s*€/i):k==="appartement"?matchNumberNear(s,/prix\\s+moyen\\s+des\\s+appartements\\s+au\\s+m2[^\\d]{0,100}([\\d\\s.,]+)\\s*€/i):matchNumberNear(s,/prix\\s+moyen\\s+au\\s+m2[^\\d]{0,100}([\\d\\s.,]+)\\s*€/i);
+    r.valuePerM2=k==="maison"?matchNumberNear(s,/prix moyen des maisons au m2[^0-9]{0,100}([0-9\s.,]+)\s*€/i):k==="appartement"?matchNumberNear(s,/prix moyen des appartements au m2[^0-9]{0,100}([0-9\s.,]+)\s*€/i):matchNumberNear(s,/prix moyen au m2[^0-9]{0,100}([0-9\s.,]+)\s*€/i);
     if(r.valuePerM2){r.status="ok";r.confidence="ville";r.method="SeLoger · prix public de la ville"}else r.status="form_only";
     return finalize(r,p)
   }catch(e){r.status=e.name==="AbortError"?"timeout":"error";r.error=e.message;return r}
@@ -136,8 +136,8 @@ async function meilleursAgents(p){
   try{
     const x=await fetchHtml(url);if(!x.ok){r.status="http_"+x.status;return r}
     const s=decodeHtml(x.body),k=propertyKind(p.type);
-    const section=k==="maison"?s.match(/Prix\\s+des\\s+maisons[\\s\\S]{0,220}?Prix\\s+m²\\s+moyen[\\s\\S]{0,80}?([\\d\\s.,]+)\\s*€/i):k==="appartement"?s.match(/Prix\\s+des\\s+appartements[\\s\\S]{0,220}?Prix\\s+m²\\s+moyen[\\s\\S]{0,80}?([\\d\\s.,]+)\\s*€/i):null;
-    const top=k==="maison"?s.match(/Maison[\\s\\S]{0,120}?Prix m2 moyen[\\s\\S]{0,50}?([\\d\\s.,]+)\\s*€/i):k==="appartement"?s.match(/Appartement[\\s\\S]{0,120}?Prix m2 moyen[\\s\\S]{0,50}?([\\d\\s.,]+)\\s*€/i):null;
+    const section=k==="maison"?s.match(/Prix des maisons[\s\S]{0,220}?Prix m² moyen[\s\S]{0,80}?([0-9\s.,]+)\s*€/i):k==="appartement"?s.match(/Prix des appartements[\s\S]{0,220}?Prix m² moyen[\s\S]{0,80}?([0-9\s.,]+)\s*€/i):null;
+    const top=k==="maison"?s.match(/Maison[\s\S]{0,120}?Prix m2 moyen[\s\S]{0,50}?([0-9\s.,]+)\s*€/i):k==="appartement"?s.match(/Appartement[\s\S]{0,120}?Prix m2 moyen[\s\S]{0,50}?([0-9\s.,]+)\s*€/i):null;
     r.valuePerM2=section?num(section[1]):top?num(top[1]):null;
     if(r.valuePerM2){r.status="ok";r.confidence="ville";r.method="Meilleurs Agents · prix m² public"}else r.status="form_only";
     return finalize(r,p)
@@ -146,13 +146,13 @@ async function meilleursAgents(p){
 
 async function century21(p){
   const map={"08":["grand-est","ardennes"],"51":["grand-est","marne"],"10":["grand-est","aube"],"54":["grand-est","meurthe-et-moselle"],"55":["grand-est","meuse"],"52":["grand-est","haute-marne"],"59":["hauts-de-france","nord"],"62":["hauts-de-france","pas-de-calais"]};
-  const a=map[p.department],city=String(p.city||"").normalize("NFD").replace(/[\\u0300-\\u036f]/g,"").trim().replace(/\\s+/g,"+");
+  const a=map[p.department],city=String(p.city||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").trim().replace(/\s+/g,"+");
   const url=a?"https://www.century21.fr/prix-m2-immobilier/"+a[0]+"/"+a[1]+"/"+city+"/":"https://www.century21.fr/estimation-immobiliere";
   const r=baseResult("century21","CENTURY 21",url);if(!a){r.status="unsupported_department";return r}
   try{
     const x=await fetchHtml(url);if(!x.ok){r.status="http_"+x.status;return r}
     const s=decodeHtml(x.body),k=propertyKind(p.type);
-    const m=k==="maison"?/Pour\\s+les\\s+maisons,[\\s\\S]{0,180}?compris\\s+entre\\s+([\\d\\s.,]+)\\s*€\\s+et\\s+([\\d\\s.,]+)\\s*€/i:k==="appartement"?/Pour\\s+les\\s+appartements,[\\s\\S]{0,180}?compris\\s+entre\\s+([\\d\\s.,]+)\\s*€\\s+et\\s+([\\d\\s.,]+)\\s*€/i:null;
+    const m=k==="maison"?/Pour les maisons,[\s\S]{0,180}?compris entre ([0-9\s.,]+)\s*€\s+et ([0-9\s.,]+)\s*€/i:k==="appartement"?/Pour les appartements,[\s\S]{0,180}?compris entre ([0-9\s.,]+)\s*€\s+et ([0-9\s.,]+)\s*€/i:null;
     const z=m?s.match(m):null;
     if(z){r.lowPerM2=num(z[1]);r.highPerM2=num(z[2]);r.valuePerM2=Math.round((r.lowPerM2+r.highPerM2)/2);r.status="ok";r.confidence="fourchette";r.method="CENTURY 21 · milieu de fourchette publique ETALAB"}else r.status="range_only";
     return finalize(r,p)
@@ -164,7 +164,7 @@ async function orpi(p){
   try{
     const x=await fetchHtml(url);if(!x.ok){r.status="http_"+x.status;return r}
     const s=decodeHtml(x.body),k=propertyKind(p.type);
-    r.valuePerM2=k==="maison"?matchNumberNear(s,/Maison\\s+([\\d\\s.,]+)\\s*€\\s*\\/\\s*m²/i):k==="appartement"?matchNumberNear(s,/Appartement\\s+([\\d\\s.,]+)\\s*€\\s*\\/\\s*m²/i):null;
+    r.valuePerM2=k==="maison"?matchNumberNear(s,/Maison\s+([0-9\s.,]+)\s*€\s*\/\s*m²/i):k==="appartement"?matchNumberNear(s,/Appartement\s+([0-9\s.,]+)\s*€\s*\/\s*m²/i):null;
     if(r.valuePerM2){r.status="ok";r.confidence="ville";r.method="Orpi · prix de vente moyen public"}else r.status="not_found";
     return finalize(r,p)
   }catch(e){r.status=e.name==="AbortError"?"timeout":"error";r.error=e.message;return r}
