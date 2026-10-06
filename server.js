@@ -1427,6 +1427,20 @@ async function api(pathname,url){
       disclaimer:"La carte rapproche une annonce publique fournie par l'utilisateur avec des données immobilières publiques. Elle n'identifie pas automatiquement le propriétaire."
     };
   }
+  if(pathname==="/api/estimateur-sources"){
+    const city=url.searchParams.get("city")?.trim()||"";
+    const postalCode=url.searchParams.get("postalCode")?.trim()||"";
+    const cityCode=url.searchParams.get("cityCode")?.trim()||"";
+    const department=url.searchParams.get("department")?.trim()||postalCode.slice(0,2);
+    const departmentName=url.searchParams.get("departmentName")?.trim()||"";
+    const departmentSlug=url.searchParams.get("departmentSlug")?.trim()||"";
+    const regionSlug=url.searchParams.get("regionSlug")?.trim()||"";
+    const type=url.searchParams.get("type")?.trim()||"Maison";
+    const area=Number(url.searchParams.get("area"))||0;
+    const rooms=Number(url.searchParams.get("rooms"))||0;
+    if(!city)throw new Error("Commune manquante pour l'estimation multi-sources");
+    return await runEstimateurSources({city,postalCode,cityCode,department,departmentName,departmentSlug,regionSlug,type,area,rooms});
+  }
   if(pathname==="/api/address-candidates"){
     const lat=Number(url.searchParams.get("lat")),lon=Number(url.searchParams.get("lon"));
     const area=Number(url.searchParams.get("area"))||0,rooms=Number(url.searchParams.get("rooms"))||0;
