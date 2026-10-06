@@ -63,16 +63,55 @@ async function fetchHtml(url, timeoutMs=DEFAULT_TIMEOUT_MS) {
     const response=await fetch(url,{
       redirect:"follow",
       headers:{
-        "User-Agent":"JML-Prospection/2.0 (public-market-research)",
-        "Accept":"text/html,application/xhtml+xml"
+        "User-Agent":"Mozilla/5.0 (compatible; JML-Prospection/2.0; +https://jml-prospection.fr)",
+        "Accept":"text/html,application/xhtml+xml,application/json;q=0.9,*/*;q=0.8",
+        "Accept-Language":"fr-FR,fr;q=0.9,en;q=0.6",
+        "Cache-Control":"no-cache"
       },
       signal:controller.signal
     });
     const body=await response.text();
-    return {ok:response.ok,status:response.status,url:response.url,body};
+    return {ok:response.ok,status:response.status,url:response.url,body,readerUsed:false};
   } finally {
     clearTimeout(timer);
   }
+}
+
+async function fetchReader(url, timeoutMs=20000) {
+  const readerUrl="https://r.jina.ai/"+url;
+  const controller=new AbortController();
+  const timer=setTimeout(()=>controller.abort(),timeoutMs);
+  try {
+    const response=await fetch(readerUrl,{
+      redirect:"follow",
+      headers:{
+        "Accept":"text/plain, text/markdown;q=0.9",
+        "User-Agent":"JML-Prospection/2.0"
+      },
+      signal:controller.signal
+    });
+    const body=await response.text();
+    return {ok:response.ok,status:response.status,url,body,readerUsed:true};
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function fetchPublicPage(url, timeoutMs=DEFAULT_TIMEOUT_MS) {
+  let direct;
+  try { direct=await fetchHtml(url,timeoutMs); } catch(e) {
+    direct={ok:false,status:0,url,body:"",error:e.message,readerUsed:false};
+  }
+  // Reader is a fallback for public pages when Render receives a block/challenge
+  // or an incomplete server-side response. It does not bypass CAPTCHA.
+  const blocked=!direct.ok || /captcha|challenge|access denied|just a moment|enable javascript/i.test(direct.body||"");
+  if(blocked || String(direct.body||"").trim().length<300) {
+    try {
+      const reader=await fetchReader(url);
+      if(reader.ok && String(reader.body||"").trim().length>100) return reader;
+    } catch {}
+  }
+  return direct;
 }
 
 function propertyKind(type="") {
@@ -98,18 +137,45 @@ async function pap(p){
   let url="https://www.pap.fr/vendeur/prix-m2/"+slugify(p.city)+(p.postalCode?"-"+p.postalCode:"");
   let r=baseResult("pap","PAP",url);
   try{
-    let x=await fetchHtml(url);
-    if(!x.ok && p.department==="08"){url="https://www.pap.fr/vendeur/prix-m2/ardennes-08-g371";x=await fetchHtml(url);r.url=url}
+    let x=await fetchPublicPage(url);
+    if(!x.ok){
+      const depSlug=String(p.department||"").padStart(2,"0");
+      const depName=String(p.departmentName||"").trim() || (depSlug==="08"?"ardennes":"");
+      if(depName){
+        const indexUrl="https://www.pap.fr/vendeur/prix-m2/"+slugify(depName)+"-"+depSlug+"-g371";
+        const idx=await fetchPublicPage(indexUrl);
+        const html=String(idx.body||"");
+        const citySlug=slugify(p.city);
+        const hrefs=[...html.matchAll(/href=["'](\/vendeur\/prix-m2\/[^"']+)["']/gi)].map(m=>m[1]);
+        const match=hrefs.find(h=>h.toLowerCase().includes(citySlug) && (!p.postalCode || h.includes(String(p.postalCode))));
+        if(match){
+          url=match.startsWith("http")?match:"https://www.pap.fr"+match;
+          r.url=url;
+          x=await fetchPublicPage(url);
+        } else {
+          // Department pages also expose the city row as a text fallback.
+          const plain=decodeHtml(html);
+          const rx=new RegExp(citySlug.replace(/-/g,"[\\s-]+")+"\\s*\\(\\s*"+String(p.postalCode||"")+"\\s*\\)\\s*([0-9\\s.,]+)\\s*€\\s*([0-9\\s.,]+)\\s*€","i");
+          const m=rx.exec(plain);
+          if(m){
+            const k=propertyKind(p.type);
+            r.valuePerM2=numberFromText(k==="appartement"?m[1]:m[2]);
+            r.status="ok";r.confidence="departement";r.method="PAP · index département public";
+            return finalize(r,p);
+          }
+        }
+      }
+    }
     if(!x.ok){r.status="http_"+x.status;return r}
     const s=decodeHtml(x.body),k=propertyKind(p.type);
-    if(k==="maison")r.valuePerM2=matchNumberNear(s,/prix\s*\/\s*m²\s*des\s*maisons\s*([0-9\s.,]+)\s*€/i);
-    else if(k==="appartement")r.valuePerM2=matchNumberNear(s,/prix\s*\/\s*m²\s*des\s*appartements\s*([0-9\s.,]+)\s*€/i);
+    if(k==="maison")r.valuePerM2=matchNumberNear(s,/prix\s*\/\s*m²\s*des\s*maisons[^0-9]{0,80}([0-9\s.,]+)\s*€/i);
+    else if(k==="appartement")r.valuePerM2=matchNumberNear(s,/prix\s*\/\s*m²\s*des\s*appartements[^0-9]{0,80}([0-9\s.,]+)\s*€/i);
     if(!r.valuePerM2)r.valuePerM2=matchNumberNear(s,/prix\s+(?:moyen|moyenne)[^0-9]{0,100}([0-9\s.,]+)\s*€\s*\/\s*m2/i);
     if(!r.valuePerM2 && p.department==="08"){
       const rx=new RegExp(slugify(p.city).replace(/-/g,"[\\s-]+")+"\\s*\\(\\s*"+p.postalCode+"\\s*\\)\\s*([0-9\s.,]+)\\s*€\\s*([0-9\s.,]+)\\s*€","i");
       const m=rx.exec(s);if(m)r.valuePerM2=numberFromText(p.type.toLowerCase().includes("appart")?m[1]:m[2]);
     }
-    if(r.valuePerM2){r.status="ok";r.confidence="ville";r.method="PAP · repère prix/m² public"}else r.status="form_only";
+    if(r.valuePerM2){r.status="ok";r.confidence="ville";r.method="PAP · repère prix/m² public"+(x.readerUsed?" · Reader":"")}else r.status="form_only";
     return finalize(r,p)
   }catch(e){r.status=e.name==="AbortError"?"timeout":"error";r.error=e.message;return r}
 }
@@ -123,10 +189,10 @@ async function seloger(p){
   const url=selogerUrl(p),r=baseResult("seloger","SeLoger",url||"https://www.seloger.com/estimation-immobiliere.html");
   if(!url){r.status="missing_location";return r}
   try{
-    const x=await fetchHtml(url);if(!x.ok){r.status="http_"+x.status;return r}
+    const x=await fetchPublicPage(url);if(!x.ok){r.status="http_"+x.status;return r}
     const s=decodeHtml(x.body),k=propertyKind(p.type);
     r.valuePerM2=k==="maison"?matchNumberNear(s,/prix moyen des maisons au m2[^0-9]{0,100}([0-9\s.,]+)\s*€/i):k==="appartement"?matchNumberNear(s,/prix moyen des appartements au m2[^0-9]{0,100}([0-9\s.,]+)\s*€/i):matchNumberNear(s,/prix moyen au m2[^0-9]{0,100}([0-9\s.,]+)\s*€/i);
-    if(r.valuePerM2){r.status="ok";r.confidence="ville";r.method="SeLoger · prix public de la ville"}else r.status="form_only";
+    if(r.valuePerM2){r.status="ok";r.confidence="ville";r.method="SeLoger · prix public de la ville"+(x.readerUsed?" · Reader":"")}else r.status="form_only";
     return finalize(r,p)
   }catch(e){r.status=e.name==="AbortError"?"timeout":"error";r.error=e.message;return r}
 }
@@ -134,12 +200,12 @@ async function seloger(p){
 async function meilleursAgents(p){
   const url="https://www.meilleursagents.com/prix-immobilier/"+slugify(p.city)+(p.postalCode?"-"+p.postalCode:"")+"/",r=baseResult("meilleurs-agents","Meilleurs Agents",url);
   try{
-    const x=await fetchHtml(url);if(!x.ok){r.status="http_"+x.status;return r}
+    const x=await fetchPublicPage(url);if(!x.ok){r.status="http_"+x.status;return r}
     const s=decodeHtml(x.body),k=propertyKind(p.type);
     const section=k==="maison"?s.match(/Prix des maisons[\s\S]{0,220}?Prix m² moyen[\s\S]{0,80}?([0-9\s.,]+)\s*€/i):k==="appartement"?s.match(/Prix des appartements[\s\S]{0,220}?Prix m² moyen[\s\S]{0,80}?([0-9\s.,]+)\s*€/i):null;
     const top=k==="maison"?s.match(/Maison[\s\S]{0,120}?Prix m2 moyen[\s\S]{0,50}?([0-9\s.,]+)\s*€/i):k==="appartement"?s.match(/Appartement[\s\S]{0,120}?Prix m2 moyen[\s\S]{0,50}?([0-9\s.,]+)\s*€/i):null;
     r.valuePerM2=section?numberFromText(section[1]):top?numberFromText(top[1]):null;
-    if(r.valuePerM2){r.status="ok";r.confidence="ville";r.method="Meilleurs Agents · prix m² public"}else r.status="form_only";
+    if(r.valuePerM2){r.status="ok";r.confidence="ville";r.method="Meilleurs Agents · prix m² public"+(x.readerUsed?" · Reader":"")}else r.status="form_only";
     return finalize(r,p)
   }catch(e){r.status=e.name==="AbortError"?"timeout":"error";r.error=e.message;return r}
 }
@@ -150,11 +216,11 @@ async function century21(p){
   const url=a?"https://www.century21.fr/prix-m2-immobilier/"+a[0]+"/"+a[1]+"/"+city+"/":"https://www.century21.fr/estimation-immobiliere";
   const r=baseResult("century21","CENTURY 21",url);if(!a){r.status="unsupported_department";return r}
   try{
-    const x=await fetchHtml(url);if(!x.ok){r.status="http_"+x.status;return r}
+    const x=await fetchPublicPage(url);if(!x.ok){r.status="http_"+x.status;return r}
     const s=decodeHtml(x.body),k=propertyKind(p.type);
     const m=k==="maison"?/Pour les maisons,[\s\S]{0,180}?compris entre ([0-9\s.,]+)\s*€\s+et ([0-9\s.,]+)\s*€/i:k==="appartement"?/Pour les appartements,[\s\S]{0,180}?compris entre ([0-9\s.,]+)\s*€\s+et ([0-9\s.,]+)\s*€/i:null;
     const z=m?s.match(m):null;
-    if(z){r.lowPerM2=numberFromText(z[1]);r.highPerM2=numberFromText(z[2]);r.valuePerM2=Math.round((r.lowPerM2+r.highPerM2)/2);r.status="ok";r.confidence="fourchette";r.method="CENTURY 21 · milieu de fourchette publique ETALAB"}else r.status="range_only";
+    if(z){r.lowPerM2=numberFromText(z[1]);r.highPerM2=numberFromText(z[2]);r.valuePerM2=Math.round((r.lowPerM2+r.highPerM2)/2);r.status="ok";r.confidence="fourchette";r.method="CENTURY 21 · milieu de fourchette publique"+(x.readerUsed?" · Reader":"")}else r.status="range_only";
     return finalize(r,p)
   }catch(e){r.status=e.name==="AbortError"?"timeout":"error";r.error=e.message;return r}
 }
@@ -162,10 +228,10 @@ async function century21(p){
 async function orpi(p){
   const url="https://www.orpi.com/prix-immobilier/"+slugify(p.city),r=baseResult("orpi","Orpi",url);
   try{
-    const x=await fetchHtml(url);if(!x.ok){r.status="http_"+x.status;return r}
+    const x=await fetchPublicPage(url);if(!x.ok){r.status="http_"+x.status;return r}
     const s=decodeHtml(x.body),k=propertyKind(p.type);
     r.valuePerM2=k==="maison"?matchNumberNear(s,/Maison\s+([0-9\s.,]+)\s*€\s*\/\s*m²/i):k==="appartement"?matchNumberNear(s,/Appartement\s+([0-9\s.,]+)\s*€\s*\/\s*m²/i):null;
-    if(r.valuePerM2){r.status="ok";r.confidence="ville";r.method="Orpi · prix de vente moyen public"}else r.status="not_found";
+    if(r.valuePerM2){r.status="ok";r.confidence="ville";r.method="Orpi · prix de vente moyen public"+(x.readerUsed?" · Reader":"")}else r.status="not_found";
     return finalize(r,p)
   }catch(e){r.status=e.name==="AbortError"?"timeout":"error";r.error=e.message;return r}
 }
