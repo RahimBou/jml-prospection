@@ -4,7 +4,7 @@ const path = require("node:path");
 
 const PORT = Number(process.env.PORT || 10000);
 const ROOT = __dirname;
-const APP_SERVER_VERSION = "1.72.0";
+const APP_SERVER_VERSION = "1.72.1";
 const DPE_URL = "https://data.ademe.fr/data-fair/api/v1/datasets/dpe03existant/lines";
 const DVF_URL = "https://apidf-preprod.cerema.fr/dvf_opendata/mutations/";
 const DVF_GEO_BASE = "https://files.data.gouv.fr/geo-dvf/latest/csv";
@@ -1357,21 +1357,34 @@ async function api(pathname,url){
       (async()=>{
         if(!property.cityCode) return {source:"DVF indisponible · code INSEE absent",rows:[]};
         try{
+          // Les comparables ne doivent pas dépendre d'une recherche distante
+          // "autour de l'adresse". En Ardennes, on utilise d'abord le DVF local
+          // puis on calcule la proximité côté serveur.
+          const localRows=String(property.cityCode).startsWith("08")
+            ? await dvfLocalOpenData({codeInsee:property.cityCode,yearMin,yearMax,limit:10000})
+            : null;
+          if(localRows && localRows.length){
+            return {source:"DVF Ardennes local · comparables rapides",fallback:true,rows:localRows.map(normalizeDvf)};
+          }
           const rows=await fetchDvfPaginated(DVF_URL,{codeInsee:property.cityCode,yearMin,yearMax:String(DVF_GEO_LATEST_YEAR),maxRows:10000});
           return {source:"DVF+ Cerema · jusqu'à 10 000 transactions",rows:rows.map(normalizeDvf)};
         }catch(e){
-          const rows=await dvfGeoOpenData({codeInsee:property.cityCode,yearMin,yearMax:String(DVF_GEO_LATEST_YEAR),limit:10000});
-          return {source:"DVF open-data · data.gouv.fr",fallback:true,rows:rows.map(x=>normalizeDvf({
-            id_mutation:first(x,["id_mutation"]),date_mutation:first(x,["date_mutation"]),
-            valeur_fonciere:first(x,["valeur_fonciere"]),code_type_local:first(x,["code_type_local"]),
-            type_local:first(x,["type_local"]),surface_reelle_bati:first(x,["surface_reelle_bati"]),
-            surface_terrain:first(x,["surface_terrain"]),code_commune:first(x,["code_commune"]),
-            code_departement:first(x,["code_departement"]),adresse_numero:first(x,["adresse_numero"]),
-            adresse_nom_voie:first(x,["adresse_nom_voie"]),code_postal:first(x,["code_postal"]),
-            longitude:first(x,["longitude","lon"]),latitude:first(x,["latitude","lat"]),
-            nombre_pieces_principales:first(x,["nombre_pieces_principales"]),
-            lot_1_surface_carrez:first(x,["lot_1_surface_carrez"])
-          }))};
+          try{
+            const rows=await dvfGeoOpenData({codeInsee:property.cityCode,yearMin,yearMax:String(DVF_GEO_LATEST_YEAR),limit:10000});
+            return {source:"DVF open-data · data.gouv.fr",fallback:true,rows:rows.map(x=>normalizeDvf({
+              id_mutation:first(x,["id_mutation"]),date_mutation:first(x,["date_mutation"]),
+              valeur_fonciere:first(x,["valeur_fonciere"]),code_type_local:first(x,["code_type_local"]),
+              type_local:first(x,["type_local"]),surface_reelle_bati:first(x,["surface_reelle_bati"]),
+              surface_terrain:first(x,["surface_terrain"]),code_commune:first(x,["code_commune"]),
+              code_departement:first(x,["code_departement"]),adresse_numero:first(x,["adresse_numero"]),
+              adresse_nom_voie:first(x,["adresse_nom_voie"]),code_postal:first(x,["code_postal"]),
+              longitude:first(x,["longitude","lon"]),latitude:first(x,["latitude","lat"]),
+              nombre_pieces_principales:first(x,["nombre_pieces_principales"]),
+              lot_1_surface_carrez:first(x,["lot_1_surface_carrez"])
+            }))};
+          }catch(fallbackError){
+            return {source:"DVF indisponible · comparables non calculés",fallback:true,rows:[],error:String(fallbackError?.message||e?.message||"source indisponible")};
+          }
         }
       })()
     ]);
