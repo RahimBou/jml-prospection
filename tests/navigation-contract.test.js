@@ -4,6 +4,7 @@ const fs = require("node:fs");
 
 const html = fs.readFileSync("index.html", "utf8");
 const app = fs.readFileSync("app.js", "utf8");
+const css = fs.readFileSync("styles.css", "utf8");
 
 test("every workspace navigation destination has a registered page", () => {
   const navPages = [...html.matchAll(/data-page="([^"]+)"/g)].map((m) => m[1]);
@@ -34,8 +35,27 @@ test("navigation has one route entry point for CRM, tour and watch", () => {
   assert.match(route, /target==="watch"\)\{openWatch\(\);return;\}/);
 });
 
+test("all secondary workspace buttons are visible without a Plus menu", () => {
+  const labels = [...html.matchAll(/data-page="([^"]+)"/g)].map((m) => m[1]);
+  assert.deepEqual(new Set(labels), new Set(["home", "find", "crm", "tour", "watch", "leboncoin", "treat", "stats"]));
+  assert.ok(!html.includes('id="navMoreMenu"') && !html.includes('id="navMoreBtn"'));
+  assert.ok(css.includes("flex-wrap:wrap"));
+});
+
+test("non-home page panels are hidden in the initial HTML", () => {
+  for (const id of ["futureRadarPanel", "advancedSearchPanel", "prospectsPanel", "ctAnnoncesPanel", "autoTreatmentPanel", "statsLab"]) {
+    const marker = 'id="' + id + '"';
+    const index = html.indexOf(marker);
+    assert.ok(index >= 0, "Panel #" + id + " must exist");
+    const end = html.indexOf(">", index);
+    const tag = html.slice(html.lastIndexOf("<section", index), end + 1);
+    assert.ok(tag.includes(" hidden"), "Panel #" + id + " must start hidden; tag was " + tag.slice(0, 180));
+  }
+  assert.ok(css.includes("[hidden]{display:none!important}"));
+});
+
 test("asset cache version matches the frontend version", () => {
-  assert.match(app, /const APP_VERSION = "1\.75\.8";/);
-  assert.match(html, /app\.js\?v=1\.75\.8/);
-  assert.doesNotMatch(html, /\["a\[href="#futureRadarPanel"\]/);
+  assert.ok(app.includes('const APP_VERSION = "1.75.9";'));
+  assert.ok(html.includes("app.js?v=1.75.9"));
+  assert.ok(!html.includes('["a[href="#futureRadarPanel"]'));
 });
