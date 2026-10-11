@@ -12,6 +12,7 @@ on:
       - "styles.css"
       - "leboncoin-ui.js"
       - "tests/leboncoin-source.test.js"
+      - "tests/navigation-contract.test.js"
       - "package.json"
       - ".github/workflows/leboncoin-adapter-tests.yml"
   push:
@@ -42,3 +43,4 @@ jobs:
       - run: node --check leboncoin-source.js
       - run: node --check leboncoin-ui.js
       - run: npm run test:leboncoin
+      - run: node --test tests/navigation-contract.test.js
