@@ -38,6 +38,7 @@ jobs:
           node-version: "20"
       - run: node --check free-web-sources.js
       - run: node --check server.js
+      - run: node --check app.js
       - run: node --check leboncoin-source.js
       - run: node --check leboncoin-ui.js
       - run: npm run test:leboncoin
