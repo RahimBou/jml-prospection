@@ -4,7 +4,8 @@
   "private": true,
   "description": "Radar de prospection immobilière JML Immobilier",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "test:leboncoin": "node --test tests/leboncoin-source.test.js"
   },
   "engines": {
     "node": ">=20"
