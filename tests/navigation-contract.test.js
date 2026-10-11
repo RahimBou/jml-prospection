@@ -44,9 +44,12 @@ test("all secondary workspace buttons are visible without a Plus menu", () => {
 
 test("non-home page panels are hidden in the initial HTML", () => {
   for (const id of ["futureRadarPanel", "advancedSearchPanel", "prospectsPanel", "ctAnnoncesPanel", "autoTreatmentPanel", "statsLab"]) {
-    const tag = html.match(new RegExp("<section\\\\b[^>]*id=[\\\"\\x27]" + id + "[\\\"\\x27][^>]*>"));
-    assert.ok(tag, "Panel #" + id + " must exist");
-    assert.ok(tag[0].includes(" hidden"), "Panel #" + id + " must start hidden");
+    const marker = 'id="' + id + '"';
+    const index = html.indexOf(marker);
+    assert.ok(index >= 0, "Panel #" + id + " must exist");
+    const end = html.indexOf(">", index);
+    const tag = html.slice(html.lastIndexOf("<section", index), end + 1);
+    assert.ok(tag.includes(" hidden"), "Panel #" + id + " must start hidden; tag was " + tag.slice(0, 180));
   }
   assert.ok(css.includes("[hidden]{display:none!important}"));
 });
