@@ -1270,13 +1270,8 @@ async function api(pathname,url){
       message:authorized&&feedConfigured?"Le flux autorisé peut être testé. Aucune annonce ne sera ajoutée au CRM.":"Mode test local uniquement : aucune connexion Leboncoin ni collecte réelle n'est activée."};
   }
   if(pathname==="/api/leboncoin/test") {
-    const authorized=String(process.env.LEBONCOIN_SOURCE_AUTHORIZED||"").toLowerCase()==="true";
-    const feedConfigured=Boolean(String(process.env.LEBONCOIN_FEED_URL||"").trim());
-    if(authorized&&feedConfigured) {
-      const result=await fetchAuthorizedFeed();
-      return {...result,mode:"authorized_feed_test",imported:false,
-        message:result.ok ? "Flux autorisé accessible. Résultats affichés uniquement pour le test : rien n'a été importé dans le CRM." : result.message};
-    }
+    // Public UI tests use a synthetic fixture only. Never expose an authorized partner feed
+    // through an unauthenticated public endpoint.
     const fixture={items:[{
       id:"jml-test-001",url:"https://www.leboncoin.fr/ad/ventes_immobilieres/1234567890",
       title:"Maison de test — annonce fictive",description:"Donnée fictive pour vérifier la normalisation du connecteur.",
@@ -1286,7 +1281,7 @@ async function api(pathname,url){
     const normalized=normalizeFeed(fixture,"2026-10-11T00:00:00.000Z");
     return {ok:true,status:"self_test",mode:"local_fixture",source:normalized.source,count:normalized.count,
       items:normalized.items,imported:false,
-      message:"Auto-test réussi avec une annonce entièrement fictive. Aucune connexion à Leboncoin, aucune collecte réelle et aucun ajout au CRM."};
+      message:"Auto-test réussi avec une annonce entièrement fictive. Aucune connexion à Leboncoin, aucune collecte réelle et aucun ajout au CRM. Le test d’un flux partenaire doit rester privé et authentifié."};
   }
   if(pathname==="/api/health") return {ok:true,sources:{dpe:"ADEME",dvf:"DVF+ Cerema",geocoding:"Géoplateforme",chercherTrouver:"ChercherTrouver.immo"},server:"jml-prospection",version:APP_SERVER_VERSION};
   if(pathname==="/api/diagnostic"){
