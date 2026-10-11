@@ -950,3 +950,18 @@ body{background:linear-gradient(180deg,#f7f8f6 0%,#eef2ef 100%);color:var(--text
   }
 }
 .leboncoin-actions{display:flex;gap:10px;flex-wrap:wrap;margin:12px 0 18px}.leboncoin-kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:14px 0}.leboncoin-kpis article{padding:16px;border:1px solid var(--line);border-radius:12px;background:#faf7f1}.leboncoin-kpis strong{display:block;font-size:22px}.leboncoin-kpis span{font-size:12px;color:var(--muted)}.leboncoin-results{display:grid;gap:10px;margin:14px 0}.leboncoin-result{border:1px solid var(--line);border-radius:10px;padding:14px;background:#fff}.leboncoin-result h3{margin:0 0 6px;font-size:15px}.leboncoin-result p{margin:4px 0;color:var(--muted);font-size:13px}.leboncoin-result a{color:var(--green);overflow-wrap:anywhere}@media(max-width:600px){.leboncoin-kpis{grid-template-columns:1fr}}
+
+/* V1.75.9 — navigation exhaustive et panneaux masqués explicitement */
+[hidden]{display:none!important}
+.workspace-nav{
+  display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-start;
+  gap:6px;overflow:visible;white-space:normal;
+}
+.workspace-nav .nav-main{
+  flex:0 0 auto;min-height:40px;display:flex;align-items:center;
+}
+@media(max-width:800px){
+  .workspace-nav{position:sticky;top:0;flex-wrap:wrap;overflow:visible;padding:6px;gap:4px}
+  .workspace-nav .nav-main{padding:7px 9px;min-height:38px}
+  .workspace-nav .nav-main b{font-size:11px}
+}
