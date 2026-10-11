@@ -29,6 +29,7 @@ const JML_PAGE_GROUPS={
  find:["futureRadarPanel","advancedSearchPanel"],
  crm:["prospectsPanel"],
  watch:["ctAnnoncesPanel"],
+ leboncoin:["leboncoinScraperPanel"],
  tour:["tourPanel"],
  treat:["autoTreatmentPanel"],
  stats:["statsLab"]
