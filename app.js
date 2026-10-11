@@ -35,16 +35,27 @@ const JML_PAGE_GROUPS={
  stats:["statsLab"]
 };
 function showJmlPage(page){
-  const ids=[...new Set(Object.values(JML_PAGE_GROUPS).flat())];
-  ids.forEach(id=>{const el=$(id);if(el)el.hidden=true;});
-  ["aiAssistantPanel","publicSourcesPanel","sourceConnectorsPanel","privateProspectPanel","dataAgentPanel","integrationsPanel","signalPanel"].forEach(id=>{const el=$(id);if(el)el.hidden=true;});
-  (JML_PAGE_GROUPS[page]||JML_PAGE_GROUPS.home).forEach(id=>{const el=$(id);if(el)el.hidden=false;});
-  document.querySelectorAll(".nav-main").forEach(a=>a.classList.toggle("active",a.dataset.page===page));
-  window.jmlCurrentPage=page;
-  const first=(JML_PAGE_GROUPS[page]||JML_PAGE_GROUPS.home).map(id=>$(id)).find(Boolean);
+  const target=Object.prototype.hasOwnProperty.call(JML_PAGE_GROUPS,page)?page:"home";
+  const pageIds=[...new Set(Object.values(JML_PAGE_GROUPS).flat())];
+  pageIds.forEach(id=>{const el=$(id);if(el)el.hidden=true;});
+  [
+    "aiAssistantPanel","publicSourcesPanel","sourceConnectorsPanel","integrationsPanel",
+    "privateProspectPanel","dataAgentPanel","signalPanel","sectorWorkPanel","prospectDetailPanel"
+  ].forEach(id=>{const el=$(id);if(el)el.hidden=true;});
+  (JML_PAGE_GROUPS[target]||JML_PAGE_GROUPS.home).forEach(id=>{const el=$(id);if(el)el.hidden=false;});
+  document.querySelectorAll(".nav-main,.nav-secondary").forEach(a=>a.classList.toggle("active",a.dataset.page===target));
+  window.jmlCurrentPage=target;
+
+  // Les pages avec un flux de travail dédié passent par leur fonction d'entrée
+  // afin de ne pas laisser un ancien panneau visible au-dessus de la nouvelle page.
+  if(target==="crm"){openCRM();return;}
+  if(target==="tour"){openTour();return;}
+  if(target==="watch"){openWatch();return;}
+  if(target==="home")render();
+  if(target==="treat")renderAutoTreatmentSummary();
+
+  const first=(JML_PAGE_GROUPS[target]||JML_PAGE_GROUPS.home).map(id=>$(id)).find(Boolean);
   first?.scrollIntoView({behavior:"smooth",block:"start"});
-  if(page==="crm")render();
-  if(page==="tour")renderTour();
 }
 
 // V1.61 — routeur d'actions robuste : les boutons de travail ne dépendent plus du bind local
@@ -83,7 +94,7 @@ document.addEventListener("click",e=>{
   const tour=e.target.closest("#navRouteShortcut");
   if(tour){e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();openTour();return;}
 },true);
-const APP_VERSION = "1.75.4";
+const APP_VERSION = "1.75.8";
 /* V1.50 — le frontend Render web doit toujours viser le service API dédié. */
 const API_BASE = String(window.JML_API_BASE || "https://jml-prospection-web.onrender.com").replace(/\/$/,"");
 
