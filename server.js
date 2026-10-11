@@ -20,6 +20,7 @@ const ADDRESS_URL = "https://data.geopf.fr/geocodage/search/";
 const { analyze: analyzeDataQuality } = require("./data-agent");
 const { runAi } = require("./ai-agent");
 const { searchFreeWebListings } = require("./free-web-sources");
+const { normalizeFeed, fetchAuthorizedFeed } = require("./leboncoin-source");
 
 const MIME = {
   ".html":"text/html; charset=utf-8",
@@ -1261,6 +1262,32 @@ function groupPublicDvfRows(rows){
 async function api(pathname,url){
   pathname=String(pathname||"").replace(/\/+$/,"")||"/";
   if(pathname==="/api/veille-annonces") pathname="/api/annonces-multi";
+  if(pathname==="/api/leboncoin/status") {
+    const authorized=String(process.env.LEBONCOIN_SOURCE_AUTHORIZED||"").toLowerCase()==="true";
+    const feedConfigured=Boolean(String(process.env.LEBONCOIN_FEED_URL||"").trim());
+    return {ok:true,source:"Leboncoin (flux autorisé)",authorized,feedConfigured,ready:authorized&&feedConfigured,
+      mode:authorized&&feedConfigured?"flux autorisé configuré":"auto-test local",
+      message:authorized&&feedConfigured?"Le flux autorisé peut être testé. Aucune annonce ne sera ajoutée au CRM.":"Mode test local uniquement : aucune connexion Leboncoin ni collecte réelle n'est activée."};
+  }
+  if(pathname==="/api/leboncoin/test") {
+    const authorized=String(process.env.LEBONCOIN_SOURCE_AUTHORIZED||"").toLowerCase()==="true";
+    const feedConfigured=Boolean(String(process.env.LEBONCOIN_FEED_URL||"").trim());
+    if(authorized&&feedConfigured) {
+      const result=await fetchAuthorizedFeed();
+      return {...result,mode:"authorized_feed_test",imported:false,
+        message:result.ok ? "Flux autorisé accessible. Résultats affichés uniquement pour le test : rien n'a été importé dans le CRM." : result.message};
+    }
+    const fixture={items:[{
+      id:"jml-test-001",url:"https://www.leboncoin.fr/ad/ventes_immobilieres/1234567890",
+      title:"Maison de test — annonce fictive",description:"Donnée fictive pour vérifier la normalisation du connecteur.",
+      transaction_type:"sale",category:"immobilier",property_type:"Maison",price:185000,surface:95,land_area:420,rooms:5,
+      city:"Charleville-Mézières",postal_code:"08000",seller_type:"particulier",dpe:"D",published_at:"2026-10-01T09:00:00Z"
+    }]};
+    const normalized=normalizeFeed(fixture,"2026-10-11T00:00:00.000Z");
+    return {ok:true,status:"self_test",mode:"local_fixture",source:normalized.source,count:normalized.count,
+      items:normalized.items,imported:false,
+      message:"Auto-test réussi avec une annonce entièrement fictive. Aucune connexion à Leboncoin, aucune collecte réelle et aucun ajout au CRM."};
+  }
   if(pathname==="/api/health") return {ok:true,sources:{dpe:"ADEME",dvf:"DVF+ Cerema",geocoding:"Géoplateforme",chercherTrouver:"ChercherTrouver.immo"},server:"jml-prospection",version:APP_SERVER_VERSION};
   if(pathname==="/api/diagnostic"){
     const city=String(url.searchParams.get("city")||"Charleville-Mézières").trim(),checks=[];
