@@ -36,7 +36,7 @@ const JML_PAGE_GROUPS={
 function showJmlPage(page){
   const ids=[...new Set(Object.values(JML_PAGE_GROUPS).flat())];
   ids.forEach(id=>{const el=$(id);if(el)el.hidden=true;});
-  ["aiAssistantPanel","publicSourcesPanel","sourceConnectorsPanel","privateProspectPanel","dataAgentPanel","integrationsPanel","signalPanel"].forEach(id=>{const el=$(id);if(el)el.hidden=true;});
+  ["aiAssistantPanel","publicSourcesPanel","sourceConnectorsPanel","privateProspectPanel","dataAgentPanel","integrationsPanel","signalPanel","sectorWorkPanel","prospectDetailPanel"].forEach(id=>{const el=$(id);if(el)el.hidden=true;});
   (JML_PAGE_GROUPS[page]||JML_PAGE_GROUPS.home).forEach(id=>{const el=$(id);if(el)el.hidden=false;});
   document.querySelectorAll(".nav-main").forEach(a=>a.classList.toggle("active",a.dataset.page===page));
   window.jmlCurrentPage=page;
@@ -100,7 +100,7 @@ document.addEventListener("click",e=>{
  if(e.target.closest("#tourOptimizeBtn")){optimizeTourOrder();return;}
  const tl=e.target.closest("#tourLimitSelect");if(tl){setTourLimit(tl.value);return;}
  if(e.target.closest("#tourClearBtn")){clearProspectSelection();renderTour();return;}
- if(e.target.closest("#tourBackBtn")){openTour();$("tourPanel").hidden=true;$("prospectsPanel").scrollIntoView({behavior:"smooth",block:"start"});return;}
+ if(e.target.closest("#tourBackBtn")){e.preventDefault();openCRM();return;}
 
   const b=e.target.closest("#futureRadarTreatBtn,#aiAnalyzeBtn,#aiWhyBtn,#aiPriorityBtn,#aiCallBtn,#aiReportBtn,#aiFollowupBtn,#futureRadarBtn,#futureRadarPrint,#futureRadarAddAll,#futureRadarAddPage,#futureRadarSelectAll,#futureRadarDeselectAll,#futureRadarRoute,#integrationsTestBtn,#sourcesRefreshBtn,#publicSearchBtn,#ctSearchBtn,#ctTourBtn,#ctSelect10Btn,#ctDeselectBtn,#ctPrepareSelectedBtn");
   if(!b)return;
