@@ -1,0 +1,27 @@
+name: Leboncoin adapter tests
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "leboncoin-source.js"
+      - "tests/leboncoin-source.test.js"
+      - "package.json"
+      - ".github/workflows/leboncoin-adapter-tests.yml"
+  push:
+    branches: ["feature/leboncoin-authorized-source"]
+    paths:
+      - "leboncoin-source.js"
+      - "tests/leboncoin-source.test.js"
+      - "package.json"
+      - ".github/workflows/leboncoin-adapter-tests.yml"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - run: npm run test:leboncoin
