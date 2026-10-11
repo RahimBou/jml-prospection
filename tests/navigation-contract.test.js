@@ -4,6 +4,7 @@ const fs = require("node:fs");
 
 const html = fs.readFileSync("index.html", "utf8");
 const app = fs.readFileSync("app.js", "utf8");
+const css = fs.readFileSync("styles.css", "utf8");
 
 test("every workspace navigation destination has a registered page", () => {
   const navPages = [...html.matchAll(/data-page="([^"]+)"/g)].map((m) => m[1]);
