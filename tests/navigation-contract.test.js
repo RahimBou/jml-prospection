@@ -35,8 +35,24 @@ test("navigation has one route entry point for CRM, tour and watch", () => {
   assert.match(route, /target==="watch"\)\{openWatch\(\);return;\}/);
 });
 
+test("all secondary workspace buttons are visible without a Plus menu", () => {
+  const labels = [...html.matchAll(/data-page="([^"]+)"/g)].map((m) => m[1]);
+  assert.deepEqual(new Set(labels), new Set(["home", "find", "crm", "tour", "watch", "leboncoin", "treat", "stats"]));
+  assert.doesNotMatch(html, /id="navMoreMenu"|id="navMoreBtn"/);
+  assert.match(css, /\.workspace-nav\s*\{[^}]*flex-wrap:\s*wrap/s);
+});
+
+test("non-home page panels are hidden in the initial HTML", () => {
+  for (const id of ["futureRadarPanel", "advancedSearchPanel", "prospectsPanel", "ctAnnoncesPanel", "autoTreatmentPanel", "statsLab"]) {
+    const tag = html.match(new RegExp("<section\\b[^>]*id=[\"\x27]" + id + "[\"\x27][^>]*>"));
+    assert.ok(tag, "Panel #" + id + " must exist");
+    assert.match(tag[0], /\\shidden(?:\\s|>)/, "Panel #" + id + " must start hidden");
+  }
+  assert.match(css, /\\[hidden\\]\\s*\\{\\s*display:\\s*none\\s*!important\\s*\\}/);
+});
+
 test("asset cache version matches the frontend version", () => {
-  assert.match(app, /const APP_VERSION = "1\.75\.8";/);
-  assert.match(html, /app\.js\?v=1\.75\.8/);
-  assert.doesNotMatch(html, /\["a\[href="#futureRadarPanel"\]/);
+  assert.match(app, /const APP_VERSION = "1\\.75\\.9";/);
+  assert.match(html, /app\\.js\\?v=1\\.75\\.9/);
+  assert.doesNotMatch(html, /\\["a\\[href="#futureRadarPanel"\\]/);
 });
