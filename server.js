@@ -21,6 +21,9 @@ const { analyze: analyzeDataQuality } = require("./data-agent");
 const { runAi } = require("./ai-agent");
 const { searchFreeWebListings } = require("./free-web-sources");
 const { normalizeFeed, fetchAuthorizedFeed } = require("./leboncoin-source");
+const { estimate: estimateDvf } = require("./engine/comparables");
+const { validateEstimateInput, isAuthorized, createRateLimiter } = require("./engine/estimate-api");
+const estimateRateLimit = createRateLimiter({ limit: 20, windowMs: 60_000 });
 
 const MIME = {
   ".html":"text/html; charset=utf-8",
