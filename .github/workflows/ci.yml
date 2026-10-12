@@ -1,0 +1,34 @@
+name: CI JML Prospection
+
+on:
+  pull_request:
+  push:
+    branches: [main, "automation/**"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Récupérer le code
+        uses: actions/checkout@v4
+      - name: Installer Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Vérifier la syntaxe du serveur
+        run: node --check server.js
+      - name: Vérifier les modules JavaScript serveur
+        run: |
+          for file in ai-agent.js data-agent.js free-web-sources.js leboncoin-source.js; do
+            if [ -f "$file" ]; then node --check "$file"; fi
+          done
+      - name: Lancer les tests de source autorisée
+        run: npm run test:leboncoin
