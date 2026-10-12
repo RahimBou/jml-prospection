@@ -5,7 +5,10 @@
   "description": "Radar de prospection immobilière JML Immobilier",
   "scripts": {
     "start": "node server.js",
-    "test:leboncoin": "node --test tests/leboncoin-source.test.js"
+    "test:leboncoin": "node --test tests/leboncoin-source.test.js",
+    "test": "node --test tests/*.test.js",
+    "import:dvf": "node scripts/import-dvf.js",
+    "backtest:dvf": "node scripts/backtest.js"
   },
   "engines": {
     "node": ">=20"

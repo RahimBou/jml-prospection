@@ -21,6 +21,9 @@ const { analyze: analyzeDataQuality } = require("./data-agent");
 const { runAi } = require("./ai-agent");
 const { searchFreeWebListings } = require("./free-web-sources");
 const { normalizeFeed, fetchAuthorizedFeed } = require("./leboncoin-source");
+const { estimate: estimateDvf } = require("./engine/comparables");
+const { validateEstimateInput, isAuthorized, createRateLimiter } = require("./engine/estimate-api");
+const estimateRateLimit = createRateLimiter({ limit: 20, windowMs: 60_000 });
 
 const MIME = {
   ".html":"text/html; charset=utf-8",
@@ -2405,6 +2408,26 @@ async function handle(req,res){
   if(req.method==="GET" && url.pathname.startsWith("/api/")){
     try{return send(res,200,await api(url.pathname,url))}
     catch(e){return send(res,502,{ok:false,error:e.message||"Erreur source publique"})}
+  }
+  if(req.method==="POST" && url.pathname==="/api/estimate"){
+    const token = String(process.env.JML_API_TOKEN || "");
+    if(!isAuthorized(req.headers.authorization, token)) return send(res, 401, { ok:false, error:"Authentification requise" });
+    const forwarded = String(req.headers["x-forwarded-for"] || "").split(",")[0].trim();
+    const ip = forwarded || req.socket?.remoteAddress || "unknown";
+    if(!estimateRateLimit(ip)) return send(res, 429, { ok:false, error:"Limite de requêtes atteinte. Réessayez dans une minute." });
+    try {
+      const body = await readJsonBody(req);
+      const validated = validateEstimateInput(body);
+      if(!validated.ok) return send(res, 400, { ok:false, error:validated.error });
+      const dataFile = path.join(ROOT, "data", "dvf-08.json");
+      if(!fs.existsSync(dataFile)) return send(res, 503, { ok:false, error:"Base DVF 08 non importée. Lancez npm run import:dvf.", engineVersion:"dvf-comparables-v1.0.0" });
+      const dataset = JSON.parse(fs.readFileSync(dataFile, "utf8"));
+      const result = estimateDvf(validated.value, dataset.sales || []);
+      return send(res, 200, { ok:true, valeur:result.value, fourchette:{ basse:result.low, haute:result.high }, fiabilite:result.reliability, nombreComparables:result.comparableCount, comparables:result.comparables, hypotheses:result.hypotheses, exclusions:result.exclusions, versionMoteur:result.engineVersion, mention:"Estimation indicative, ne remplace pas une expertise" });
+    } catch(e) {
+      const status = /JSON|corps|taille/i.test(String(e.message)) ? 400 : 500;
+      return send(res, status, { ok:false, error:status===400 ? "Corps JSON invalide" : "Erreur du moteur d'estimation" });
+    }
   }
   if(req.method==="POST" && url.pathname==="/api/ai"){
     try{
