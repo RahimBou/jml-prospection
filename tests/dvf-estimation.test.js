@@ -18,7 +18,7 @@ test("CSV parser handles quoted delimiters and semicolon format", () => {
 test("DVF normalization keeps a single valid home and excludes bad and multi-unit mutations", () => {
   const rows = [
     { ...sale(), id_mutation: "m1", type_local: "Maison", valeur_fonciere: "180000", surface_reelle_bati: "100", latitude: "49.77", longitude: "4.72", date_mutation: "2025-03-01", nom_commune: "Charleville-Mézières", code_postal: "08000", nombre_pieces_principales: "5", surface_terrain: "400" },
-    { id_mutation: "m2", type_local: "Maison", valeur_fonciere: "150000", surface_reelle_bati: "100", latitude: "49.77", longitude: "4.72", date_mutation: "2025-03-01", nom_commune: "Sedan", code_postal: "08200" },
+    { id_mutation: "m2", type_local: "Maison", valeur_fonciere: "150000", surface_reelle_bati: "100", latitude: "49.77", longitude: "2.00", date_mutation: "2025-03-01", nom_commune: "Sedan", code_postal: "08200" },
     { id_mutation: "m3", type_local: "Maison", valeur_fonciere: "180000", surface_reelle_bati: "100", latitude: "49.77", longitude: "4.72", date_mutation: "2025-03-01", nom_commune: "Sedan", code_postal: "08200" },
     { id_mutation: "m3", type_local: "Appartement", valeur_fonciere: "180000", surface_reelle_bati: "60", latitude: "49.77", longitude: "4.72", date_mutation: "2025-03-01", nom_commune: "Sedan", code_postal: "08200" }
   ];
