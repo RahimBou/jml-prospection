@@ -34,7 +34,7 @@ const MIME = {
 };
 
 function send(res,status,data,type="application/json"){
-  res.writeHead(status,{"Content-Type":type,"Cache-Control":"no-store","Access-Control-Allow-Origin":"*","Access-Control-Allow-Methods":"GET,OPTIONS","Access-Control-Allow-Headers":"Content-Type"});
+  res.writeHead(status,{"Content-Type":type,"Cache-Control":"no-store","Access-Control-Allow-Origin":"*","Access-Control-Allow-Methods":"GET,POST,OPTIONS","Access-Control-Allow-Headers":"Content-Type"});
   res.end(type.startsWith("application/json") ? JSON.stringify(data) : data);
 }
 function cleanLimit(value,max=50){const n=Number(value);return Number.isFinite(n)?Math.max(1,Math.min(max,Math.floor(n))):20}
@@ -2402,6 +2402,10 @@ function readJsonBody(req,maxBytes=90000){
 
 async function handle(req,res){
   const url=new URL(req.url,"http://localhost");
+  if(req.method==="OPTIONS" && url.pathname.startsWith("/api/")){
+    res.writeHead(204,{"Cache-Control":"no-store","Access-Control-Allow-Origin":"*","Access-Control-Allow-Methods":"GET,POST,OPTIONS","Access-Control-Allow-Headers":"Content-Type","Access-Control-Max-Age":"86400"});
+    return res.end();
+  }
   if(req.method==="GET" && url.pathname.startsWith("/api/")){
     try{return send(res,200,await api(url.pathname,url))}
     catch(e){return send(res,502,{ok:false,error:e.message||"Erreur source publique"})}
