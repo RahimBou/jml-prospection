@@ -72,7 +72,7 @@ async function callGemini(prompt){
   if(!key)return null;
   const model=String(process.env.GEMINI_MODEL||"gemini-3.6-flash").trim();
   const endpoint=`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`;
-  const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),20000);
+  const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),45000);
   try{
     const response=await fetch(endpoint,{method:"POST",headers:{"Content-Type":"application/json","x-goog-api-key":key},
       body:JSON.stringify({systemInstruction:{parts:[{text:"Tu es l'assistant IA de JML Immobilier. Reste factuel, professionnel, respectueux de la vie privée et du cadre de prospection. Ne déduis jamais une intention de vente à partir de données immobilières publiques seules."}]},
